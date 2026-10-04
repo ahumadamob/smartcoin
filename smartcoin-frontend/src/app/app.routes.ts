@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { authGuard, guestGuard, sessionGuard } from './core/auth/auth.guard';
 import { Layout } from './core/layout/layout';
 
 const placeholder = () => import('./shared/page-placeholder').then((m) => m.PagePlaceholder);
@@ -14,10 +14,11 @@ export const routes: Routes = [
   },
   {
     path: 'cambiar-contrasena',
-    loadComponent: placeholder,
-    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/auth/change-password/change-password').then((m) => m.ChangePassword),
+    // Sirve con o sin cambio pendiente (HU-04, HU-05): solo pide sesión iniciada.
+    canActivate: [sessionGuard],
     title: 'Cambiar contraseña',
-    data: { heading: 'Cambiar contraseña' },
   },
   {
     path: '',
