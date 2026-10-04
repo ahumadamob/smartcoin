@@ -24,7 +24,14 @@ const NAV_ITEMS: NavItem[] = [
 @Component({
   selector: 'app-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatListModule, MatSidenavModule, MatToolbarModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [
+    MatListModule,
+    MatSidenavModule,
+    MatToolbarModule,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+  ],
   templateUrl: './layout.html',
   styleUrl: './layout.scss',
 })
