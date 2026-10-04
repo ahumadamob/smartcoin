@@ -16,14 +16,14 @@ export interface LoginResponse {
     /**
      * JWT para enviar en el header Authorization como «Bearer <token>».
      */
-    token?: string;
+    token: string;
     /**
      * Instante (UTC) en que el token vence: 8 horas después de emitido.
      */
-    expiresAt?: string;
+    expiresAt: string;
     /**
      * Si es true, el usuario debe cambiar su contraseña antes de seguir.
      */
-    mustChangePassword?: boolean;
+    mustChangePassword: boolean;
 }
 

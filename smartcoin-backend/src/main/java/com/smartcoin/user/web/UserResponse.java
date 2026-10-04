@@ -9,16 +9,16 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "Datos del usuario autenticado. Nunca incluye la contraseña.")
 public record UserResponse(
 
-		@Schema(description = "Identificador del usuario.", example = "1")
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Identificador del usuario.", example = "1")
 		Long id,
 
-		@Schema(description = "Email, en minúsculas.", example = "persona@ejemplo.com")
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Email, en minúsculas.", example = "persona@ejemplo.com")
 		String email,
 
-		@Schema(description = "Si es true, el usuario debe cambiar su contraseña antes de seguir.")
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Si es true, el usuario debe cambiar su contraseña antes de seguir.")
 		boolean mustChangePassword,
 
-		@Schema(description = "Período inicial (YYYY-MM).", example = "2026-10")
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Período inicial (YYYY-MM).", example = "2026-10")
 		YearMonth startPeriod) {
 
 	static UserResponse from(User user) {

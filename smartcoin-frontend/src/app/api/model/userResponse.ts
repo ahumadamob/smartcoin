@@ -16,18 +16,18 @@ export interface UserResponse {
     /**
      * Identificador del usuario.
      */
-    id?: number;
+    id: number;
     /**
      * Email, en minúsculas.
      */
-    email?: string;
+    email: string;
     /**
      * Si es true, el usuario debe cambiar su contraseña antes de seguir.
      */
-    mustChangePassword?: boolean;
+    mustChangePassword: boolean;
     /**
      * Período inicial (YYYY-MM).
      */
-    startPeriod?: string;
+    startPeriod: string;
 }
 
