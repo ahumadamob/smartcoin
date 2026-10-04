@@ -1,6 +1,6 @@
 # Backend
 
-API REST del presupuesto personal. Leer primero el `CLAUDE.md` de la raíz.
+API REST de Smartcoin. Leer primero el `CLAUDE.md` de la raíz.
 
 ## Stack
 
@@ -8,7 +8,7 @@ API REST del presupuesto personal. Leer primero el `CLAUDE.md` de la raíz.
 - Dependencias: Spring Web, Validation, Data JPA, Security, OAuth2 Resource Server (valida el JWT), Flyway con su módulo de MySQL (`flyway-mysql`), MySQL Connector/J y springdoc-openapi con Swagger UI.
 - Tests: JUnit 5, AssertJ, Mockito y `spring-security-test` (vienen con `spring-boot-starter-test`).
 - Sin Lombok. DTOs como `record`.
-- Paquete base: `ar.presupuesto`.
+- Paquete base: `com.smartcoin`. Grupo Maven `com.smartcoin`, artefacto `smartcoin-backend`.
 
 ## Comandos
 
@@ -26,9 +26,9 @@ En PowerShell, `curl` es un alias de otro comando: usar `curl.exe` o `Invoke-Web
 Una sola base, creada una vez a mano:
 
 ```sql
-CREATE DATABASE presupuesto CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE USER 'presupuesto'@'localhost' IDENTIFIED BY '<contraseña>';
-GRANT ALL PRIVILEGES ON presupuesto.* TO 'presupuesto'@'localhost';
+CREATE DATABASE smartcoin CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER 'smartcoin'@'localhost' IDENTIFIED BY '<contraseña>';
+GRANT ALL PRIVILEGES ON smartcoin.* TO 'smartcoin'@'localhost';
 ```
 
 Tiene datos reales. Hacer un respaldo con `mysqldump` antes de aplicar migraciones que cambien tablas con datos.
@@ -39,8 +39,8 @@ Todo lo sensible viene de variables de entorno. Alternativa: un `application-loc
 
 | Variable | Ejemplo | Notas |
 |---|---|---|
-| `DB_URL` | `jdbc:mysql://localhost:3306/presupuesto` | |
-| `DB_USER` | `presupuesto` | |
+| `DB_URL` | `jdbc:mysql://localhost:3306/smartcoin` | |
+| `DB_USER` | `smartcoin` | |
 | `DB_PASSWORD` | | |
 | `APP_JWT_SECRET` | 32 o más caracteres aleatorios | Obligatoria: sin ella la aplicación no arranca. |
 | `APP_ADMIN_KEY` | Clave larga aleatoria | Si falta o está vacía, el alta y el restablecimiento de usuarios quedan deshabilitados. |
@@ -82,7 +82,7 @@ Las propiedades `app.*` se leen con clases `@ConfigurationProperties` validadas 
 Paquetes por funcionalidad; dentro de cada uno, las mismas capas.
 
 ```
-ar.presupuesto
+com.smartcoin
 ├── shared/       configuración, Clock, seguridad, manejo de errores, convertidores
 ├── user/         usuarios, alta y restablecimiento por administrador, login, cambio de contraseña
 ├── account/      cuentas y saldos

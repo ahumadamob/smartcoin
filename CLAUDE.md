@@ -1,6 +1,6 @@
-# Presupuesto personal
+# Smartcoin
 
-Aplicación web para planificar y seguir la economía personal mes a mes, con proyección a 24 meses. Cada usuario ve solo sus datos.
+Aplicación web de presupuesto personal para planificar y seguir la economía personal mes a mes, con proyección a 24 meses. Cada usuario ve solo sus datos.
 
 - `docs/`: definición funcional. Es la fuente de verdad.
 - `backend/`: API REST en Spring Boot sobre MySQL. Instrucciones propias en `backend/CLAUDE.md`.
@@ -44,7 +44,7 @@ Una historia está terminada cuando:
 
 ## Reglas que no se rompen
 
-- **La base `presupuesto` es la única y tiene datos reales.** Nunca ejecutar `flyway clean`, `DROP`, `TRUNCATE` ni borrados masivos, y nunca configurar `spring.jpa.hibernate.ddl-auto` con un valor distinto de `validate`.
+- **La base `smartcoin` es la única y tiene datos reales.** Nunca ejecutar `flyway clean`, `DROP`, `TRUNCATE` ni borrados masivos, y nunca configurar `spring.jpa.hibernate.ddl-auto` con un valor distinto de `validate`.
 - **Los tests del backend no tocan la base.** Los de punta a punta sí escriben a través de la aplicación, pero siempre con un usuario de prueba propio (ver `frontend/CLAUDE.md`), nunca con el usuario real.
 - **Nunca modificar una migración ya aplicada.** Los cambios de esquema van en una migración nueva. Antes de una migración que borre o transforme datos existentes, avisar y esperar confirmación.
 - **Sin secretos en el repositorio.** Contraseñas, `APP_JWT_SECRET` y `APP_ADMIN_KEY` van en variables de entorno o en archivos ignorados por git.

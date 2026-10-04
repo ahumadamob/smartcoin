@@ -333,6 +333,8 @@ Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un 
 | `UNAUTHORIZED` | 401 | Credenciales inválidas; token ausente, vencido o revocado; clave de administración inválida o no configurada. |
 | `PASSWORD_CHANGE_REQUIRED` | 403 | El usuario debe cambiar la contraseña antes de seguir. |
 | `NOT_FOUND` | 404 | El recurso no existe o es de otro usuario. |
+| `METHOD_NOT_ALLOWED` | 405 | La ruta existe pero no admite ese método HTTP. |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | El cuerpo no se envió como JSON. |
 | `EMAIL_ALREADY_EXISTS` | 409 | Alta de usuario con un email ya registrado. |
 | `ACCOUNT_NAME_TAKEN` | 409 | Ya existe una cuenta con ese nombre. |
 | `CATEGORY_NAME_TAKEN` | 409 | Ya existe una categoría con ese nombre. |
@@ -353,3 +355,4 @@ Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un 
 | `PERIOD_NOT_FINISHED` | 409 | Cerrar un mes antes de su último día. |
 | `UNRESOLVED_PENDING_ENTRIES` | 409 | Cerrar sin resolver todas las partidas pendientes. |
 | `MISSING_REAL_BALANCE` | 409 | Cerrar sin el saldo real de todas las cuentas. |
+| `INTERNAL_ERROR` | 500 | Error inesperado. El `detail` es genérico y no expone datos internos. |

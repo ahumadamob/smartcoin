@@ -102,7 +102,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **T-02. Backend en Spring Boot.** Java LTS y Maven (Maven es supuesto). *Confirmada.*
 
-**T-03. MySQL 8 local, con un solo esquema `presupuesto`.** PostgreSQL más adelante. *Confirmada.* Para facilitar la migración: migraciones Flyway en `db/migration/mysql` (con el comodín `{vendor}`), SQL estándar, enumeraciones como `VARCHAR` con `CHECK` y nombres que no son palabras reservadas en ninguno de los dos motores.
+**T-03. MySQL 8 local, con un solo esquema `smartcoin`.** PostgreSQL más adelante. *Confirmada.* Para facilitar la migración: migraciones Flyway en `db/migration/mysql` (con el comodín `{vendor}`), SQL estándar, enumeraciones como `VARCHAR` con `CHECK` y nombres que no son palabras reservadas en ninguno de los dos motores.
 
 **T-04. Sin Docker ni Testcontainers por ahora.** *Confirmada.*
 
@@ -124,7 +124,9 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **T-13. Fechas de negocio sin hora.** `LocalDate` y `YearMonth`. "Hoy" sale de un `Clock` con zona `America/Argentina/Mendoza`. Las fechas técnicas se guardan en UTC. *Supuesto.*
 
-**T-14. Errores en formato Problem Details (RFC 9457)** con un campo `code` estable que el frontend traduce a un mensaje. *Supuesto.*
+**T-14. Errores en formato Problem Details (RFC 9457)** con un campo `code` estable que el frontend traduce a un mensaje. *Supuesto.* Los errores que no vienen de una regla también llevan `code`: `INTERNAL_ERROR` (500), `METHOD_NOT_ALLOWED` (405) y `UNSUPPORTED_MEDIA_TYPE` (415). *Confirmada.*
+
+**T-15. El proyecto se llama Smartcoin.** Paquete base y grupo Maven `com.smartcoin`; base de datos y usuario MySQL `smartcoin`. Reemplaza los nombres iniciales `ar.presupuesto` y `presupuesto`. *Confirmada.*
 
 ## Cambios respecto de lo conversado
 
