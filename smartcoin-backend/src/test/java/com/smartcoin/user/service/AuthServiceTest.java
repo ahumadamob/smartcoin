@@ -162,6 +162,95 @@ class AuthServiceTest {
 				.isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.UNAUTHORIZED));
 	}
 
+	@Test
+	void changePasswordStoresNewHashClearsFlagAndIncrementsVersionByOne() {
+		User user = user(42, true, 3, true);
+		when(users.findById(42L)).thenReturn(Optional.of(user));
+
+		service.changePassword(42, PASSWORD, "una-contraseña-nueva");
+
+		assertThat(passwordEncoder.matches("una-contraseña-nueva", user.getPasswordHash())).isTrue();
+		assertThat(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).isFalse();
+		assertThat(user.getPasswordHash()).doesNotContain("una-contraseña-nueva");
+		assertThat(user.isMustChangePassword()).isFalse();
+		assertThat(user.getCredentialsVersion()).isEqualTo(4);
+	}
+
+	@Test
+	void changePasswordIssuesNewTokenWithTheIncrementedVersion() {
+		when(users.findById(42L)).thenReturn(Optional.of(user(42, true, 3, true)));
+
+		AuthService.Login login = service.changePassword(42, PASSWORD, "una-contraseña-nueva");
+
+		Jwt jwt = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build()
+				.decode(login.token().value());
+		assertThat(jwt.getSubject()).isEqualTo("42");
+		assertThat(((Number) jwt.getClaim("cv")).intValue()).isEqualTo(4);
+		assertThat(jwt.getIssuedAt()).isEqualTo(NOW);
+		assertThat(login.token().expiresAt()).isEqualTo(NOW.plus(Duration.ofHours(8)));
+		assertThat(login.mustChangePassword()).isFalse();
+	}
+
+	@Test
+	void changePasswordWithWrongCurrentPasswordChangesNothing() {
+		User user = user(42, true, 3, true);
+		String hash = user.getPasswordHash();
+		when(users.findById(42L)).thenReturn(Optional.of(user));
+
+		assertThatThrownBy(() -> service.changePassword(42, "no-es-la-actual", "una-contraseña-nueva"))
+				.isInstanceOfSatisfying(BusinessException.class,
+						e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CURRENT_PASSWORD));
+
+		assertThat(user.getPasswordHash()).isEqualTo(hash);
+		assertThat(user.isMustChangePassword()).isTrue();
+		assertThat(user.getCredentialsVersion()).isEqualTo(3);
+	}
+
+	@Test
+	void changePasswordWithCurrentPasswordLongerThanBcryptLimitIsInvalidCurrentPassword() {
+		when(users.findById(42L)).thenReturn(Optional.of(user(42, true, 3, true)));
+
+		assertThatThrownBy(() -> service.changePassword(42, PASSWORD + "x".repeat(80), "una-contraseña-nueva"))
+				.isInstanceOfSatisfying(BusinessException.class,
+						e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CURRENT_PASSWORD));
+	}
+
+	@Test
+	void changePasswordToTheSameOneIsValidationErrorAndChangesNothing() {
+		User user = user(42, true, 3, true);
+		String hash = user.getPasswordHash();
+		when(users.findById(42L)).thenReturn(Optional.of(user));
+
+		assertThatThrownBy(() -> service.changePassword(42, PASSWORD, PASSWORD))
+				.isInstanceOfSatisfying(BusinessException.class, e -> {
+					assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+					assertThat(e.getMessage()).isEqualTo("La contraseña nueva debe ser distinta de la actual.");
+				});
+
+		assertThat(user.getPasswordHash()).isEqualTo(hash);
+		assertThat(user.isMustChangePassword()).isTrue();
+		assertThat(user.getCredentialsVersion()).isEqualTo(3);
+	}
+
+	@Test
+	void changePasswordKeepsTheFlagClearedWhenItWasNotPending() {
+		User user = user(42, true, 0, false);
+		when(users.findById(42L)).thenReturn(Optional.of(user));
+
+		service.changePassword(42, PASSWORD, "una-contraseña-nueva");
+
+		assertThat(user.isMustChangePassword()).isFalse();
+		assertThat(user.getCredentialsVersion()).isEqualTo(1);
+	}
+
+	@Test
+	void changePasswordWithMissingUserIsUnauthorized() {
+		when(users.findById(42L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.changePassword(42, PASSWORD, "una-contraseña-nueva"))
+				.isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.UNAUTHORIZED));
+	}
+
 	private BusinessException failure(String email, String password) {
 		try {
 			service.login(email, password);

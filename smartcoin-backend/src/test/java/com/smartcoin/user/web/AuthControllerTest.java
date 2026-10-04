@@ -38,6 +38,8 @@ import org.springframework.test.web.servlet.ResultActions;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -179,6 +181,123 @@ class AuthControllerTest {
 		mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token(SECRET, VERSION - 1)))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+	}
+
+	private ResultActions changePassword(String token, String body) throws Exception {
+		return mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON).content(body));
+	}
+
+	private static String passwords(String current, String next) {
+		return "{\"currentPassword\": \"" + current + "\", \"newPassword\": \"" + next + "\"}";
+	}
+
+	@Test
+	void changePasswordWithPendingChangeRespondsWithNewTokenShapedLikeLogin() throws Exception {
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user(true, VERSION, true)));
+		Instant expiresAt = Instant.parse("2026-10-05T20:00:00Z");
+		when(auth.changePassword(USER_ID, "contraseña-inicial", "una-contraseña-nueva")).thenReturn(
+				new AuthService.Login(new IssuedToken("nuevo.token.jwt", expiresAt), false));
+
+		changePassword(token(SECRET, VERSION), passwords("contraseña-inicial", "una-contraseña-nueva"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.token").value("nuevo.token.jwt"))
+				.andExpect(jsonPath("$.expiresAt").value("2026-10-05T20:00:00Z"))
+				.andExpect(jsonPath("$.mustChangePassword").value(false));
+	}
+
+	@Test
+	void changePasswordTakesTheUserFromTheTokenNotFromTheBody() throws Exception {
+		when(auth.changePassword(USER_ID, "contraseña-inicial", "una-contraseña-nueva")).thenReturn(
+				new AuthService.Login(new IssuedToken("nuevo.token.jwt", Instant.parse("2026-10-05T20:00:00Z")), false));
+
+		changePassword(token(SECRET, VERSION),
+				"{\"userId\": 99, \"currentPassword\": \"contraseña-inicial\", \"newPassword\": \"una-contraseña-nueva\"}")
+				.andExpect(status().isOk());
+		verify(auth).changePassword(USER_ID, "contraseña-inicial", "una-contraseña-nueva");
+	}
+
+	@Test
+	void changePasswordWithWrongCurrentPasswordIsBadRequest() throws Exception {
+		when(auth.changePassword(USER_ID, "incorrecta-123", "una-contraseña-nueva")).thenThrow(
+				new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD, "La contraseña actual es incorrecta."));
+
+		changePassword(token(SECRET, VERSION), passwords("incorrecta-123", "una-contraseña-nueva"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_CURRENT_PASSWORD"))
+				.andExpect(jsonPath("$.detail").value("La contraseña actual es incorrecta."));
+	}
+
+	@Test
+	void changePasswordToTheSameOneIsValidationError() throws Exception {
+		when(auth.changePassword(USER_ID, "contraseña-inicial", "contraseña-inicial")).thenThrow(
+				new BusinessException(ErrorCode.VALIDATION_ERROR, "La contraseña nueva debe ser distinta de la actual."));
+
+		changePassword(token(SECRET, VERSION), passwords("contraseña-inicial", "contraseña-inicial"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.detail").value("La contraseña nueva debe ser distinta de la actual."));
+	}
+
+	@Test
+	void changePasswordWithShortNewPasswordIsValidationErrorOnThatField() throws Exception {
+		changePassword(token(SECRET, VERSION), passwords("contraseña-inicial", "corta-123"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors[0].field").value("newPassword"))
+				.andExpect(jsonPath("$.errors[0].message").value("La contraseña debe tener al menos 10 caracteres."));
+		verifyNoInteractions(auth);
+	}
+
+	@Test
+	void changePasswordWithNewPasswordOverBcryptLimitIsValidationError() throws Exception {
+		changePassword(token(SECRET, VERSION), passwords("contraseña-inicial", "x".repeat(73)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		verifyNoInteractions(auth);
+	}
+
+	@Test
+	void changePasswordWithoutFieldsIsValidationError() throws Exception {
+		changePassword(token(SECRET, VERSION), "{}")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		verifyNoInteractions(auth);
+	}
+
+	@Test
+	void changePasswordWithoutTokenIsUnauthorized() throws Exception {
+		mvc.perform(post("/api/auth/change-password").contentType(MediaType.APPLICATION_JSON)
+						.content(passwords("contraseña-inicial", "una-contraseña-nueva")))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+	}
+
+	@Test
+	void previousTokenIsUnauthorizedAfterThePasswordChange() throws Exception {
+		// Tras el cambio el usuario tiene la versión siguiente: el token anterior deja de servir en cualquier endpoint.
+		String previous = token(SECRET, VERSION);
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user(true, VERSION + 1, false)));
+		when(auth.me(USER_ID)).thenReturn(user(true, VERSION + 1, false));
+
+		mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + previous))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+		changePassword(previous, passwords("una-contraseña-nueva", "otra-contraseña-nueva"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+		mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token(SECRET, VERSION + 1)))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void mePassesWithPendingChange() throws Exception {
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user(true, VERSION, true)));
+		when(auth.me(USER_ID)).thenReturn(user(true, VERSION, true));
+
+		mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token(SECRET, VERSION)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.mustChangePassword").value(true));
 	}
 
 	private static User user(boolean enabled, int credentialsVersion, boolean mustChangePassword) {

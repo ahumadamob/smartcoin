@@ -17,7 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Inicio de sesión (RN-49) y consulta del usuario actual. */
+/** Inicio de sesión (RN-49), cambio de contraseña (RN-50, RN-51) y consulta del usuario actual. */
 @Service
 public class AuthService {
 
@@ -65,6 +65,30 @@ public class AuthService {
 		horizon.ensureHorizon(user);
 		log.info("Sesión iniciada: id={}", user.getId());
 		return new Login(tokens.issue(user), user.isMustChangePassword());
+	}
+
+	/**
+	 * Cambia la contraseña (RN-50, RN-51): exige la actual, guarda el hash de la nueva, quita el cambio obligatorio e
+	 * incrementa la versión de credenciales, con lo que los tokens anteriores dejan de servir. Devuelve un token nuevo,
+	 * con la versión ya incrementada. El formato de la nueva (mínimo y máximo) lo valida el pedido, no el servicio.
+	 */
+	@Transactional
+	public Login changePassword(long userId, String currentPassword, String newPassword) {
+		User user = users.findById(userId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "La sesión no es válida."));
+		if (!fitsBcrypt(currentPassword) || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+			throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD, "La contraseña actual es incorrecta.");
+		}
+		if (newPassword.equals(currentPassword)) {
+			throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+					"La contraseña nueva debe ser distinta de la actual.");
+		}
+
+		user.setPasswordHash(passwordEncoder.encode(newPassword));
+		user.setMustChangePassword(false);
+		user.setCredentialsVersion(user.getCredentialsVersion() + 1);
+		log.info("Contraseña cambiada: id={}", user.getId());
+		return new Login(tokens.issue(user), false);
 	}
 
 	/** El usuario del token. Ya fue verificado por el filtro de usuario actual; el 401 cubre un borrado entre medio. */

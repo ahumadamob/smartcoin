@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
-@Tag(name = "Autenticación", description = "Inicio de sesión y datos del usuario actual.")
+@Tag(name = "Autenticación", description = "Inicio de sesión, cambio de contraseña y datos del usuario actual.")
 public class AuthController {
 
 	private final AuthService auth;
@@ -47,6 +47,27 @@ public class AuthController {
 					schema = @Schema(implementation = ProblemDetail.class)))
 	public LoginResponse login(@Valid @RequestBody LoginRequest request) {
 		AuthService.Login login = auth.login(request.email(), request.password());
+		return new LoginResponse(login.token().value(), login.token().expiresAt(), login.mustChangePassword());
+	}
+
+	@PostMapping("/change-password")
+	@Operation(summary = "Cambiar la contraseña",
+			description = "Exige la contraseña actual y una nueva de al menos 10 caracteres y distinta de la actual. "
+					+ "Quita el cambio obligatorio e invalida los tokens anteriores: responde con un token nuevo, con "
+					+ "la misma forma que el login. Es uno de los dos endpoints que se pueden usar con el cambio de "
+					+ "contraseña pendiente.",
+			security = @SecurityRequirement(name = "bearerAuth"))
+	@ApiResponse(responseCode = "200", description = "Contraseña cambiada. El token anterior ya no sirve.")
+	@ApiResponse(responseCode = "400", description = "INVALID_CURRENT_PASSWORD: la contraseña actual es incorrecta. "
+			+ "VALIDATION_ERROR: falta algún dato, la nueva no cumple la política de contraseñas o es igual a la actual.",
+			content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+					schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
+			content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+					schema = @Schema(implementation = ProblemDetail.class)))
+	public LoginResponse changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+		AuthService.Login login = auth.changePassword(currentUser.id(), request.currentPassword(),
+				request.newPassword());
 		return new LoginResponse(login.token().value(), login.token().expiresAt(), login.mustChangePassword());
 	}
 
