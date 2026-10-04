@@ -14,7 +14,7 @@ Esquema relacional para MySQL 8, pensado para migrar a PostgreSQL sin rediseñar
 - Booleanos: `BOOLEAN`.
 - Claves foráneas con `ON DELETE RESTRICT`. No hay borrados en cascada: toda eliminación pasa por las reglas del servicio.
 - Juego de caracteres `utf8mb4` con colación `utf8mb4_0900_ai_ci`, que compara sin distinguir mayúsculas. Los nombres únicos por usuario aprovechan eso.
-- Migraciones Flyway en `backend/src/main/resources/db/migration/mysql/`. Al migrar a PostgreSQL se agrega `db/migration/postgresql/` con el esquema equivalente.
+- Migraciones Flyway en `smartcoin-backend/src/main/resources/db/migration/mysql/`. Al migrar a PostgreSQL se agrega `db/migration/postgresql/` con el esquema equivalente.
 - Todas las tablas llevan `created_at` y `updated_at` (`account_closing` solo `created_at`, porque no se modifica). En las tablas de abajo no se repiten.
 
 ## Diagrama

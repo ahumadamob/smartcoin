@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=com.smartcoin.shared.config.RequiredConfigurationCheck
+org.springframework.boot.diagnostics.FailureAnalyzer=com.smartcoin.shared.config.MissingConfigurationFailureAnalyzer

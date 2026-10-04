@@ -98,7 +98,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 ## Técnicas
 
-**T-01. Un repositorio con `docs`, `backend` y `frontend`, desarrollado con Claude Code.** *Confirmada.*
+**T-01. Un repositorio con `docs`, `smartcoin-backend` y `smartcoin-frontend`, desarrollado con Claude Code.** *Confirmada.*
 
 **T-02. Backend en Spring Boot.** Java LTS y Maven (Maven es supuesto). *Confirmada.*
 

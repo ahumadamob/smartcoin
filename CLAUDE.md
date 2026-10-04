@@ -3,8 +3,8 @@
 Aplicación web de presupuesto personal para planificar y seguir la economía personal mes a mes, con proyección a 24 meses. Cada usuario ve solo sus datos.
 
 - `docs/`: definición funcional. Es la fuente de verdad.
-- `backend/`: API REST en Spring Boot sobre MySQL. Instrucciones propias en `backend/CLAUDE.md`.
-- `frontend/`: aplicación Angular para escritorio. Instrucciones propias en `frontend/CLAUDE.md`.
+- `smartcoin-backend/`: API REST en Spring Boot sobre MySQL. Instrucciones propias en `smartcoin-backend/CLAUDE.md`.
+- `smartcoin-frontend/`: aplicación Angular para escritorio. Instrucciones propias en `smartcoin-frontend/CLAUDE.md`.
 
 ## Documentación
 
@@ -37,7 +37,7 @@ Una historia está terminada cuando:
 
 - [ ] Cumple todos sus criterios de aceptación.
 - [ ] Las reglas nuevas o modificadas tienen tests unitarios, incluidos los ejemplos y casos límite que citan la historia y sus reglas.
-- [ ] Pasan `./mvnw test` en `backend/` y `npm test` en `frontend/`.
+- [ ] Pasan `./mvnw test` en `smartcoin-backend/` y `npm test` en `smartcoin-frontend/`.
 - [ ] Si cambió la API: `docs/openapi.json` regenerado y cliente del frontend regenerado.
 - [ ] Si tiene pantalla: probada en el navegador en el flujo principal y en al menos un caso de error.
 - [ ] Los documentos reflejan lo implementado.
@@ -45,7 +45,7 @@ Una historia está terminada cuando:
 ## Reglas que no se rompen
 
 - **La base `smartcoin` es la única y tiene datos reales.** Nunca ejecutar `flyway clean`, `DROP`, `TRUNCATE` ni borrados masivos, y nunca configurar `spring.jpa.hibernate.ddl-auto` con un valor distinto de `validate`.
-- **Los tests del backend no tocan la base.** Los de punta a punta sí escriben a través de la aplicación, pero siempre con un usuario de prueba propio (ver `frontend/CLAUDE.md`), nunca con el usuario real.
+- **Los tests del backend no tocan la base.** Los de punta a punta sí escriben a través de la aplicación, pero siempre con un usuario de prueba propio (ver `smartcoin-frontend/CLAUDE.md`), nunca con el usuario real.
 - **Nunca modificar una migración ya aplicada.** Los cambios de esquema van en una migración nueva. Antes de una migración que borre o transforme datos existentes, avisar y esperar confirmación.
 - **Sin secretos en el repositorio.** Contraseñas, `APP_JWT_SECRET` y `APP_ADMIN_KEY` van en variables de entorno o en archivos ignorados por git.
 - **Dinero**: `BigDecimal` en Java y `DECIMAL(19,2)` en la base; nunca `double` ni `float`. El frontend no hace cuentas con montos: los totales los calcula el backend.

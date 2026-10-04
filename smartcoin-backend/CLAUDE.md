@@ -4,9 +4,9 @@ API REST de Smartcoin. Leer primero el `CLAUDE.md` de la raíz.
 
 ## Stack
 
-- Java LTS (21 o posterior) y la versión estable más reciente de Spring Boot al crear el proyecto con Spring Initializr. Maven con Maven Wrapper.
+- Java 25 (LTS; mínimo 21) y Spring Boot 4.1.1, la versión estable más reciente al crear el proyecto con Spring Initializr. Maven con Maven Wrapper. Hace falta un **JDK** (con `javac`), no solo un JRE.
 - Dependencias: Spring Web, Validation, Data JPA, Security, OAuth2 Resource Server (valida el JWT), Flyway con su módulo de MySQL (`flyway-mysql`), MySQL Connector/J y springdoc-openapi con Swagger UI.
-- Tests: JUnit 5, AssertJ, Mockito y `spring-security-test` (vienen con `spring-boot-starter-test`).
+- Tests: JUnit 6 (Boot 4 lo trae; la API de `org.junit.jupiter` es la misma que en JUnit 5), AssertJ, Mockito y `spring-security-test`. En Boot 4 vienen de un starter de test por módulo (`spring-boot-starter-webmvc-test`, `spring-boot-starter-security-test`, etc.), que arrastran `spring-boot-starter-test`. `@WebMvcTest` está en `org.springframework.boot.webmvc.test.autoconfigure`. Jackson es la versión 3 (`tools.jackson`).
 - Sin Lombok. DTOs como `record`.
 - Paquete base: `com.smartcoin`. Grupo Maven `com.smartcoin`, artefacto `smartcoin-backend`.
 
@@ -14,7 +14,7 @@ API REST de Smartcoin. Leer primero el `CLAUDE.md` de la raíz.
 
 | Qué | Comando |
 |---|---|
-| Levantar la API | `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`) |
+| Levantar la API | `./mvnw spring-boot:run -Dspring-boot.run.profiles=local` (Windows: `mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"`); sin perfil `local`, las variables deben estar en el entorno |
 | Tests | `./mvnw test` |
 | Swagger UI | `http://localhost:8080/swagger-ui.html` |
 | Exportar el contrato (con la API levantada) | `curl -s http://localhost:8080/v3/api-docs -o ../docs/openapi.json` |
@@ -35,7 +35,7 @@ Tiene datos reales. Hacer un respaldo con `mysqldump` antes de aplicar migracion
 
 ## Configuración
 
-Todo lo sensible viene de variables de entorno. Alternativa: un `application-local.yml` con el perfil `local`, listado en `.gitignore`.
+Todo lo sensible viene de variables de entorno. Alternativa: `smartcoin-backend/config/application-local.yml` con el perfil `local` (Spring Boot lo lee de `./config/` al correr desde `smartcoin-backend/`), listado en `.gitignore`, así no viaja dentro del jar.
 
 | Variable | Ejemplo | Notas |
 |---|---|---|
@@ -44,6 +44,8 @@ Todo lo sensible viene de variables de entorno. Alternativa: un `application-loc
 | `DB_PASSWORD` | | |
 | `APP_JWT_SECRET` | 32 o más caracteres aleatorios | Obligatoria: sin ella la aplicación no arranca. |
 | `APP_ADMIN_KEY` | Clave larga aleatoria | Si falta o está vacía, el alta y el restablecimiento de usuarios quedan deshabilitados. |
+
+Si falta `DB_URL`, `DB_USER`, `DB_PASSWORD` o `APP_JWT_SECRET`, `RequiredConfigurationCheck` corta el arranque y nombra las variables que faltan. `DB_PASSWORD` puede estar definida y vacía. Los tests de capa web lo desactivan con `app.required-config-check=false` en `src/test/resources/application.properties`.
 
 `application.yml` versionado:
 
@@ -138,9 +140,9 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 
 | Qué | Cómo |
 |---|---|
-| Reglas puras (`domain`) | JUnit 5 + AssertJ, sin Spring ni base. Tests parametrizados para las tablas de ejemplos. |
-| Servicios | JUnit 5 + Mockito, con repositorios simulados y un `Clock` fijo. |
-| Controladores y seguridad | `@WebMvcTest` con MockMvc y servicios simulados: 401, 403 por cambio obligatorio, clave de administración, formato de errores. |
+| Reglas puras (`domain`) | JUnit + AssertJ, sin Spring ni base. Tests parametrizados para las tablas de ejemplos. |
+| Servicios | JUnit + Mockito, con repositorios simulados y un `Clock` fijo. |
+| Controladores y seguridad | `@WebMvcTest` con MockMvc y servicios simulados (`@Import` de `SecurityConfig` y `GlobalExceptionHandler`, y `app.security.jwt-secret` por `@TestPropertySource`; en Boot 4 `@WebMvcTest` no carga clases `@Configuration`): 401, 403 por cambio obligatorio, clave de administración, formato de errores. |
 
 **Prohibido por ahora**: `@SpringBootTest`, `@DataJpaTest` y cualquier test que se conecte a MySQL, porque la única base tiene datos reales. Si una consulta necesita test de integración, se anota como pendiente en el PR o la historia, para cuando haya Docker y Testcontainers.
 

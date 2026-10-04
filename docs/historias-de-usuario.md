@@ -25,9 +25,9 @@ Formato de cada historia: qué se quiere y para qué, criterios de aceptación v
 
 ### HT-01 · Esqueleto del backend
 
-Proyecto Spring Boot listo para crecer, según `backend/CLAUDE.md`.
+Proyecto Spring Boot listo para crecer, según `smartcoin-backend/CLAUDE.md`.
 
-1. Se crea con Spring Initializr (Maven, Java LTS) con las dependencias listadas en `backend/CLAUDE.md`.
+1. Se crea con Spring Initializr (Maven, Java LTS) con las dependencias listadas en `smartcoin-backend/CLAUDE.md`.
 2. La configuración sale de variables de entorno; sin `APP_JWT_SECRET` o sin datos de la base, la aplicación no arranca y lo dice claramente.
 3. Existe un `Clock` con la zona configurada, un manejador global de errores que responde Problem Details con `code`, y el convertidor de `YearMonth`.
 4. Swagger UI responde en `/swagger-ui.html` y `/v3/api-docs` devuelve el contrato.
@@ -41,12 +41,12 @@ Proyecto Spring Boot listo para crecer, según `backend/CLAUDE.md`.
 
 ### HT-03 · Esqueleto del frontend
 
-Proyecto Angular según `frontend/CLAUDE.md`.
+Proyecto Angular según `smartcoin-frontend/CLAUDE.md`.
 
 1. `npm start` levanta la aplicación con proxy de `/api` al backend.
 2. `npm run generate:api` genera el cliente desde `../docs/openapi.json`.
 3. Locale `es-AR` registrado: montos como `$ 1.234,50` y `US$ 1.234,50`, fechas como `dd/MM/yyyy`.
-4. Estructura de carpetas, layout con menú lateral y ruteo vacío para las pantallas de la tabla de `frontend/CLAUDE.md`.
+4. Estructura de carpetas, layout con menú lateral y ruteo vacío para las pantallas de la tabla de `smartcoin-frontend/CLAUDE.md`.
 5. Playwright instalado con un test de humo que abre la aplicación.
 
 ---
