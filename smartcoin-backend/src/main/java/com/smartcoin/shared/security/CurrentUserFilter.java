@@ -1,6 +1,7 @@
 package com.smartcoin.shared.security;
 
 import java.io.IOException;
+import java.util.Set;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -19,11 +20,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
- * Parte de RN-50: en cada pedido con JWT válido carga el usuario del token y responde 401 si no existe, está
+ * RN-50: en cada pedido con JWT válido carga el usuario del token y responde 401 si no existe, está
  * deshabilitado o su versión de credenciales no coincide con la del token (contraseña cambiada o restablecida).
- * No es un bean: lo arma {@link SecurityConfig} dentro de su cadena, después de la validación del JWT.
+ * Si el usuario debe cambiar la contraseña, responde 403 {@code PASSWORD_CHANGE_REQUIRED} a todo pedido que no esté
+ * en {@link #ALLOWED_WHILE_PASSWORD_CHANGE_PENDING}. Es una lista de permitidos: los endpoints futuros quedan
+ * cubiertos sin tocar nada. No es un bean: lo arma {@link SecurityConfig} dentro de su cadena, después de la validación del JWT.
  */
 class CurrentUserFilter extends OncePerRequestFilter {
+
+	/** Pedido permitido con el cambio de contraseña pendiente: método HTTP y ruta exacta. */
+	record Endpoint(String method, String path) {
+	}
+
+	/** Único acceso con el cambio pendiente: cambiar la contraseña y consultar el usuario actual (RN-50). */
+	static final Set<Endpoint> ALLOWED_WHILE_PASSWORD_CHANGE_PENDING = Set.of(
+			new Endpoint("POST", SecurityConfig.CHANGE_PASSWORD_PATH),
+			new Endpoint("GET", SecurityConfig.ME_PATH));
 
 	private final UserRepository users;
 	private final HandlerExceptionResolver resolver;
@@ -51,10 +63,17 @@ class CurrentUserFilter extends OncePerRequestFilter {
 						new BusinessException(ErrorCode.UNAUTHORIZED, "La sesión no es válida. Iniciá sesión de nuevo."));
 				return;
 			}
-			// HU-04 (RN-50): acá, con user.isMustChangePassword(), responder 403 PASSWORD_CHANGE_REQUIRED salvo
-			// en POST /api/auth/change-password y GET /api/auth/me.
+			if (user.isMustChangePassword() && !isAllowedWhilePasswordChangePending(request)) {
+				resolver.resolveException(request, response, null, new BusinessException(
+						ErrorCode.PASSWORD_CHANGE_REQUIRED, "Tenés que cambiar la contraseña antes de seguir."));
+				return;
+			}
 		}
 		chain.doFilter(request, response);
+	}
+
+	private static boolean isAllowedWhilePasswordChangePending(HttpServletRequest request) {
+		return ALLOWED_WHILE_PASSWORD_CHANGE_PENDING.contains(new Endpoint(request.getMethod(), request.getRequestURI()));
 	}
 
 	/** El usuario del {@code sub}, o {@code null} si el claim no es un id o no existe tal usuario. */

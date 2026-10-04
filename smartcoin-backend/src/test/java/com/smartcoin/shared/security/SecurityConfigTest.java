@@ -32,6 +32,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -148,11 +149,69 @@ class SecurityConfigTest {
 				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 	}
 
+	@Test
+	void pendingPasswordChangeBlocksAnyOtherEndpointWith403() throws Exception {
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user(true, VERSION, true)));
+
+		mvc.perform(get("/api/accounts").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("PASSWORD_CHANGE_REQUIRED"));
+		mvc.perform(post("/api/budget-items").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("PASSWORD_CHANGE_REQUIRED"));
+	}
+
+	@Test
+	void pendingPasswordChangeStillAllowsMeAndChangePassword() throws Exception {
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user(true, VERSION, true)));
+
+		// No hay controladores en este slice: un 404 (y no un 403) prueba que el filtro dejó pasar el pedido.
+		mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isNotFound());
+		mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void pendingPasswordChangeAllowsOnlyTheExactMethodAndPath() throws Exception {
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user(true, VERSION, true)));
+
+		mvc.perform(post("/api/auth/me").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("PASSWORD_CHANGE_REQUIRED"));
+		mvc.perform(get("/api/auth/change-password").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("PASSWORD_CHANGE_REQUIRED"));
+		mvc.perform(get("/api/auth/me/extra").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void withoutPendingPasswordChangeEndpointsAreNotBlocked() throws Exception {
+		mvc.perform(get("/api/accounts").header("Authorization", "Bearer " + token(SECRET)))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void revokedTokenIsUnauthorizedEvenWithPendingPasswordChange() throws Exception {
+		// La versión se verifica antes que el cambio pendiente: un token revocado nunca llega a dar 403.
+		when(users.findById(USER_ID)).thenReturn(Optional.of(user(true, VERSION, true)));
+
+		mvc.perform(get("/api/accounts").header("Authorization", "Bearer " + token(SECRET, String.valueOf(USER_ID), VERSION - 1)))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+	}
+
 	private static User user(boolean enabled, int credentialsVersion) {
+		return user(enabled, credentialsVersion, false);
+	}
+
+	private static User user(boolean enabled, int credentialsVersion, boolean mustChangePassword) {
 		User user = new User();
 		ReflectionTestUtils.setField(user, "id", USER_ID);
 		user.setEnabled(enabled);
 		user.setCredentialsVersion(credentialsVersion);
+		user.setMustChangePassword(mustChangePassword);
 		return user;
 	}
 

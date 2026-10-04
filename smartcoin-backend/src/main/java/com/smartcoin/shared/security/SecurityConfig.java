@@ -33,7 +33,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 /**
  * Base de seguridad: sin sesión, JWT HS256 firmado con {@code APP_JWT_SECRET}, login y Swagger públicos y
  * {@code /api/admin/**} protegido con la clave de administración en lugar del JWT. Con JWT, cada pedido pasa por
- * {@link CurrentUserFilter} (RN-50). El 403 por cambio de contraseña obligatorio llega con HU-04.
+ * {@link CurrentUserFilter} (RN-50), que también aplica el 403 por cambio de contraseña obligatorio.
  */
 @Configuration
 @EnableConfigurationProperties(AppProperties.class)
@@ -41,6 +41,10 @@ public class SecurityConfig {
 
 	/** Único endpoint autenticado con credenciales en lugar de token. */
 	static final String LOGIN_PATH = "/api/auth/login";
+
+	/** Con el cambio de contraseña pendiente, estos dos son los únicos endpoints autenticados permitidos (RN-50). */
+	static final String CHANGE_PASSWORD_PATH = "/api/auth/change-password";
+	static final String ME_PATH = "/api/auth/me";
 
 	/** Rutas de administración: se autentican con {@code X-Admin-Key}, no con JWT. */
 	@Bean
