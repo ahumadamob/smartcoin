@@ -1,5 +1,7 @@
 package com.smartcoin.user.repository;
 
+import java.util.Optional;
+
 import com.smartcoin.user.domain.User;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,4 +11,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	/** El email se guarda en minúsculas y la colación de la columna no distingue mayúsculas. */
 	boolean existsByEmail(String email);
+
+	/** Se busca con el email en minúsculas; la colación de la columna no distingue mayúsculas. */
+	Optional<User> findByEmail(String email);
 }

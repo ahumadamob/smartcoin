@@ -74,6 +74,23 @@ public class UserService {
 		return user;
 	}
 
+	/**
+	 * Restablecimiento de contraseña por el administrador (RN-48). Deja el cambio de contraseña obligatorio e
+	 * incrementa la versión de credenciales, con lo que los tokens anteriores dejan de servir (RN-50). No cambia
+	 * si el usuario está habilitado.
+	 */
+	@Transactional
+	public void resetPassword(String email, String temporaryPassword) {
+		User user = users.findByEmail(email.toLowerCase(Locale.ROOT))
+				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "No existe un usuario con ese email."));
+
+		user.setPasswordHash(passwordEncoder.encode(temporaryPassword));
+		user.setMustChangePassword(true);
+		user.setCredentialsVersion(user.getCredentialsVersion() + 1);
+		users.save(user);
+		log.info("Contraseña restablecida: id={}", user.getId());
+	}
+
 	private static BusinessException emailAlreadyExists() {
 		return new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS, "Ya existe un usuario con ese email.");
 	}

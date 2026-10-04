@@ -22,6 +22,8 @@ import { CreateUserRequest } from '../model/createUserRequest';
 import { CreatedUserResponse } from '../model/createdUserResponse';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { ResetPasswordRequest } from '../model/resetPasswordRequest';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -104,6 +106,80 @@ export class AdministracinDeUsuariosService extends BaseService {
             {
                 context: localVarHttpContext,
                 body: createUserRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Restablecer la contraseña de un usuario
+     * Asigna una contraseña temporal a un usuario que olvidó la suya. El usuario queda con cambio de contraseña obligatorio y los tokens emitidos antes dejan de servir. El email se busca sin distinguir mayúsculas. No cambia si el usuario está habilitado.
+     * @endpoint post /api/admin/users/password-reset
+     * @param xAdminKey Clave de administración (variable de entorno APP_ADMIN_KEY). Si falta, es incorrecta o el servidor no la tiene configurada, la respuesta es siempre 401.
+     * @param resetPasswordRequest 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public resetPassword(xAdminKey: string, resetPasswordRequest: ResetPasswordRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public resetPassword(xAdminKey: string, resetPasswordRequest: ResetPasswordRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public resetPassword(xAdminKey: string, resetPasswordRequest: ResetPasswordRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public resetPassword(xAdminKey: string, resetPasswordRequest: ResetPasswordRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (xAdminKey === null || xAdminKey === undefined) {
+            throw new Error('Required parameter xAdminKey was null or undefined when calling resetPassword.');
+        }
+        if (resetPasswordRequest === null || resetPasswordRequest === undefined) {
+            throw new Error('Required parameter resetPasswordRequest was null or undefined when calling resetPassword.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+        if (xAdminKey !== undefined && xAdminKey !== null) {
+            localVarHeaders = localVarHeaders.set('X-Admin-Key', String(xAdminKey));
+        }
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/admin/users/password-reset`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<any>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: resetPasswordRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

@@ -60,4 +60,15 @@ class AdminUserControllerKeyNotConfiguredTest {
 
 		verifyNoInteractions(users);
 	}
+
+	@Test
+	void resetPasswordIsAlsoUnauthorizedWithoutConfiguredKey() throws Exception {
+		mvc.perform(post("/api/admin/users/password-reset").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"email\": \"persona@ejemplo.com\", \"temporaryPassword\": \"temporal-123456\"}")
+				.header("X-Admin-Key", "cualquier-clave"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+		verifyNoInteractions(users);
+	}
 }

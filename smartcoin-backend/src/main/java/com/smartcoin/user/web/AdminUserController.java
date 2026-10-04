@@ -58,4 +58,30 @@ public class AdminUserController {
 	public CreatedUserResponse create(@Valid @RequestBody CreateUserRequest request) {
 		return CreatedUserResponse.from(users.create(request.email(), request.password(), request.startPeriod()));
 	}
+
+	@PostMapping("/password-reset")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@Operation(summary = "Restablecer la contraseña de un usuario",
+			description = "Asigna una contraseña temporal a un usuario que olvidó la suya. El usuario queda con "
+					+ "cambio de contraseña obligatorio y los tokens emitidos antes dejan de servir. "
+					+ "El email se busca sin distinguir mayúsculas. No cambia si el usuario está habilitado.",
+			parameters = @Parameter(name = "X-Admin-Key", in = ParameterIn.HEADER, required = true,
+					description = "Clave de administración (variable de entorno APP_ADMIN_KEY). Si falta, es "
+							+ "incorrecta o el servidor no la tiene configurada, la respuesta es siempre 401.",
+					schema = @Schema(type = "string")))
+	@ApiResponse(responseCode = "204", description = "Contraseña restablecida. No devuelve cuerpo.")
+	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: email inválido o contraseña temporal que "
+			+ "no cumple la política (mínimo 10 caracteres, máximo 72 bytes).",
+			content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+					schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: clave de administración ausente, incorrecta "
+			+ "o no configurada. No se cambia nada.",
+			content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+					schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "NOT_FOUND: no existe un usuario con ese email.",
+			content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+					schema = @Schema(implementation = ProblemDetail.class)))
+	public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+		users.resetPassword(request.email(), request.temporaryPassword());
+	}
 }

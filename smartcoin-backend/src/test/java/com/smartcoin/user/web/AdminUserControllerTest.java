@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -202,5 +204,110 @@ class AdminUserControllerTest {
 		create(ADMIN_KEY, body("persona@ejemplo.com", "clave-larga-123", null))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.code").value("EMAIL_ALREADY_EXISTS"));
+	}
+
+	// --- Restablecer contraseña ---
+
+	static final String RESET_URL = "/api/admin/users/password-reset";
+
+	private ResultActions reset(String adminKey, String body) throws Exception {
+		var request = post(RESET_URL).contentType(MediaType.APPLICATION_JSON).content(body);
+		if (adminKey != null) {
+			request.header("X-Admin-Key", adminKey);
+		}
+		return mvc.perform(request);
+	}
+
+	private static String resetBody(String email, String password) {
+		return "{\"email\": \"" + email + "\", \"temporaryPassword\": \"" + password + "\"}";
+	}
+
+	@Test
+	void resetRespondsNoContentWithoutBody() throws Exception {
+		String response = reset(ADMIN_KEY, resetBody("Persona@Ejemplo.com", "temporal-123456"))
+				.andExpect(status().isNoContent())
+				.andReturn().getResponse().getContentAsString();
+
+		assertThat(response).isEmpty();
+		verify(users).resetPassword("Persona@Ejemplo.com", "temporal-123456");
+	}
+
+	@Test
+	void resetWithInvalidEmailIsValidationError() throws Exception {
+		reset(ADMIN_KEY, resetBody("no-es-un-email", "temporal-123456"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors[0].field").value("email"));
+
+		verifyNoInteractions(users);
+	}
+
+	@Test
+	void resetWithShortPasswordIsValidationErrorAndDoesNotEchoIt() throws Exception {
+		String response = reset(ADMIN_KEY, resetBody("persona@ejemplo.com", "corta"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors[0].field").value("temporaryPassword"))
+				.andReturn().getResponse().getContentAsString();
+
+		assertThat(response).doesNotContain("corta\"");
+		verifyNoInteractions(users);
+	}
+
+	@Test
+	void resetWithPasswordOverBcryptLimitIsValidationError() throws Exception {
+		reset(ADMIN_KEY, resetBody("persona@ejemplo.com", "a".repeat(73)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("temporaryPassword"));
+
+		verifyNoInteractions(users);
+	}
+
+	@Test
+	void resetWithMissingFieldsIsValidationError() throws Exception {
+		reset(ADMIN_KEY, "{}")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.length()").value(2));
+
+		verifyNoInteractions(users);
+	}
+
+	@Test
+	void resetWithoutHeaderIsUnauthorized() throws Exception {
+		reset(null, resetBody("persona@ejemplo.com", "temporal-123456"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+		verifyNoInteractions(users);
+	}
+
+	@Test
+	void resetWithWrongKeyIsUnauthorized() throws Exception {
+		reset("clave-incorrecta", resetBody("persona@ejemplo.com", "temporal-123456"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+
+		verifyNoInteractions(users);
+	}
+
+	@Test
+	void resetWrongKeyWinsOverAnInvalidBody() throws Exception {
+		reset("clave-incorrecta", "{}")
+				.andExpect(status().isUnauthorized());
+
+		verifyNoInteractions(users);
+	}
+
+	@Test
+	void resetOfUnknownEmailIsNotFound() throws Exception {
+		doThrow(new BusinessException(ErrorCode.NOT_FOUND, "No existe un usuario con ese email."))
+				.when(users).resetPassword(any(), any());
+
+		String response = reset(ADMIN_KEY, resetBody("nadie@ejemplo.com", "temporal-123456"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("NOT_FOUND"))
+				.andReturn().getResponse().getContentAsString();
+
+		assertThat(response).doesNotContain("temporal-123456");
 	}
 }

@@ -9,6 +9,7 @@ model/createUserRequest.ts
 model/createdUserResponse.ts
 model/models.ts
 model/problemDetail.ts
+model/resetPasswordRequest.ts
 param.ts
 provide-api.ts
 query.params.ts

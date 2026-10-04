@@ -11,12 +11,18 @@ import com.smartcoin.shared.error.ErrorCode;
 import com.smartcoin.user.domain.User;
 import com.smartcoin.user.repository.UserRepository;
 
+import java.util.Optional;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -151,5 +157,98 @@ class UserServiceTest {
 						e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_ALREADY_EXISTS));
 
 		verifyNoInteractions(horizon);
+	}
+
+	// --- Restablecer contraseña (RN-48, RN-50) ---
+
+	private User existingUser(int credentialsVersion) {
+		User user = new User();
+		ReflectionTestUtils.setField(user, "id", 7L);
+		user.setEmail("persona@ejemplo.com");
+		user.setPasswordHash(passwordEncoder.encode("clave-vieja-123"));
+		user.setMustChangePassword(false);
+		user.setCredentialsVersion(credentialsVersion);
+		user.setEnabled(true);
+		return user;
+	}
+
+	@Test
+	void resetStoresANewBcryptHashOfTheTemporaryPassword() {
+		User user = existingUser(0);
+		String oldHash = user.getPasswordHash();
+		when(users.findByEmail("persona@ejemplo.com")).thenReturn(Optional.of(user));
+
+		service.resetPassword("persona@ejemplo.com", "temporal-123456");
+
+		assertThat(user.getPasswordHash()).isNotEqualTo(oldHash).startsWith("$2").isNotEqualTo("temporal-123456");
+		assertThat(passwordEncoder.matches("temporal-123456", user.getPasswordHash())).isTrue();
+		assertThat(passwordEncoder.matches("clave-vieja-123", user.getPasswordHash())).isFalse();
+		verify(users).save(user);
+	}
+
+	@Test
+	void resetForcesPasswordChange() {
+		User user = existingUser(0);
+		when(users.findByEmail("persona@ejemplo.com")).thenReturn(Optional.of(user));
+
+		service.resetPassword("persona@ejemplo.com", "temporal-123456");
+
+		assertThat(user.isMustChangePassword()).isTrue();
+	}
+
+	@Test
+	void resetIncrementsTheCredentialsVersionByOne() {
+		User fresh = existingUser(0);
+		User used = existingUser(4);
+		when(users.findByEmail("persona@ejemplo.com")).thenReturn(Optional.of(fresh), Optional.of(used));
+
+		service.resetPassword("persona@ejemplo.com", "temporal-123456");
+		service.resetPassword("persona@ejemplo.com", "temporal-123456");
+
+		assertThat(fresh.getCredentialsVersion()).isEqualTo(1);
+		assertThat(used.getCredentialsVersion()).isEqualTo(5);
+	}
+
+	@Test
+	void resetLooksUpTheEmailIgnoringCaseAndKeepsTheUserEnabled() {
+		User user = existingUser(0);
+		user.setEnabled(false);
+		when(users.findByEmail("persona@ejemplo.com")).thenReturn(Optional.of(user));
+
+		service.resetPassword("Persona@Ejemplo.COM", "temporal-123456");
+
+		verify(users).findByEmail("persona@ejemplo.com");
+		assertThat(user.isEnabled()).isFalse();
+	}
+
+	@Test
+	void resetOfUnknownEmailIsNotFoundAndSavesNothing() {
+		when(users.findByEmail("nadie@ejemplo.com")).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.resetPassword("nadie@ejemplo.com", "temporal-123456"))
+				.isInstanceOfSatisfying(BusinessException.class, e -> {
+					assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND);
+					assertThat(e.getMessage()).doesNotContain("temporal-123456");
+				});
+
+		verify(users, never()).save(any());
+	}
+
+	@Test
+	void resetNeverLogsThePassword() {
+		Logger logger = (Logger) LoggerFactory.getLogger(UserService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		try {
+			when(users.findByEmail("persona@ejemplo.com")).thenReturn(Optional.of(existingUser(0)));
+			service.resetPassword("persona@ejemplo.com", "temporal-123456");
+		}
+		finally {
+			logger.detachAppender(appender);
+		}
+
+		assertThat(appender.list).isNotEmpty();
+		assertThat(appender.list).noneMatch(event -> event.getFormattedMessage().contains("temporal-123456"));
 	}
 }
