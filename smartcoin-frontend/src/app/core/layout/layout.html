@@ -4,12 +4,21 @@
     <nav aria-label="Principal">
       <mat-nav-list>
         @for (item of navItems; track item.path) {
-          <a mat-list-item [routerLink]="item.path" routerLinkActive="active" [activated]="rla.isActive" #rla="routerLinkActive">
+          <a
+            mat-list-item
+            [routerLink]="item.path"
+            routerLinkActive="active"
+            [activated]="rla.isActive"
+            #rla="routerLinkActive"
+          >
             {{ item.label }}
           </a>
         }
       </mat-nav-list>
     </nav>
+    <div class="session">
+      <button mat-stroked-button type="button" (click)="logout()">Cerrar sesión</button>
+    </div>
   </mat-sidenav>
   <mat-sidenav-content class="content">
     <main>
