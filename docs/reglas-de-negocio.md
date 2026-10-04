@@ -310,7 +310,7 @@ La fecha efectiva es el vencimiento, o hoy si ya venció. Se informan subtotales
 
 **RN-50. Sesión y cambio obligatorio.** En cada pedido autenticado se carga el usuario del token y se verifica que esté habilitado y que su versión de credenciales coincida con la del token; si no, 401. Si el usuario debe cambiar la contraseña, solo se permiten `POST /api/auth/change-password` y `GET /api/auth/me`; el resto responde 403 `PASSWORD_CHANGE_REQUIRED`. Cambiar o restablecer la contraseña incrementa la versión de credenciales, con lo que los tokens anteriores dejan de servir. El cambio de contraseña devuelve un token nuevo.
 
-**RN-51. Contraseñas.** Se guardan con BCrypt. Mínimo 10 caracteres. Para cambiarla se exige la contraseña actual (`INVALID_CURRENT_PASSWORD`) y la nueva debe ser distinta de la actual (`VALIDATION_ERROR`). Las contraseñas, los tokens y la clave de administración nunca se registran en logs ni se devuelven en respuestas.
+**RN-51. Contraseñas.** Se guardan con BCrypt. Mínimo 10 caracteres y máximo 72 bytes en UTF-8 (límite de BCrypt; más largas dan `VALIDATION_ERROR`). Para cambiarla se exige la contraseña actual (`INVALID_CURRENT_PASSWORD`) y la nueva debe ser distinta de la actual (`VALIDATION_ERROR`). Las contraseñas, los tokens y la clave de administración nunca se registran en logs ni se devuelven en respuestas.
 
 ## Códigos de error
 

@@ -29,6 +29,15 @@ public class BudgetPeriod extends AuditedEntity {
 	@Column(name = "closed_at", nullable = true)
 	private Instant closedAt;
 
+	/** Período abierto de un usuario. */
+	public static BudgetPeriod open(Long userId, YearMonth periodMonth) {
+		BudgetPeriod period = new BudgetPeriod();
+		period.userId = userId;
+		period.periodMonth = periodMonth;
+		period.status = PeriodStatus.OPEN;
+		return period;
+	}
+
 	public Long getUserId() {
 		return userId;
 	}

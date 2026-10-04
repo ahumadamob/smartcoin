@@ -128,6 +128,8 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **T-15. El proyecto se llama Smartcoin.** Paquete base y grupo Maven `com.smartcoin`; base de datos y usuario MySQL `smartcoin`. Reemplaza los nombres iniciales `ar.presupuesto` y `presupuesto`. *Confirmada.*
 
+**T-16. Las contraseñas tienen un máximo de 72 bytes en UTF-8.** BCrypt solo usa los primeros 72 bytes y Spring Security rechaza las más largas con una excepción, que sería un 500. Se valida junto con el mínimo (RN-51) y responde `VALIDATION_ERROR`. *Supuesto* (agregado en HU-01).
+
 ## Cambios respecto de lo conversado
 
 Ajustes hechos al pasar la conversación a documentos, para que Mario los revise:

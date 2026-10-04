@@ -1,10 +1,14 @@
 api.base.service.ts
 api.module.ts
+api/administracinDeUsuarios.service.ts
 api/api.ts
 configuration.ts
 encoder.ts
 index.ts
+model/createUserRequest.ts
+model/createdUserResponse.ts
 model/models.ts
+model/problemDetail.ts
 param.ts
 provide-api.ts
 query.params.ts
