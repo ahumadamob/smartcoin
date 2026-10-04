@@ -10,6 +10,45 @@ describe('messageFor', () => {
     );
   });
 
+  it('traduce la contraseña actual incorrecta', () => {
+    expect(
+      messageFor(problem(400, { code: 'INVALID_CURRENT_PASSWORD', detail: 'texto del backend' })),
+    ).toBe('La contraseña actual es incorrecta.');
+  });
+
+  describe('VALIDATION_ERROR', () => {
+    it('muestra el primer error por campo', () => {
+      const body = {
+        code: 'VALIDATION_ERROR',
+        detail: 'La solicitud tiene datos inválidos.',
+        errors: [
+          { field: 'newPassword', message: 'La contraseña debe tener al menos 10 caracteres.' },
+        ],
+      };
+
+      expect(messageFor(problem(400, body))).toBe(
+        'La contraseña debe tener al menos 10 caracteres.',
+      );
+    });
+
+    it('sin errores por campo muestra el detail', () => {
+      const body = {
+        code: 'VALIDATION_ERROR',
+        detail: 'La contraseña nueva debe ser distinta de la actual.',
+      };
+
+      expect(messageFor(problem(400, body))).toBe(
+        'La contraseña nueva debe ser distinta de la actual.',
+      );
+    });
+
+    it('sin errores ni detail usa un texto genérico', () => {
+      expect(messageFor(problem(400, { code: 'VALIDATION_ERROR' }))).toBe(
+        'Revisá los datos ingresados.',
+      );
+    });
+  });
+
   it('con un code desconocido usa el detail del backend', () => {
     expect(messageFor(problem(409, { code: 'ALGO_NUEVO', detail: 'Detalle en español.' }))).toBe(
       'Detalle en español.',

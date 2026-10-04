@@ -9,6 +9,8 @@ interface Session {
   token: string;
   /** Instante ISO en que vence el token (el backend lo emite con 8 horas de vigencia). */
   expiresAt: string;
+  /** Si el usuario debe cambiar la contraseña antes de usar el resto de la aplicación (HU-04). */
+  mustChangePassword: boolean;
 }
 
 /** Sesión del usuario: el token vive en `sessionStorage`, así que se pierde al cerrar la pestaña. */
@@ -35,13 +37,44 @@ export class AuthService {
     return this.token() !== null;
   }
 
+  /** Con el cambio de contraseña obligatorio pendiente, solo se puede usar la pantalla de cambio (HU-04). */
+  mustChangePassword(): boolean {
+    return this.isAuthenticated() && this.session()?.mustChangePassword === true;
+  }
+
   /** Inicia sesión y guarda el token. La respuesta dice si hay que cambiar la contraseña. */
   login(email: string, password: string): Observable<LoginResponse> {
-    return this.api
-      .login({ email, password })
-      .pipe(
-        tap((response) => this.store({ token: response.token, expiresAt: response.expiresAt })),
-      );
+    return this.api.login({ email, password }).pipe(
+      tap((response) =>
+        this.store({
+          token: response.token,
+          expiresAt: response.expiresAt,
+          mustChangePassword: response.mustChangePassword,
+        }),
+      ),
+    );
+  }
+
+  /** Cambia la contraseña. El token anterior deja de servir: se reemplaza por el nuevo que devuelve la API. */
+  changePassword(currentPassword: string, newPassword: string): Observable<LoginResponse> {
+    return this.api.changePassword({ currentPassword, newPassword }).pipe(
+      tap((response) =>
+        this.store({
+          token: response.token,
+          expiresAt: response.expiresAt,
+          mustChangePassword: response.mustChangePassword,
+        }),
+      ),
+    );
+  }
+
+  /** La API respondió 403 `PASSWORD_CHANGE_REQUIRED`: se marca el cambio como pendiente y se va a esa pantalla. */
+  requirePasswordChange(): void {
+    const session = this.session();
+    if (session !== null) {
+      this.store({ ...session, mustChangePassword: true });
+    }
+    void this.router.navigate(['/cambiar-contrasena']);
   }
 
   /** Descarta el token y vuelve al login. */
@@ -77,7 +110,11 @@ function readSession(): Session | null {
     }
     const parsed: Partial<Session> = JSON.parse(raw);
     return typeof parsed.token === 'string' && typeof parsed.expiresAt === 'string'
-      ? { token: parsed.token, expiresAt: parsed.expiresAt }
+      ? {
+          token: parsed.token,
+          expiresAt: parsed.expiresAt,
+          mustChangePassword: parsed.mustChangePassword === true,
+        }
       : null;
   } catch {
     return null;

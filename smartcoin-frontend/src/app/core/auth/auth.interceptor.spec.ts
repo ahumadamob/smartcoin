@@ -7,10 +7,18 @@ import { AuthService } from './auth.service';
 describe('authInterceptor', () => {
   let http: HttpClient;
   let controller: HttpTestingController;
-  let auth: { token: ReturnType<typeof vi.fn>; logout: ReturnType<typeof vi.fn> };
+  let auth: {
+    token: ReturnType<typeof vi.fn>;
+    logout: ReturnType<typeof vi.fn>;
+    requirePasswordChange: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
-    auth = { token: vi.fn().mockReturnValue('el.token'), logout: vi.fn() };
+    auth = {
+      token: vi.fn().mockReturnValue('el.token'),
+      logout: vi.fn(),
+      requirePasswordChange: vi.fn(),
+    };
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
@@ -67,6 +75,38 @@ describe('authInterceptor', () => {
       .flush({ code: 'UNAUTHORIZED' }, { status: 401, statusText: 'Unauthorized' });
 
     expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('ante un 403 PASSWORD_CHANGE_REQUIRED va al cambio de contraseña y propaga el error', () => {
+    let status: number | undefined;
+    http.get('/api/accounts').subscribe({ error: (e) => (status = e.status) });
+
+    controller
+      .expectOne('/api/accounts')
+      .flush({ code: 'PASSWORD_CHANGE_REQUIRED' }, { status: 403, statusText: 'Forbidden' });
+
+    expect(auth.requirePasswordChange).toHaveBeenCalledOnce();
+    expect(auth.logout).not.toHaveBeenCalled();
+    expect(status).toBe(403);
+  });
+
+  it('un 403 con otro código no va al cambio de contraseña', () => {
+    http.get('/api/accounts').subscribe({ error: () => undefined });
+
+    controller
+      .expectOne('/api/accounts')
+      .flush({ code: 'OTRO_CODIGO' }, { status: 403, statusText: 'Forbidden' });
+
+    expect(auth.requirePasswordChange).not.toHaveBeenCalled();
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('un 403 sin cuerpo no va al cambio de contraseña', () => {
+    http.get('/api/accounts').subscribe({ error: () => undefined });
+
+    controller.expectOne('/api/accounts').flush(null, { status: 403, statusText: 'Forbidden' });
+
+    expect(auth.requirePasswordChange).not.toHaveBeenCalled();
   });
 
   it('otros errores no cierran la sesión', () => {
