@@ -139,7 +139,8 @@ Ajustes hechos al pasar la conversación a documentos, para que Mario los revise
 | `Transaction` | `Movement` | Evita el choque con `@Transactional` y con la palabra clave de SQL. |
 | Valores de enum en español (`INGRESO`, `ESTIMADA`) | En inglés (`INCOME`, `ESTIMATED`) | Coherencia con el resto de los identificadores (T-11). |
 | Tablas `period` y `transaction` | `budget_period` y `movement` | Evitan palabras reservadas. |
-| Estado guardado `ESTIMADA`/`PARCIAL`/`CONSOLIDADA` | Se guarda `PENDING`/`CONSOLIDATED`; Estimada y Parcial se derivan | Un estado que depende de si hay movimientos no conviene duplicarlo. |
+| Estado guardado `ESTIMADA`/`PARCIAL`/`CONSOLIDADA` | Se guarda `PENDING`/`CONSOLIDATED` (`StoredEntryStatus`); Estimada y Parcial se derivan | Un estado que depende de si hay movimientos no conviene duplicarlo. |
+| Colación `utf8mb4_0900_ai_ci` | `utf8mb4_0900_as_ci` | Con `ai` "Año" y "Ano" chocaban en los nombres únicos; `as` distingue acentos y sigue ignorando mayúsculas (HT-02). |
 | Anular partidas con movimientos | No se eliminan (S-08) | Anular dejaba plata real fuera del presupuesto. |
 | Dejar en 0 al cerrar | Cerrar con lo registrado (`CLOSE_AS_IS`) | Si la partida tenía pagos parciales, no queda en 0 sino en lo pagado. |
 | `AGENTS.md` para Codex | No se usa | El proyecto se desarrolla solo con Claude Code. |

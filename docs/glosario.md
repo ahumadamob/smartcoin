@@ -53,12 +53,13 @@ Vocabulario obligatorio del proyecto. En la interfaz y en la documentación se u
 | Regla de estimación | `EstimationRule` | `LAST_VALUE` → Último valor · `AVERAGE_LAST_3` → Promedio de los últimos 3 |
 | Origen de la partida | `EntryOrigin` | `RECURRING` → Recurrente · `ONE_OFF` → Puntual · `CARRIED_OVER` → Saldo postergado · `CLOSING_DIFFERENCE` → Diferencia de cierre |
 | Estado de la partida | `EntryStatus` | `ESTIMATED` → Estimada · `PARTIAL` → Parcial · `CONSOLIDATED` → Consolidada |
+| Estado guardado de la partida | `StoredEntryStatus` | `PENDING` → se muestra como Estimada o Parcial · `CONSOLIDATED` → Consolidada |
 | Estado del período | `PeriodStatus` | `OPEN` → Abierto · `CLOSED` → Cerrado |
 | Resolución de cierre | `ClosingResolution` | `CARRY_OVER` → Postergar saldo · `CLOSE_AS_IS` → Cerrar con lo registrado |
 | Partidas editadas al consolidar | `ManualEntriesPolicy` | `KEEP` → Respetar · `OVERWRITE` → Pisar |
 | Alcance de la eliminación | `DeletionScope` | `ONLY_THIS` → Solo este mes · `THIS_AND_FUTURE` → Este mes y los siguientes |
 
-En la base, el estado de la partida se guarda solo como `PENDING` o `CONSOLIDATED`. Estimada y Parcial se distinguen según tenga o no movimientos (RN-16).
+En la base, el estado de la partida se guarda solo como `PENDING` o `CONSOLIDATED` (`StoredEntryStatus`). Estimada y Parcial se distinguen según tenga o no movimientos (RN-16).
 
 ## Acciones
 

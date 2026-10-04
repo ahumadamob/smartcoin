@@ -13,7 +13,7 @@ Esquema relacional para MySQL 8, pensado para migrar a PostgreSQL sin rediseñar
 - Fechas técnicas (`created_at`, `updated_at`, `closed_at`, `consolidated_at`): `DATETIME(6)` en UTC.
 - Booleanos: `BOOLEAN`.
 - Claves foráneas con `ON DELETE RESTRICT`. No hay borrados en cascada: toda eliminación pasa por las reglas del servicio.
-- Juego de caracteres `utf8mb4` con colación `utf8mb4_0900_ai_ci`, que compara sin distinguir mayúsculas. Los nombres únicos por usuario aprovechan eso.
+- Juego de caracteres `utf8mb4` con colación `utf8mb4_0900_as_ci`, que compara sin distinguir mayúsculas pero **sí acentos** ("Año" y "Ano" son nombres distintos; "Año" y "AÑO", el mismo). Los nombres únicos por usuario aprovechan eso. Cada `CREATE TABLE` la declara, sin depender de la colación por defecto de la base.
 - Migraciones Flyway en `smartcoin-backend/src/main/resources/db/migration/mysql/`. Al migrar a PostgreSQL se agrega `db/migration/postgresql/` con el esquema equivalente.
 - Todas las tablas llevan `created_at` y `updated_at` (`account_closing` solo `created_at`, porque no se modifica). En las tablas de abajo no se repiten.
 
@@ -224,9 +224,14 @@ Además de los que crean las claves primarias, únicas y foráneas:
 
 | Tipo de la base | Tipo en Java |
 |---|---|
+| `BIGINT` | `Long` |
+| `INT` | `int` |
+| `SMALLINT` | `Integer`, con `@JdbcTypeCode(SqlTypes.SMALLINT)` para que Hibernate valide la columna |
+| `VARCHAR` | `String` |
+| `CHAR(3)` de moneda | `Currency` (enum) con `@JdbcTypeCode(SqlTypes.CHAR)` |
 | `DECIMAL(19,2)` | `BigDecimal` |
 | `DATE` | `LocalDate` |
-| `CHAR(7)` de período | `YearMonth`, con un `AttributeConverter` a `String` `YYYY-MM` |
+| `CHAR(7)` de período | `YearMonth`, con un `AttributeConverter` a `String` `YYYY-MM` y `@JdbcTypeCode(SqlTypes.CHAR)` |
 | `DATETIME(6)` | `Instant` |
-| Enumeraciones | `enum` de Java con `@Enumerated(EnumType.STRING)` |
+| Enumeraciones | `enum` de Java con `@Enumerated(EnumType.STRING)` y `@JdbcTypeCode(SqlTypes.VARCHAR)`: sin esto, Hibernate espera una columna `ENUM` nativa de MySQL |
 | `BOOLEAN` | `boolean` |

@@ -26,7 +26,7 @@ En PowerShell, `curl` es un alias de otro comando: usar `curl.exe` o `Invoke-Web
 Una sola base, creada una vez a mano:
 
 ```sql
-CREATE DATABASE smartcoin CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE DATABASE smartcoin CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_ci;
 CREATE USER 'smartcoin'@'localhost' IDENTIFIED BY '<contraseña>';
 GRANT ALL PRIVILEGES ON smartcoin.* TO 'smartcoin'@'localhost';
 ```
