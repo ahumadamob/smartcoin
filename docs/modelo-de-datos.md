@@ -226,12 +226,12 @@ Además de los que crean las claves primarias, únicas y foráneas:
 |---|---|
 | `BIGINT` | `Long` |
 | `INT` | `int` |
-| `SMALLINT` | `Integer`, con `@JdbcTypeCode(SqlTypes.SMALLINT)` para que Hibernate valide la columna |
+| `SMALLINT` | `Integer`, con `@JdbcTypeCode(SqlTypes.SMALLINT)`: sin eso Hibernate espera `INTEGER` y `validate` falla |
 | `VARCHAR` | `String` |
-| `CHAR(3)` de moneda | `Currency` (enum) con `@JdbcTypeCode(SqlTypes.CHAR)` |
+| `CHAR(3)` de moneda | `Currency` (enum) con `@JdbcTypeCode(SqlTypes.CHAR)`: sin eso Hibernate espera `VARCHAR` y `validate` falla |
 | `DECIMAL(19,2)` | `BigDecimal` |
 | `DATE` | `LocalDate` |
-| `CHAR(7)` de período | `YearMonth`, con un `AttributeConverter` a `String` `YYYY-MM` y `@JdbcTypeCode(SqlTypes.CHAR)` |
+| `CHAR(7)` de período | `YearMonth`, con un `AttributeConverter` a `String` `YYYY-MM` (con el convertidor `autoApply`, `validate` acepta `CHAR(7)` sin anotaciones extra) |
 | `DATETIME(6)` | `Instant` |
-| Enumeraciones | `enum` de Java con `@Enumerated(EnumType.STRING)` y `@JdbcTypeCode(SqlTypes.VARCHAR)`: sin esto, Hibernate espera una columna `ENUM` nativa de MySQL |
+| Enumeraciones | `enum` de Java con `@Enumerated(EnumType.STRING)` (`validate` los acepta sobre `VARCHAR` sin anotaciones extra) |
 | `BOOLEAN` | `boolean` |
