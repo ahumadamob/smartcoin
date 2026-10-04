@@ -1,0 +1,10 @@
+# Configuración local con secretos
+application-local.yml
+.env
+.env.*
+
+# Sistema y editores
+.DS_Store
+.idea/
+.vscode/
+*.iml
