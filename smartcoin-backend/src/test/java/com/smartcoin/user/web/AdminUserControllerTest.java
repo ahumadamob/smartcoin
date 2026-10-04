@@ -6,6 +6,7 @@ import com.smartcoin.shared.error.BusinessException;
 import com.smartcoin.shared.error.ErrorCode;
 import com.smartcoin.shared.error.GlobalExceptionHandler;
 import com.smartcoin.shared.security.SecurityConfig;
+import com.smartcoin.user.repository.UserRepository;
 import com.smartcoin.user.domain.User;
 import com.smartcoin.user.service.UserService;
 
@@ -47,6 +48,10 @@ class AdminUserControllerTest {
 
 	@MockitoBean
 	UserService users;
+
+	// SecurityConfig lo necesita para el filtro de usuario actual (RN-50).
+	@MockitoBean
+	UserRepository userRepository;
 
 	private ResultActions create(String adminKey, String body) throws Exception {
 		var request = post(URL).contentType(MediaType.APPLICATION_JSON).content(body);

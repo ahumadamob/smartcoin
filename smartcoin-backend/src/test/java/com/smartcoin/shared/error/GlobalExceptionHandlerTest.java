@@ -3,12 +3,15 @@ package com.smartcoin.shared.error;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Optional;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 import com.smartcoin.shared.security.SecurityConfig;
+import com.smartcoin.user.domain.User;
+import com.smartcoin.user.repository.UserRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +19,10 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -36,6 +43,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({ SecurityConfig.class, GlobalExceptionHandler.class, GlobalExceptionHandlerTest.ProbeController.class })
 @TestPropertySource(properties = "app.security.jwt-secret=0123456789abcdef0123456789abcdef")
 class GlobalExceptionHandlerTest {
+
+	// SecurityConfig lo necesita para el filtro de usuario actual (RN-50).
+	@MockitoBean
+	UserRepository userRepository;
+
+	/** JWT de un usuario existente y habilitado, para que el pedido pase el filtro de usuario actual. */
+	private RequestPostProcessor authenticated() {
+		User user = new User();
+		ReflectionTestUtils.setField(user, "id", 1L);
+		user.setEnabled(true);
+		user.setCredentialsVersion(0);
+		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+		return jwt().jwt(j -> j.subject("1").claim("cv", 0));
+	}
 
 	@Autowired
 	MockMvc mvc;
@@ -80,7 +101,7 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	void businessExceptionUsesCodeStatusAndSpanishDetail() throws Exception {
-		mvc.perform(get("/probe/business").with(jwt()))
+		mvc.perform(get("/probe/business").with(authenticated()))
 				.andExpect(status().isConflict())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.type").value("about:blank"))
@@ -93,7 +114,7 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	void businessExceptionIncludesEntries() throws Exception {
-		mvc.perform(get("/probe/business-entries").with(jwt()))
+		mvc.perform(get("/probe/business-entries").with(authenticated()))
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.code").value("UNRESOLVED_PENDING_ENTRIES"))
 				.andExpect(jsonPath("$.entries[0]").value(3))
@@ -102,7 +123,7 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	void beanValidationErrorsListFields() throws Exception {
-		mvc.perform(post("/probe/body").with(jwt()).contentType(MediaType.APPLICATION_JSON)
+		mvc.perform(post("/probe/body").with(authenticated()).contentType(MediaType.APPLICATION_JSON)
 						.content("{\"name\":\"\",\"amount\":0}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
@@ -113,14 +134,14 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	void unreadableJsonIsValidationError() throws Exception {
-		mvc.perform(post("/probe/body").with(jwt()).contentType(MediaType.APPLICATION_JSON).content("{no es json"))
+		mvc.perform(post("/probe/body").with(authenticated()).contentType(MediaType.APPLICATION_JSON).content("{no es json"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
 	@Test
 	void constraintOnRequestParamIsValidationError() throws Exception {
-		mvc.perform(get("/probe/param").param("count", "0").with(jwt()))
+		mvc.perform(get("/probe/param").param("count", "0").with(authenticated()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
 				.andExpect(jsonPath("$.errors[0].field").value("count"));
@@ -128,21 +149,21 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	void missingRequestParamIsValidationError() throws Exception {
-		mvc.perform(get("/probe/param").with(jwt()))
+		mvc.perform(get("/probe/param").with(authenticated()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
 	@Test
 	void invalidPeriodIsValidationError() throws Exception {
-		mvc.perform(get("/probe/period/2026-13").with(jwt()))
+		mvc.perform(get("/probe/period/2026-13").with(authenticated()))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
 	@Test
 	void periodAndDatesUseIsoFormats() throws Exception {
-		mvc.perform(get("/probe/period/2026-10").with(jwt()))
+		mvc.perform(get("/probe/period/2026-10").with(authenticated()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.period").value("2026-10"))
 				.andExpect(jsonPath("$.date").value("2026-11-25"));
@@ -150,28 +171,28 @@ class GlobalExceptionHandlerTest {
 
 	@Test
 	void unknownRouteIsNotFound() throws Exception {
-		mvc.perform(get("/probe/inexistente").with(jwt()))
+		mvc.perform(get("/probe/inexistente").with(authenticated()))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value("NOT_FOUND"));
 	}
 
 	@Test
 	void wrongMethodIsMethodNotAllowed() throws Exception {
-		mvc.perform(delete("/probe/business").with(jwt()))
+		mvc.perform(delete("/probe/business").with(authenticated()))
 				.andExpect(status().isMethodNotAllowed())
 				.andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
 	}
 
 	@Test
 	void nonJsonBodyIsUnsupportedMediaType() throws Exception {
-		mvc.perform(post("/probe/body").with(jwt()).contentType(MediaType.TEXT_PLAIN).content("hola"))
+		mvc.perform(post("/probe/body").with(authenticated()).contentType(MediaType.TEXT_PLAIN).content("hola"))
 				.andExpect(status().isUnsupportedMediaType())
 				.andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
 	}
 
 	@Test
 	void unexpectedErrorHidesInternalDetail() throws Exception {
-		mvc.perform(get("/probe/boom").with(jwt()))
+		mvc.perform(get("/probe/boom").with(authenticated()))
 				.andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
 				.andExpect(jsonPath("$.detail").value("Ocurrió un error inesperado."))

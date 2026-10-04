@@ -2,6 +2,7 @@ package com.smartcoin.user.web;
 
 import com.smartcoin.shared.error.GlobalExceptionHandler;
 import com.smartcoin.shared.security.SecurityConfig;
+import com.smartcoin.user.repository.UserRepository;
 import com.smartcoin.user.service.UserService;
 
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,10 @@ class AdminUserControllerKeyNotConfiguredTest {
 
 	@MockitoBean
 	UserService users;
+
+	// SecurityConfig lo necesita para el filtro de usuario actual (RN-50).
+	@MockitoBean
+	UserRepository userRepository;
 
 	@Test
 	void anyKeyIsUnauthorized() throws Exception {

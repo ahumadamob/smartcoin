@@ -4,7 +4,9 @@ import java.nio.charset.StandardCharsets;
 
 import javax.crypto.spec.SecretKeySpec;
 
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.smartcoin.shared.config.AppProperties;
+import com.smartcoin.user.repository.UserRepository;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -19,20 +21,26 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
- * Base de seguridad: sin sesión, JWT HS256 firmado con {@code APP_JWT_SECRET}, Swagger público y
- * {@code /api/admin/**} protegido con la clave de administración en lugar del JWT.
- * El login y el filtro de usuario (RN-50) llegan con las historias siguientes.
+ * Base de seguridad: sin sesión, JWT HS256 firmado con {@code APP_JWT_SECRET}, login y Swagger públicos y
+ * {@code /api/admin/**} protegido con la clave de administración en lugar del JWT. Con JWT, cada pedido pasa por
+ * {@link CurrentUserFilter} (RN-50). El 403 por cambio de contraseña obligatorio llega con HU-04.
  */
 @Configuration
 @EnableConfigurationProperties(AppProperties.class)
 public class SecurityConfig {
+
+	/** Único endpoint autenticado con credenciales en lugar de token. */
+	static final String LOGIN_PATH = "/api/auth/login";
 
 	/** Rutas de administración: se autentican con {@code X-Admin-Key}, no con JWT. */
 	@Bean
@@ -51,7 +59,7 @@ public class SecurityConfig {
 
 	@Bean
 	@Order(2)
-	SecurityFilterChain securityFilterChain(HttpSecurity http,
+	SecurityFilterChain securityFilterChain(HttpSecurity http, UserRepository users,
 			@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) throws Exception {
 		// Los 401 pasan por el manejador global para salir como Problem Details con `code`.
 		AuthenticationEntryPoint entryPoint = (request, response, e) -> resolver.resolveException(request, response, null, e);
@@ -59,10 +67,12 @@ public class SecurityConfig {
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(a -> a
+						.requestMatchers(LOGIN_PATH).permitAll()
 						.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 						.anyRequest().authenticated())
 				.exceptionHandling(e -> e.authenticationEntryPoint(entryPoint))
 				.oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()).authenticationEntryPoint(entryPoint))
+				.addFilterAfter(new CurrentUserFilter(users, resolver), BearerTokenAuthenticationFilter.class)
 				.build();
 	}
 
@@ -73,9 +83,17 @@ public class SecurityConfig {
 
 	@Bean
 	JwtDecoder jwtDecoder(AppProperties properties) {
-		byte[] secret = properties.security().jwtSecret().getBytes(StandardCharsets.UTF_8);
-		return NimbusJwtDecoder.withSecretKey(new SecretKeySpec(secret, "HmacSHA256"))
+		return NimbusJwtDecoder.withSecretKey(secretKey(properties))
 				.macAlgorithm(MacAlgorithm.HS256)
 				.build();
+	}
+
+	@Bean
+	JwtEncoder jwtEncoder(AppProperties properties) {
+		return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey(properties)));
+	}
+
+	private static SecretKeySpec secretKey(AppProperties properties) {
+		return new SecretKeySpec(properties.security().jwtSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
 	}
 }
