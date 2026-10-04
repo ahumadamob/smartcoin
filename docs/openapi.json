@@ -1,0 +1,1 @@
+{"openapi":"3.1.0","info":{"title":"Smartcoin API","description":"API REST de presupuesto personal con proyección a 24 meses.","version":"0.0.1"},"servers":[{"url":"http://localhost:8080","description":"Generated server url"}],"paths":{},"components":{}}
