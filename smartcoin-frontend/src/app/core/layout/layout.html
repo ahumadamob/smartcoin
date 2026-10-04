@@ -1,0 +1,19 @@
+<mat-sidenav-container class="container">
+  <mat-sidenav mode="side" opened class="sidenav">
+    <mat-toolbar>Smartcoin</mat-toolbar>
+    <nav aria-label="Principal">
+      <mat-nav-list>
+        @for (item of navItems; track item.path) {
+          <a mat-list-item [routerLink]="item.path" routerLinkActive="active" [activated]="rla.isActive" #rla="routerLinkActive">
+            {{ item.label }}
+          </a>
+        }
+      </mat-nav-list>
+    </nav>
+  </mat-sidenav>
+  <mat-sidenav-content class="content">
+    <main>
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

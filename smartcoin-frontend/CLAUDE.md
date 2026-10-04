@@ -4,20 +4,21 @@ Aplicación Angular para escritorio. Leer primero el `CLAUDE.md` de la raíz.
 
 ## Stack
 
-- Angular, versión estable más reciente al crear el proyecto con Angular CLI. TypeScript en modo estricto.
+- Angular 22 (la versión estable más reciente al crear el proyecto con Angular CLI) y Angular Material 22. TypeScript en modo estricto (`strict: true` explícito en `tsconfig.json`).
 - Componentes standalone, signals para el estado y formularios reactivos tipados.
 - Angular Material para los componentes de interfaz.
-- Cliente HTTP generado desde `../docs/openapi.json` con OpenAPI Generator (`typescript-angular`).
+- Cliente HTTP generado desde `../docs/openapi.json` con OpenAPI Generator 7.25.0 (`typescript-angular`, versión fijada en `openapitools.json`; soporta Angular 22 por defecto).
+- Tests unitarios con Vitest (runner por defecto de `ng test` desde Angular 21), con jsdom.
 - Playwright para los tests de punta a punta.
 
 ## Comandos
 
 | Qué | Comando |
 |---|---|
-| Levantar | `npm start` (`ng serve` con proxy de `/api` a `http://localhost:8080`, definido en `proxy.conf.json`) |
-| Tests unitarios | `npm test` (el runner que trae el Angular CLI instalado) |
+| Levantar | `npm start` (`ng serve --proxy-config proxy.conf.json`: `/api` va a `http://localhost:8080`) |
+| Tests unitarios | `npm test` (Vitest vía `ng test`; en una terminal interactiva queda en modo watch, con `-- --watch=false` corre una vez) |
 | Regenerar el cliente | `npm run generate:api` |
-| Tests de punta a punta | `npx playwright test` (con backend y frontend levantados) |
+| Tests de punta a punta | `npm run e2e` o `npx playwright test` (levanta el frontend si no está corriendo; el backend, cuando un test lo necesite, hay que levantarlo aparte) |
 | Build | `npm run build` |
 
 En `package.json`, con `@openapitools/openapi-generator-cli` como dependencia de desarrollo (necesita Java, que ya está por el backend):
@@ -31,8 +32,8 @@ En `package.json`, con `@openapitools/openapi-generator-cli` como dependencia de
 ```
 src/app/
 ├── api/            generado; nunca se edita a mano
-├── core/           autenticación (servicio, interceptor, guards), layout, manejo de errores, mensajes
-├── shared/         pipes (moneda, período), componentes reutilizables
+├── core/           autenticación (servicio, interceptor, guards), layout, manejo de errores, mensajes, locale, título de pestaña
+├── shared/         pipes (`money`, `period`), componentes reutilizables (`page-placeholder` para las pantallas aún vacías)
 └── features/
     ├── auth/           login, cambio de contraseña
     ├── budget/         vista del mes, partidas, movimientos, consolidación
@@ -62,11 +63,13 @@ src/app/
 
 Las rutas están en español porque el usuario las ve; el código, en inglés.
 
+Login y cambio de contraseña van fuera del layout; el resto va dentro, con menú lateral. El menú lista Presupuesto, Conceptos, Cuentas, Categorías, Transferencias, Flujo de caja, Proyección y Varios meses; el cierre de mes se abre desde la pantalla del mes. Mientras una historia no implementa su pantalla, la ruta carga `PagePlaceholder`.
+
 ## Convenciones
 
 - **Autenticación**: el token se guarda en `sessionStorage`. Un interceptor agrega `Authorization: Bearer`. Ante un 401, se descarta el token y se va al login. Ante un 403 `PASSWORD_CHANGE_REQUIRED`, se va al cambio de contraseña.
 - **Guards**: sin token, solo `/login`. Con cambio de contraseña pendiente, solo `/cambiar-contrasena`.
-- **Locale `es-AR`**: montos con el pipe de moneda (`$ 1.234,50` y `US$ 1.234,50`), fechas `dd/MM/yyyy`, períodos como "noviembre 2026".
+- **Locale `es-AR`**: registrado en `core/locale.ts`. Montos con el pipe `money` (`$ 1.234,50` y `US$ 1.234,50`, con espacio común), fechas con la constante `DATE_FORMAT` (`dd/MM/yyyy`), períodos con el pipe `period` ("noviembre 2026").
 - **Dinero**: el frontend nunca suma, resta ni promedia montos. Todo total, pendiente o diferencia viene calculado del backend. Los campos de monto aceptan coma decimal y se convierten a número antes de enviar.
 - **Reglas de negocio**: el frontend valida formato (obligatorios, mayor que 0, fechas válidas). Las reglas (ventana de anticipación, monedas, cierres, alcances) las decide el backend y el frontend muestra su error.
 - **Errores**: un único archivo de mensajes traduce cada `code` de Problem Details a un texto en español. Si un código no está, se muestra el `detail` del backend.
