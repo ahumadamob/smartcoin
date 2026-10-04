@@ -1,5 +1,15 @@
 import { expect, test } from '@playwright/test';
 
+// Estas pantallas todavía no llaman a la API: alcanza con una sesión guardada que el guard acepte.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      'smartcoin.session',
+      JSON.stringify({ token: 'token-de-prueba', expiresAt: '2999-01-01T00:00:00Z' }),
+    );
+  });
+});
+
 test('abre la aplicación y muestra el menú', async ({ page }) => {
   await page.goto('/');
 
