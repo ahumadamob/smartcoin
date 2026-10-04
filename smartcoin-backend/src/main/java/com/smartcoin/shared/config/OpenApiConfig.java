@@ -1,7 +1,9 @@
 package com.smartcoin.shared.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,9 +13,15 @@ public class OpenApiConfig {
 
 	@Bean
 	OpenAPI smartcoinOpenApi() {
-		return new OpenAPI().info(new Info()
-				.title("Smartcoin API")
-				.description("API REST de presupuesto personal con proyección a 24 meses.")
-				.version("0.0.1"));
+		return new OpenAPI()
+				.info(new Info()
+						.title("Smartcoin API")
+						.description("API REST de presupuesto personal con proyección a 24 meses.")
+						.version("0.0.1"))
+				.components(new Components().addSecuritySchemes("bearerAuth", new SecurityScheme()
+						.type(SecurityScheme.Type.HTTP)
+						.scheme("bearer")
+						.bearerFormat("JWT")
+						.description("Token de POST /api/auth/login, válido por 8 horas.")));
 	}
 }
