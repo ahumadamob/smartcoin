@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   selector: 'app-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    MatButtonModule,
     MatListModule,
     MatSidenavModule,
     MatToolbarModule,
