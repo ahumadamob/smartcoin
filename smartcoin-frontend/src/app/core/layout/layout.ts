@@ -1,10 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { MatListModule } from '@angular/material/list';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
+import { UserMenu } from './user-menu';
 
 interface NavItem {
   label: string;
@@ -27,22 +27,23 @@ const NAV_ITEMS: NavItem[] = [
   selector: 'app-layout',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatButtonModule,
     MatListModule,
     MatSidenavModule,
     MatToolbarModule,
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
+    UserMenu,
   ],
   templateUrl: './layout.html',
   styleUrl: './layout.scss',
 })
-export class Layout {
+export class Layout implements OnInit {
   private readonly auth = inject(AuthService);
   protected readonly navItems = NAV_ITEMS;
 
-  protected logout(): void {
-    this.auth.logout();
+  ngOnInit(): void {
+    // El menú de usuario muestra el email, que la sesión guardada no incluye.
+    this.auth.loadUser();
   }
 }

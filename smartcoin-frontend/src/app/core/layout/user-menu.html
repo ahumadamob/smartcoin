@@ -1,0 +1,13 @@
+<button
+  mat-stroked-button
+  type="button"
+  class="trigger"
+  [matMenuTriggerFor]="menu"
+  [attr.title]="email()"
+>
+  <span class="label">{{ email() ?? fallbackLabel }}</span>
+</button>
+<mat-menu #menu="matMenu" xPosition="after">
+  <button mat-menu-item type="button" (click)="changePassword()">Cambiar contraseña</button>
+  <button mat-menu-item type="button" (click)="logout()">Cerrar sesión</button>
+</mat-menu>
