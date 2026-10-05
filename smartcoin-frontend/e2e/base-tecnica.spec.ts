@@ -1,7 +1,18 @@
 import { expect, test } from '@playwright/test';
 
-// Estas pantallas todavía no llaman a la API: alcanza con una sesión guardada que el guard acepte.
+// Estas pantallas todavía no llaman a la API: alcanza con una sesión guardada que el guard acepte. Lo único que el
+// layout pide es el usuario actual para el menú de usuario, que se responde acá porque el token es falso.
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({
+      json: {
+        id: 1,
+        email: 'base@prueba.local',
+        mustChangePassword: false,
+        startPeriod: '2026-08',
+      },
+    }),
+  );
   await page.addInitScript(() => {
     sessionStorage.setItem(
       'smartcoin.session',
