@@ -1,6 +1,14 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
-import { authGuard, guestGuard, sessionGuard } from './auth.guard';
+import {
+  ActivatedRouteSnapshot,
+  PartialMatchRouteSnapshot,
+  Route,
+  Router,
+  RouterStateSnapshot,
+  UrlSegment,
+  UrlTree,
+} from '@angular/router';
+import { authGuard, guestGuard, mandatoryPasswordChange } from './auth.guard';
 import { AuthService } from './auth.service';
 
 describe('guards de autenticación', () => {
@@ -52,19 +60,27 @@ describe('guards de autenticación', () => {
     });
   });
 
-  describe('sessionGuard', () => {
-    it('sin token redirige a /login', () => {
-      const result = run(sessionGuard) as UrlTree;
+  describe('mandatoryPasswordChange', () => {
+    const match = () =>
+      TestBed.runInInjectionContext(() =>
+        mandatoryPasswordChange({} as Route, [] as UrlSegment[], {} as PartialMatchRouteSnapshot),
+      );
 
-      expect(router.serializeUrl(result)).toBe('/login');
+    it('coincide solo con el cambio de contraseña pendiente', () => {
+      isAuthenticated = true;
+      mustChangePassword = true;
+
+      expect(match()).toBe(true);
     });
 
-    it('con token deja pasar, tenga o no el cambio pendiente', () => {
+    it('con sesión y sin cambio pendiente no coincide: la URL cae en la ruta del layout', () => {
       isAuthenticated = true;
-      expect(run(sessionGuard)).toBe(true);
 
-      mustChangePassword = true;
-      expect(run(sessionGuard)).toBe(true);
+      expect(match()).toBe(false);
+    });
+
+    it('sin sesión no coincide: el authGuard de la ruta del layout lleva al login', () => {
+      expect(match()).toBe(false);
     });
   });
 

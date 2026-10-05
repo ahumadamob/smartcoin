@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn, CanMatchFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
 /**
@@ -15,10 +15,12 @@ export const authGuard: CanActivateFn = () => {
   return !auth.mustChangePassword() || router.createUrlTree(['/cambiar-contrasena']);
 };
 
-/** Para las pantallas que sirven con o sin cambio pendiente (cambiar la contraseña): solo pide sesión iniciada. */
-export const sessionGuard: CanActivateFn = () => {
-  return inject(AuthService).isAuthenticated() || inject(Router).createUrlTree(['/login']);
-};
+/**
+ * Para la ruta del cambio de contraseña obligatorio (HU-04): coincide solo mientras hay sesión con el cambio
+ * pendiente. Con el cambio ya hecho, la misma URL cae en la ruta del layout (HU-05); sin sesión, el `authGuard` de
+ * esa ruta lleva al login.
+ */
+export const mandatoryPasswordChange: CanMatchFn = () => inject(AuthService).mustChangePassword();
 
 /**
  * Con la sesión iniciada, `/login` no tiene sentido: lleva al presupuesto del mes actual, o al cambio de

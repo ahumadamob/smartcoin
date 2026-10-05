@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
-import { authGuard, guestGuard, sessionGuard } from './core/auth/auth.guard';
-import { Layout } from './core/layout/layout';
+import { authGuard, guestGuard, mandatoryPasswordChange } from './core/auth/auth.guard';
+
+const changePassword = () =>
+  import('./features/auth/change-password/change-password').then((m) => m.ChangePassword);
 
 const placeholder = () => import('./shared/page-placeholder').then((m) => m.PagePlaceholder);
 
@@ -13,18 +15,26 @@ export const routes: Routes = [
     title: 'Iniciar sesión',
   },
   {
+    // Cambio obligatorio (HU-04): fuera del layout, sin menú ni otra salida que cerrar la sesión. Solo coincide
+    // mientras el cambio está pendiente; si no, la misma URL cae en la ruta de abajo.
     path: 'cambiar-contrasena',
-    loadComponent: () =>
-      import('./features/auth/change-password/change-password').then((m) => m.ChangePassword),
-    // Sirve con o sin cambio pendiente (HU-04, HU-05): solo pide sesión iniciada.
-    canActivate: [sessionGuard],
+    loadComponent: changePassword,
+    canMatch: [mandatoryPasswordChange],
     title: 'Cambiar contraseña',
+    data: { mandatory: true },
   },
   {
     path: '',
-    component: Layout,
+    loadComponent: () => import('./core/layout/layout').then((m) => m.Layout),
     canActivate: [authGuard],
     children: [
+      // Cambio voluntario (HU-05): dentro del layout, con el menú y con "Cancelar". Misma URL que el obligatorio.
+      {
+        path: 'cambiar-contrasena',
+        loadComponent: changePassword,
+        title: 'Cambiar contraseña',
+        data: { mandatory: false },
+      },
       { path: '', pathMatch: 'full', redirectTo: 'presupuesto' },
       {
         path: 'presupuesto',

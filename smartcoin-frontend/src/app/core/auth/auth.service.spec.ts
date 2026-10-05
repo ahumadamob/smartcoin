@@ -198,14 +198,12 @@ describe('AuthService', () => {
     it('cerrar sesión borra el email', () => {
       const auth = create();
       auth.loadUser();
-      http
-        .expectOne('/api/auth/me')
-        .flush({
-          id: 1,
-          email: 'persona@ejemplo.com',
-          mustChangePassword: false,
-          startPeriod: '2026-08',
-        });
+      http.expectOne('/api/auth/me').flush({
+        id: 1,
+        email: 'persona@ejemplo.com',
+        mustChangePassword: false,
+        startPeriod: '2026-08',
+      });
 
       auth.logout();
 
@@ -217,14 +215,12 @@ describe('AuthService', () => {
       auth.loadUser();
       auth.logout();
 
-      http
-        .expectOne('/api/auth/me')
-        .flush({
-          id: 1,
-          email: 'persona@ejemplo.com',
-          mustChangePassword: false,
-          startPeriod: '2026-08',
-        });
+      http.expectOne('/api/auth/me').flush({
+        id: 1,
+        email: 'persona@ejemplo.com',
+        mustChangePassword: false,
+        startPeriod: '2026-08',
+      });
 
       expect(auth.email()).toBeNull();
     });
