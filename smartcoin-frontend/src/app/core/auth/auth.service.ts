@@ -19,6 +19,10 @@ export class AuthService {
   private readonly api = inject(AutenticacinService);
   private readonly router = inject(Router);
   private readonly session = signal<Session | null>(readSession());
+  private readonly currentEmail = signal<string | null>(null);
+
+  /** Email del usuario de la sesión, o `null` mientras no se cargó con `loadUser()`. No se guarda en el almacenamiento. */
+  readonly email = this.currentEmail.asReadonly();
 
   /** Token vigente, o `null` si no hay sesión o ya venció. */
   token(): string | null {
@@ -68,6 +72,17 @@ export class AuthService {
     );
   }
 
+  /**
+   * Carga el email del usuario actual (`GET /api/auth/me`). Si falla no hace nada: un 401 ya lo maneja el
+   * interceptor y el menú simplemente no muestra el email.
+   */
+  loadUser(): void {
+    this.api.me().subscribe({
+      next: (user) => this.currentEmail.set(this.isAuthenticated() ? user.email : null),
+      error: () => undefined,
+    });
+  }
+
   /** La API respondió 403 `PASSWORD_CHANGE_REQUIRED`: se marca el cambio como pendiente y se va a esa pantalla. */
   requirePasswordChange(): void {
     const session = this.session();
@@ -94,6 +109,7 @@ export class AuthService {
 
   private clear(): void {
     this.session.set(null);
+    this.currentEmail.set(null);
     try {
       sessionStorage.removeItem(SESSION_KEY);
     } catch {

@@ -161,6 +161,75 @@ describe('AuthService', () => {
     });
   });
 
+  describe('loadUser', () => {
+    beforeEach(() =>
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'guardado', expiresAt: FUTURE })),
+    );
+
+    it('guarda el email del usuario actual sin tocar el almacenamiento', () => {
+      const auth = create();
+      expect(auth.email()).toBeNull();
+
+      auth.loadUser();
+      const request = http.expectOne('/api/auth/me');
+      expect(request.request.method).toBe('GET');
+      request.flush({
+        id: 1,
+        email: 'persona@ejemplo.com',
+        mustChangePassword: false,
+        startPeriod: '2026-08',
+      });
+
+      expect(auth.email()).toBe('persona@ejemplo.com');
+      expect(sessionStorage.getItem(SESSION_KEY)).not.toContain('persona@ejemplo.com');
+    });
+
+    it('si falla, el email queda sin cargar', () => {
+      const auth = create();
+
+      auth.loadUser();
+      http
+        .expectOne('/api/auth/me')
+        .flush({ code: 'INTERNAL_ERROR' }, { status: 500, statusText: 'Error' });
+
+      expect(auth.email()).toBeNull();
+    });
+
+    it('cerrar sesión borra el email', () => {
+      const auth = create();
+      auth.loadUser();
+      http
+        .expectOne('/api/auth/me')
+        .flush({
+          id: 1,
+          email: 'persona@ejemplo.com',
+          mustChangePassword: false,
+          startPeriod: '2026-08',
+        });
+
+      auth.logout();
+
+      expect(auth.email()).toBeNull();
+    });
+
+    it('si la sesión terminó antes de la respuesta, no guarda el email', () => {
+      const auth = create();
+      auth.loadUser();
+      auth.logout();
+
+      http
+        .expectOne('/api/auth/me')
+        .flush({
+          id: 1,
+          email: 'persona@ejemplo.com',
+          mustChangePassword: false,
+          startPeriod: '2026-08',
+        });
+
+      expect(auth.email()).toBeNull();
+    });
+  });
+
   describe('requirePasswordChange', () => {
     it('marca el cambio como pendiente, lo guarda y va a la pantalla de cambio', () => {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'guardado', expiresAt: FUTURE }));
