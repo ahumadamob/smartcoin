@@ -121,6 +121,8 @@ Reglas: RN-50, RN-51.
 4. Ningún DTO de entrada tiene un campo de usuario; el usuario siempre sale del token.
 5. Los tests de servicio verifican, para cada recurso, que un id de otro usuario produce `NOT_FOUND`.
 
+**Cómo se verifica**: los criterios 1 y 4 los cubren tests automáticos genéricos (cualquier endpoint o DTO nuevo queda cubierto solo), más una convención de repositorios (todo método recibe `userId`). Los criterios 2, 3 y 5 se verifican en cada historia que agrega un recurso, con sus tests de servicio; ver `smartcoin-backend/CLAUDE.md`, sección de tests.
+
 Reglas: RN-01.
 
 **Endpoints de la épica**

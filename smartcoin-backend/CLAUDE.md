@@ -144,6 +144,25 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | Servicios | JUnit + Mockito, con repositorios simulados y un `Clock` fijo. |
 | Controladores y seguridad | `@WebMvcTest` con MockMvc y servicios simulados (`@Import` de `SecurityConfig` y `GlobalExceptionHandler`, y `app.security.jwt-secret` por `@TestPropertySource`; en Boot 4 `@WebMvcTest` no carga clases `@Configuration`): 401, 403 por cambio obligatorio, clave de administración, formato de errores. |
 
+### Aislamiento entre usuarios (HU-06, RN-01)
+
+Tres tests en `src/test/java/com/smartcoin/shared/isolation/` fallan solos si una historia nueva rompe el aislamiento. No hace falta tocarlos al agregar controladores o repositorios: toman todo del registro de Spring o del classpath.
+
+| Test | Qué verifica |
+|---|---|
+| `EndpointsRequireTokenTest` | Todo endpoint registrado responde 401 sin token. `@WebMvcTest` con todos los controladores; las dependencias de sus constructores se simulan solas (`ControllerDependencyMocks`). Excepciones explícitas: `/api/auth/login`; `/api/admin/**` (se autentica con `X-Admin-Key`: también se verifica el 401 con clave incorrecta); Swagger y `/v3/api-docs` no figuran en el registro. |
+| `RequestDtosHaveNoUserFieldTest` | Ningún tipo usado como `@RequestBody`, ni los que contiene, tiene un componente `userId` o `user`. Los DTO de respuesta no se revisan. |
+| `RepositoryConventionTest` | Todo método **declarado** en un repositorio recibe `userId`. Exceptuado `UserRepository`: `User` es el propio usuario y se lo busca por email o por el id del token. Los métodos heredados de `JpaRepository` (`findById`, `findAll`, `deleteById`) no se pueden controlar: no usarlos con datos del usuario. |
+
+Qué hace cada historia que agrega un recurso (cuentas, categorías, Conceptos, partidas, movimientos, transferencias), porque los criterios 2, 3 y 5 de HU-06 no tienen test automático genérico:
+
+1. Repositorio con `findByIdAndUserId` y listados `...ByUserId`; sin usar `findById` ni `findAll`.
+2. Test de servicio: un id que pertenece a otro usuario produce `BusinessException` con `NOT_FOUND` en leer, modificar y eliminar (repositorio simulado que devuelve vacío para ese `userId`).
+3. Test de servicio de listado y totales: se consulta solo con el `userId` del usuario actual (`verify` sobre el repositorio).
+4. Los DTO de entrada no llevan usuario, y los endpoints nuevos exigen token. No agregar excepciones al test de token.
+
+No hay una clase base compartida para el punto 2: con un solo patrón de dos líneas no ahorra repetición. Si varias historias repiten el mismo código, extraerlo entonces.
+
 **Prohibido por ahora**: `@SpringBootTest`, `@DataJpaTest` y cualquier test que se conecte a MySQL, porque la única base tiene datos reales. Si una consulta necesita test de integración, se anota como pendiente en el PR o la historia, para cuando haya Docker y Testcontainers.
 
 Casos límite que siempre deben tener test:
