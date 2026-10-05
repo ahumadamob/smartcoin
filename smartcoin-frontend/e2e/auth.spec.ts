@@ -455,7 +455,9 @@ test.describe('cambio de contraseña voluntario', () => {
     await expect(page.getByRole('menuitem')).toHaveCount(0);
     await expect(trigger).toBeFocused();
 
+    // Se abre de nuevo y, recién con el foco en la primera opción, Enter la elige.
     await page.keyboard.press('Enter');
+    await expect(page.getByRole('menuitem', { name: 'Cambiar contraseña' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/cambiar-contrasena$/);
   });
