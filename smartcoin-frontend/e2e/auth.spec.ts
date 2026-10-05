@@ -94,6 +94,10 @@ async function meStatus(playwright: Playwright, token: string) {
   return response.status();
 }
 
+/** La confirmación del snackbar. Material repite el texto en una región oculta para lectores de pantalla: se acota al contenedor visible. */
+const changedNotice = (page: Page) =>
+  page.locator('mat-snack-bar-container').getByText('Contraseña cambiada.');
+
 const userMenuButton = (page: Page, email: string) => page.getByRole('button', { name: email });
 
 async function openUserMenu(page: Page, email: string) {
@@ -240,7 +244,7 @@ test.describe('cambio de contraseña obligatorio', () => {
 
     await expect(page).toHaveURL(/\/presupuesto$/);
     await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible();
-    await expect(page.getByText('Contraseña cambiada.')).toBeVisible();
+    await expect(changedNotice(page)).toBeVisible();
     const newToken = await storedToken(page);
     expect(newToken).not.toBe(oldToken);
 
@@ -356,7 +360,7 @@ test.describe('cambio de contraseña voluntario', () => {
 
     // Confirma y vuelve a donde estaba, con el token nuevo y sin pasar por el login.
     await expect(page).toHaveURL(/\/cuentas$/);
-    await expect(page.getByText('Contraseña cambiada.')).toBeVisible();
+    await expect(changedNotice(page)).toBeVisible();
     const afterVoluntary = await storedToken(page);
     expect(afterVoluntary).not.toBe(afterMandatory);
 
@@ -399,7 +403,7 @@ test.describe('cambio de contraseña voluntario', () => {
     await expect(page.getByRole('alert')).toHaveText('La contraseña actual es incorrecta.');
     await expect(page).toHaveURL(/\/cambiar-contrasena$/);
     await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible();
-    await expect(page.getByText('Contraseña cambiada.')).toHaveCount(0);
+    await expect(changedNotice(page)).toHaveCount(0);
     expect(await storedToken(page)).toBe(token);
     expect(await meStatus(playwright, token), 'el token sigue sirviendo').toBe(200);
   });
