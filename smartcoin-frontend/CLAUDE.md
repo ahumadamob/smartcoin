@@ -50,7 +50,7 @@ src/app/
 | Pantalla | Ruta | Historias |
 |---|---|---|
 | Login | `/login` | HU-03 |
-| Cambio de contraseña | `/cambiar-contrasena` | HU-04, HU-05 |
+| Cambio de contraseña | `/cambiar-contrasena` (obligatorio, fuera del layout) o dentro del layout (voluntario) | HU-04, HU-05 |
 | Presupuesto del mes | `/presupuesto/:period` (sin período, el actual) | HU-15 a HU-26 |
 | Conceptos | `/conceptos` | HU-10 a HU-14 |
 | Cuentas | `/cuentas` | HU-07, HU-08 |
@@ -63,12 +63,12 @@ src/app/
 
 Las rutas están en español porque el usuario las ve; el código, en inglés.
 
-Login y cambio de contraseña van fuera del layout; el resto va dentro, con menú lateral. El menú lista Presupuesto, Conceptos, Cuentas, Categorías, Transferencias, Flujo de caja, Proyección y Varios meses; el cierre de mes se abre desde la pantalla del mes. Mientras una historia no implementa su pantalla, la ruta carga `PagePlaceholder`.
+El login y el cambio de contraseña obligatorio van fuera del layout; el resto, incluido el cambio de contraseña voluntario (HU-05), va dentro, con menú lateral. El pie del menú lateral tiene el menú de usuario (`UserMenu`): muestra el email del usuario (`AuthService.email`, que sale de `GET /api/auth/me` y no se guarda en el almacenamiento) y ofrece "Cambiar contraseña" y "Cerrar sesión". El menú lista Presupuesto, Conceptos, Cuentas, Categorías, Transferencias, Flujo de caja, Proyección y Varios meses; el cierre de mes se abre desde la pantalla del mes. Mientras una historia no implementa su pantalla, la ruta carga `PagePlaceholder`.
 
 ## Convenciones
 
 - **Autenticación**: el token se guarda en `sessionStorage`. Un interceptor agrega `Authorization: Bearer`. Ante un 401, se descarta el token y se va al login. Ante un 403 `PASSWORD_CHANGE_REQUIRED`, se va al cambio de contraseña.
-- **Guards**: sin token, solo `/login`. Con cambio de contraseña pendiente, solo `/cambiar-contrasena`. El estado pendiente viaja en la sesión guardada (`mustChangePassword`), que el login, el cambio de contraseña y el 403 `PASSWORD_CHANGE_REQUIRED` actualizan. `/cambiar-contrasena` solo exige sesión iniciada, porque HU-05 la usa sin cambio obligatorio. El formulario es el componente `ChangePasswordForm`, que emite `changed` al terminar.
+- **Guards**: sin token, solo `/login`. Con cambio de contraseña pendiente, solo `/cambiar-contrasena`. El estado pendiente viaja en la sesión guardada (`mustChangePassword`), que el login, el cambio de contraseña y el 403 `PASSWORD_CHANGE_REQUIRED` actualizan. La URL `/cambiar-contrasena` tiene dos rutas (`app.routes.ts`): la obligatoria, fuera del layout, que solo coincide (`canMatch: mandatoryPasswordChange`) mientras el cambio está pendiente, y la voluntaria, dentro del layout, que sirve a quien ya tiene sesión sin cambio pendiente. El modo llega a `ChangePassword` por `data.mandatory`. Voluntario: "Cancelar" y, al terminar, vuelven a donde estaba el usuario (`returnUrl` en el estado de la navegación, que pasa el menú; sin él, `/presupuesto`). Obligatorio: sin salida salvo cerrar sesión; al terminar va a `/presupuesto`. En los dos modos se confirma con un snackbar "Contraseña cambiada.". El formulario es el componente `ChangePasswordForm`, que emite `changed` al terminar.
 - **Locale `es-AR`**: registrado en `core/locale.ts`. Montos con el pipe `money` (`$ 1.234,50` y `US$ 1.234,50`, con espacio común), fechas con la constante `DATE_FORMAT` (`dd/MM/yyyy`), períodos con el pipe `period` ("noviembre 2026").
 - **Dinero**: el frontend nunca suma, resta ni promedia montos. Todo total, pendiente o diferencia viene calculado del backend. Los campos de monto aceptan coma decimal y se convierten a número antes de enviar.
 - **Reglas de negocio**: el frontend valida formato (obligatorios, mayor que 0, fechas válidas). Las reglas (ventana de anticipación, monedas, cierres, alcances) las decide el backend y el frontend muestra su error.
