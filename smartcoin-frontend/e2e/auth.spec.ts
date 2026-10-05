@@ -94,7 +94,7 @@ async function meStatus(playwright: Playwright, token: string) {
   return response.status();
 }
 
-/** La confirmación del snackbar. Material repite el texto en una región oculta para lectores de pantalla: se acota al contenedor visible. */
+/** La confirmación del snackbar. Si hay dos cambios seguidos pueden convivir dos: el test cierra la primera. */
 const changedNotice = (page: Page) =>
   page.locator('mat-snack-bar-container').getByText('Contraseña cambiada.');
 
@@ -340,6 +340,10 @@ test.describe('cambio de contraseña voluntario', () => {
     await page.getByRole('button', { name: 'Cambiar contraseña' }).click();
     await expect(page).toHaveURL(/\/presupuesto$/);
     const afterMandatory = await storedToken(page);
+    // La confirmación del cambio obligatorio se cierra antes del siguiente cambio, para que no convivan dos.
+    await expect(changedNotice(page)).toBeVisible();
+    await page.locator('mat-snack-bar-container').getByRole('button', { name: 'Cerrar' }).click();
+    await expect(changedNotice(page)).toHaveCount(0);
 
     // Desde otra pantalla, el menú muestra el email y lleva al mismo formulario, ahora dentro del layout.
     await page.getByRole('link', { name: 'Cuentas' }).click();
