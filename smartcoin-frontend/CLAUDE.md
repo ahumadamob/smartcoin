@@ -68,11 +68,11 @@ Login y cambio de contraseña van fuera del layout; el resto va dentro, con men�
 ## Convenciones
 
 - **Autenticación**: el token se guarda en `sessionStorage`. Un interceptor agrega `Authorization: Bearer`. Ante un 401, se descarta el token y se va al login. Ante un 403 `PASSWORD_CHANGE_REQUIRED`, se va al cambio de contraseña.
-- **Guards**: sin token, solo `/login`. Con cambio de contraseña pendiente, solo `/cambiar-contrasena`.
+- **Guards**: sin token, solo `/login`. Con cambio de contraseña pendiente, solo `/cambiar-contrasena`. El estado pendiente viaja en la sesión guardada (`mustChangePassword`), que el login, el cambio de contraseña y el 403 `PASSWORD_CHANGE_REQUIRED` actualizan. `/cambiar-contrasena` solo exige sesión iniciada, porque HU-05 la usa sin cambio obligatorio. El formulario es el componente `ChangePasswordForm`, que emite `changed` al terminar.
 - **Locale `es-AR`**: registrado en `core/locale.ts`. Montos con el pipe `money` (`$ 1.234,50` y `US$ 1.234,50`, con espacio común), fechas con la constante `DATE_FORMAT` (`dd/MM/yyyy`), períodos con el pipe `period` ("noviembre 2026").
 - **Dinero**: el frontend nunca suma, resta ni promedia montos. Todo total, pendiente o diferencia viene calculado del backend. Los campos de monto aceptan coma decimal y se convierten a número antes de enviar.
 - **Reglas de negocio**: el frontend valida formato (obligatorios, mayor que 0, fechas válidas). Las reglas (ventana de anticipación, monedas, cierres, alcances) las decide el backend y el frontend muestra su error.
-- **Errores**: un único archivo de mensajes traduce cada `code` de Problem Details a un texto en español. Si un código no está, se muestra el `detail` del backend.
+- **Errores**: un único archivo de mensajes traduce cada `code` de Problem Details a un texto en español. Si un código no está, se muestra el `detail` del backend. `VALIDATION_ERROR` muestra el primer error por campo o, si no hay, el `detail`, porque ahí está la causa (por ejemplo, "la contraseña nueva debe ser distinta de la actual").
 - **Confirmaciones explícitas**: eliminar con alcance, consolidar con partidas editadas en el destino, pago rápido y cerrar el mes usan diálogos que muestran exactamente qué va a pasar (con la vista previa o la simulación del backend cuando existe).
 - **Textos**: interfaz en español con el vocabulario del glosario (Concepto, Partida, Movimiento, Consolidar, Cerrar el mes). En el código, los nombres en inglés del glosario.
 - **Accesibilidad básica**: todo campo con etiqueta, navegación con teclado y foco visible.
