@@ -3,7 +3,7 @@
     <p class="error" role="alert">{{ message }}</p>
   }
 
-  <mat-form-field appearance="outline">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Nombre</mat-label>
     <input matInput formControlName="name" maxlength="100" autocomplete="off" required />
     @if (form.controls.name.hasError('required') || form.controls.name.hasError('blank')) {
@@ -11,7 +11,7 @@
     }
   </mat-form-field>
 
-  <mat-form-field appearance="outline">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Tipo</mat-label>
     <mat-select formControlName="type" required>
       @for (type of types; track type) {
@@ -23,7 +23,7 @@
     }
   </mat-form-field>
 
-  <mat-form-field appearance="outline">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Moneda</mat-label>
     <mat-select formControlName="currency" required>
       @for (currency of currencies; track currency) {
@@ -38,7 +38,7 @@
     }
   </mat-form-field>
 
-  <mat-form-field appearance="outline">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Fecha de apertura</mat-label>
     <input matInput type="date" formControlName="openingDate" required />
     @if (reasons().openingDate; as reason) {
@@ -51,7 +51,7 @@
     }
   </mat-form-field>
 
-  <mat-form-field appearance="outline">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Saldo inicial</mat-label>
     <input matInput formControlName="initialBalance" inputmode="decimal" autocomplete="off" required />
     @if (reasons().initialBalance; as reason) {
