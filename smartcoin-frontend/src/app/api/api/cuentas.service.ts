@@ -17,6 +17,8 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { AccountListResponse } from '../model/accountListResponse';
+// @ts-ignore
 import { AccountRequest } from '../model/accountRequest';
 // @ts-ignore
 import { AccountResponse } from '../model/accountResponse';
@@ -233,15 +235,15 @@ export class CuentasService extends BaseService {
 
     /**
      * Listar las cuentas
-     * Todas las cuentas del usuario, ordenadas por moneda y nombre, sin paginación. Cada una indica qué campos se pueden editar y por qué. El saldo actual y los subtotales llegan con HU-08.
+     * Todas las cuentas del usuario, ordenadas por moneda y nombre, sin paginación. Cada una trae su saldo a hoy (RN-35) y qué campos se pueden editar y por qué. Aparte, un subtotal de saldos por moneda: nunca hay un total que mezcle monedas.
      * @endpoint get /api/accounts
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public listAccounts(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<AccountResponse>>;
-    public listAccounts(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<AccountResponse>>>;
-    public listAccounts(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<AccountResponse>>>;
+    public listAccounts(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AccountListResponse>;
+    public listAccounts(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AccountListResponse>>;
+    public listAccounts(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AccountListResponse>>;
     public listAccounts(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarHeaders = this.defaultHeaders;
@@ -275,7 +277,7 @@ export class CuentasService extends BaseService {
 
         let localVarPath = `/api/accounts`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<Array<AccountResponse>>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<AccountListResponse>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,

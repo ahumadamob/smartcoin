@@ -11,7 +11,7 @@ import { AccountEditability } from './accountEditability';
 
 
 /**
- * Una cuenta del usuario, con qué campos se pueden editar.
+ * Una cuenta del usuario, con su saldo actual y qué campos se pueden editar.
  */
 export interface AccountResponse { 
     id: number;
@@ -20,6 +20,10 @@ export interface AccountResponse {
     currency: AccountResponse.CurrencyEnum;
     openingDate: string;
     initialBalance: number;
+    /**
+     * Saldo a hoy (RN-35): saldo inicial más movimientos y transferencias con fecha hasta hoy. Puede ser negativo.
+     */
+    currentBalance: number;
     /**
      * Edición de los campos que no son siempre editables. El nombre y el tipo siempre se pueden editar.
      */
