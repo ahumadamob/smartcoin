@@ -1,0 +1,57 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.title {
+  margin: 0;
+  font: var(--mat-sys-headline-medium);
+}
+
+.error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--mat-sys-error);
+}
+
+.add,
+.edit {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.add-field,
+.edit-field {
+  flex: 1;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.edit {
+  flex: 1;
+}
+
+.name {
+  flex: 1;
+  font: var(--mat-sys-title-medium);
+}
+
+.row-actions {
+  display: flex;
+}

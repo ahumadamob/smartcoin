@@ -61,9 +61,8 @@ export const routes: Routes = [
       },
       {
         path: 'categorias',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/categories/categories').then((m) => m.Categories),
         title: 'Categorías',
-        data: { heading: 'Categorías' },
       },
       {
         path: 'transferencias',

@@ -22,6 +22,8 @@ describe('messageFor', () => {
       'ACCOUNT_IN_USE',
       'No se puede eliminar la cuenta porque ya tiene Conceptos, partidas, movimientos, transferencias o cierres.',
     ],
+    ['CATEGORY_NAME_TAKEN', 'Ya tenés una categoría con ese nombre.'],
+    ['CATEGORY_IN_USE', 'No se puede eliminar la categoría porque la usan Conceptos o partidas.'],
     ['FIELD_NOT_EDITABLE', 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.'],
   ])('traduce %s', (code, expected) => {
     expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);
