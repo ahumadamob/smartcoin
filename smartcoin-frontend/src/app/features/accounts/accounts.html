@@ -34,7 +34,13 @@
 
   @for (group of groups(); track group.currency) {
     <section class="group" [attr.aria-labelledby]="'group-' + group.currency">
-      <h2 class="subtitle" [id]="'group-' + group.currency">{{ group.label }}</h2>
+      <div class="group-header">
+        <h2 class="subtitle" [id]="'group-' + group.currency">{{ group.label }}</h2>
+        <p class="subtotal" [class.negative]="group.subtotal < 0" data-testid="subtotal">
+          <span class="detail">Subtotal</span>
+          <span class="amount">{{ group.subtotal | money: group.currency }}</span>
+        </p>
+      </div>
       <ul class="list">
         @for (account of group.accounts; track account.id) {
           <li class="row">
@@ -44,9 +50,9 @@
                 {{ typeLabels[account.type] }} · desde el {{ account.openingDate | date: dateFormat }}
               </span>
             </div>
-            <div class="balance">
-              <span class="detail">Saldo inicial</span>
-              <span class="amount">{{ account.initialBalance | money: account.currency }}</span>
+            <div class="balance" [class.negative]="account.currentBalance < 0">
+              <span class="detail">Saldo actual</span>
+              <span class="amount" data-testid="balance">{{ account.currentBalance | money: account.currency }}</span>
             </div>
             <div class="row-actions">
               <button

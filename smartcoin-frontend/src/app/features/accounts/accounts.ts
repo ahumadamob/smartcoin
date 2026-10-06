@@ -5,7 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin } from 'rxjs';
-import { AccountResponse, AutenticacinService, CuentasService } from '../../api';
+import { AccountListResponse, AccountResponse, AutenticacinService, CurrencySubtotal, CuentasService } from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { ConfirmDialog, ConfirmDialogData } from '../../shared/confirm-dialog';
@@ -13,11 +13,12 @@ import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { AccountForm } from './account-form';
 import { ACCOUNT_TYPE_LABELS, CURRENCIES, CURRENCY_LABELS } from './account-labels';
 
-/** Las cuentas de una moneda. Los totales por moneda llegan con HU-08. */
+/** Las cuentas de una moneda y su subtotal, calculado por el backend. */
 interface CurrencyGroup {
   currency: AccountResponse['currency'];
   label: string;
   accounts: AccountResponse[];
+  subtotal: number;
 }
 
 /** Cuentas (HU-07): lista agrupada por moneda, y alta, edición y eliminación. Las reglas las decide el backend. */
@@ -38,6 +39,7 @@ export class Accounts implements OnInit {
   protected readonly typeLabels = ACCOUNT_TYPE_LABELS;
 
   protected readonly accounts = signal<AccountResponse[]>([]);
+  protected readonly subtotals = signal<CurrencySubtotal[]>([]);
   /** Primer día del período inicial del usuario (`YYYY-MM-DD`): la fecha de apertura que se sugiere en un alta. */
   protected readonly suggestedOpeningDate = signal('');
   protected readonly loading = signal(true);
@@ -54,6 +56,7 @@ export class Accounts implements OnInit {
       currency,
       label: CURRENCY_LABELS[currency],
       accounts: this.accounts().filter((account) => account.currency === currency),
+      subtotal: this.subtotals().find((s) => s.currency === currency)?.balance ?? 0,
     })).filter((group) => group.accounts.length > 0),
   );
 
@@ -61,7 +64,7 @@ export class Accounts implements OnInit {
     forkJoin({ user: this.authApi.me(), accounts: this.accountsApi.listAccounts() }).subscribe({
       next: ({ user, accounts }) => {
         this.suggestedOpeningDate.set(`${user.startPeriod}-01`);
-        this.accounts.set(accounts);
+        this.setList(accounts);
         this.loading.set(false);
       },
       error: (e: unknown) => {
@@ -124,9 +127,14 @@ export class Accounts implements OnInit {
     });
   }
 
+  private setList(list: AccountListResponse): void {
+    this.accounts.set(list.accounts);
+    this.subtotals.set(list.subtotals);
+  }
+
   private reload(): void {
     this.accountsApi.listAccounts().subscribe({
-      next: (accounts) => this.accounts.set(accounts),
+      next: (accounts) => this.setList(accounts),
       error: (e: unknown) => this.error.set(messageFor(e)),
     });
   }

@@ -16,6 +16,7 @@ function account(overrides: Partial<AccountResponse> = {}): AccountResponse {
     currency: 'ARS',
     openingDate: '2026-08-15',
     initialBalance: 1500.5,
+    currentBalance: 1500.5,
     editability: { currency: FREE, initialBalance: FREE, openingDate: FREE },
     ...overrides,
   };
@@ -272,6 +273,7 @@ describe('AccountForm', () => {
       edit(
         account({
           initialBalance: 1500.5,
+    currentBalance: 1500.5,
           editability: {
             currency: LOCKED_CURRENCY,
             initialBalance: LOCKED_BY_CLOSINGS,

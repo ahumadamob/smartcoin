@@ -73,3 +73,23 @@
 .row-actions {
   display: flex;
 }
+
+.group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--mat-sys-outline-variant);
+}
+
+.subtotal {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.negative .amount {
+  color: var(--mat-sys-error);
+}

@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of, throwError } from 'rxjs';
-import { AccountResponse, AutenticacinService, CuentasService } from '../../api';
+import { AccountListResponse, AccountResponse, AutenticacinService, CuentasService, CurrencySubtotal } from '../../api';
 import { registerLocaleData } from '@angular/common';
 import localeEsAr from '@angular/common/locales/es-AR';
 import { LOCALE_ID } from '@angular/core';
@@ -11,7 +11,13 @@ import { Accounts } from './accounts';
 
 const FREE = { editable: true, reason: null };
 
-function account(id: number, name: string, currency: 'ARS' | 'USD', balance = 1000): AccountResponse {
+function account(
+  id: number,
+  name: string,
+  currency: 'ARS' | 'USD',
+  balance = 1000,
+  currentBalance = balance,
+): AccountResponse {
   return {
     id,
     name,
@@ -19,8 +25,13 @@ function account(id: number, name: string, currency: 'ARS' | 'USD', balance = 10
     currency,
     openingDate: '2026-08-15',
     initialBalance: balance,
+    currentBalance,
     editability: { currency: FREE, initialBalance: FREE, openingDate: FREE },
   };
+}
+
+function list(accounts: AccountResponse[], subtotals: CurrencySubtotal[] = []): AccountListResponse {
+  return { accounts, subtotals };
 }
 
 describe('Accounts', () => {
@@ -35,10 +46,10 @@ describe('Accounts', () => {
   let dialogOpened: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>;
   let snackBar: { open: ReturnType<typeof vi.fn> };
 
-  async function setup(accounts: AccountResponse[]) {
+  async function setup(accounts: AccountResponse[], subtotals: CurrencySubtotal[] = []) {
     registerLocaleData(localeEsAr, 'es-AR');
     accountsApi = {
-      listAccounts: vi.fn().mockReturnValue(of(accounts)),
+      listAccounts: vi.fn().mockReturnValue(of(list(accounts, subtotals))),
       deleteAccount: vi.fn().mockReturnValue(of(undefined)),
       createAccount: vi.fn(),
       updateAccount: vi.fn(),
@@ -107,14 +118,76 @@ describe('Accounts', () => {
     expect(Array.from(root().querySelectorAll('section h2')).map((h) => h.textContent)).toEqual(['US$ (USD)']);
   });
 
-  it('muestra tipo, fecha de apertura y saldo inicial con formato, y ningún total', async () => {
-    await setup([{ ...account(1, 'Banco', 'ARS', -1234.5) }, account(2, 'Caja USD', 'USD', 80)]);
+  it('muestra tipo, fecha de apertura y saldo actual con formato', async () => {
+    await setup([account(1, 'Banco', 'ARS', 1000, 98765.4), account(2, 'Caja USD', 'USD', 80, 80)]);
 
-    expect(text()).toContain('Banco');
     expect(text()).toContain('Banco · desde el 15/08/2026');
-    expect(text()).toContain('-$ 1.234,50');
+    expect(text()).toContain('Saldo actual');
+    expect(text()).toContain('$ 98.765,40');
     expect(text()).toContain('US$ 80,00');
-    expect(text()).not.toMatch(/total/i);
+  });
+
+  it('muestra el saldo actual y no el inicial', async () => {
+    await setup([account(1, 'Banco', 'ARS', 100000, 130000)]);
+
+    expect(text()).toContain('$ 130.000,00');
+    expect(text()).not.toContain('100.000,00');
+  });
+
+  it('muestra un subtotal por moneda tal como lo informa el backend, sin sumar nada', async () => {
+    await setup(
+      [account(1, 'Banco', 'ARS', 0, 100), account(2, 'Efectivo', 'ARS', 0, 200), account(3, 'Caja USD', 'USD', 0, 50)],
+      [
+        { currency: 'ARS', balance: 77777.77 },
+        { currency: 'USD', balance: 1250 },
+      ],
+    );
+
+    const subtotals = Array.from(root().querySelectorAll('[data-testid="subtotal"] .amount')).map(
+      (e) => e.textContent,
+    );
+    expect(subtotals).toEqual(['$ 77.777,77', 'US$ 1.250,00']);
+    expect(text()).not.toMatch(/total general/i);
+  });
+
+  it('un grupo con una sola moneda tiene un solo subtotal', async () => {
+    await setup([account(2, 'Caja USD', 'USD')], [{ currency: 'USD', balance: 1000 }]);
+
+    expect(root().querySelectorAll('[data-testid="subtotal"]')).toHaveLength(1);
+  });
+
+  it('distingue los saldos negativos: signo menos y clase de error, en la cuenta y en el subtotal', async () => {
+    await setup(
+      [account(1, 'Banco', 'ARS', 0, -2500.5), account(2, 'Efectivo', 'ARS', 0, 1000)],
+      [{ currency: 'ARS', balance: -1500.5 }],
+    );
+
+    const rows = Array.from(root().querySelectorAll('li.row'));
+    expect(rows[0].querySelector('.balance')?.classList.contains('negative')).toBe(true);
+    expect(rows[0].querySelector('[data-testid="balance"]')?.textContent).toContain('-$ 2.500,50');
+    expect(rows[1].querySelector('.balance')?.classList.contains('negative')).toBe(false);
+    const subtotal = root().querySelector('[data-testid="subtotal"]')!;
+    expect(subtotal.classList.contains('negative')).toBe(true);
+    expect(subtotal.textContent).toContain('-$ 1.500,50');
+  });
+
+  it('un saldo en cero no se marca como negativo', async () => {
+    await setup([account(1, 'Banco', 'ARS', 0, 0)], [{ currency: 'ARS', balance: 0 }]);
+
+    expect(root().querySelector('.negative')).toBeNull();
+  });
+
+  it('después de eliminar una cuenta, los subtotales se actualizan con la respuesta del backend', async () => {
+    await setup([account(1, 'Banco', 'ARS', 0, 100), account(2, 'Efectivo', 'ARS', 0, 50)], [
+      { currency: 'ARS', balance: 150 },
+    ]);
+    accountsApi.listAccounts.mockReturnValue(
+      of(list([account(2, 'Efectivo', 'ARS', 0, 50)], [{ currency: 'ARS', balance: 50 }])),
+    );
+    dialogAnswer = true;
+    click('Eliminar Banco');
+
+    expect(root().querySelector('[data-testid="subtotal"]')?.textContent).toContain('$ 50,00');
   });
 
   it('sin cuentas lo dice y ofrece crear la primera', async () => {
@@ -177,7 +250,7 @@ describe('Accounts', () => {
 
     it('al confirmar elimina, recarga la lista y avisa', async () => {
       await setup([account(1, 'Banco', 'ARS')]);
-      accountsApi.listAccounts.mockReturnValue(of([]));
+      accountsApi.listAccounts.mockReturnValue(of(list([])));
       dialogAnswer = true;
       click('Eliminar Banco');
 
