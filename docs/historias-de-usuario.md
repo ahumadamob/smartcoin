@@ -157,7 +157,7 @@ Reglas: RN-33.
 - La edición (`PUT`) reemplaza todos los campos. Un campo no editable se envía con su valor actual; enviar el mismo valor no es un cambio.
 - La fecha de apertura se valida (400 `VALIDATION_ERROR`) solo cuando cambia en una edición. Si no se puede cambiar por la fecha de su primer movimiento o transferencia, responde 409 `FIELD_NOT_EDITABLE`.
 - El nombre se guarda sin espacios en los extremos. La unicidad la da la colación de la base (`utf8mb4_0900_as_ci`): no distingue mayúsculas, sí tildes.
-- Las referencias (Conceptos, partidas, movimientos, transferencias, cierres) todavía no se pueden crear. Sus verificaciones están probadas con repositorios simulados, y las consultas de existencia solo se validan al arrancar la API. **Pendiente de integración** (cuando haya Docker y Testcontainers): ejecutarlas contra una base real con datos en cada tabla. El HU-08 agrega el saldo actual y los subtotales por moneda.
+- Las referencias (Conceptos, partidas, movimientos, transferencias, cierres) todavía no se pueden crear. Sus verificaciones están probadas con repositorios simulados, y las consultas de existencia solo se validan al arrancar la API. **Pendiente de integración** (cuando haya Docker y Testcontainers): ejecutarlas contra una base real con datos en cada tabla. El saldo actual y los subtotales por moneda los agregó HU-08.
 
 ### HU-08 · Ver el saldo actual de cada cuenta
 
@@ -169,6 +169,13 @@ Reglas: RN-33.
 4. Un sueldo cobrado por adelantado suma en el saldo desde la fecha del cobro, aunque su partida sea del mes siguiente.
 
 Reglas: RN-04, RN-35.
+
+**Notas de implementación**
+
+- `GET /api/accounts` devuelve un objeto `{ accounts, subtotals }` y no un array. Cada cuenta trae `currentBalance` (también en `GET /{id}`, `POST` y `PUT`). `subtotals` tiene un elemento `{ currency, balance }` por cada moneda que tiene cuentas, en el orden ARS, USD; nunca hay un total que mezcle monedas. Los calcula el backend.
+- `BalanceCalculator` (`account/domain`) es la regla pura de RN-35: recibe el saldo inicial y los totales ya acotados a la fecha de corte, y no redondea. La fecha se aplica en las consultas: `AccountService.totalsUpTo(userId, date)` hace cuatro consultas agrupadas por cuenta (movimientos de ingreso, movimientos de gasto, transferencias entrantes y salientes), sin importar cuántas cuentas haya. Cuenta la fecha del movimiento, no el período de su partida, y la cuenta es la del movimiento. Hoy se pasa la fecha de hoy del `Clock`; el cierre de mes (HU-30 a HU-33) reutilizará `totalsUpTo` con el último día del período. No hay saldo a fecha arbitraria por la API.
+- Frontend: la lista muestra "Saldo actual" de cada cuenta y el "Subtotal" de cada grupo con el pipe `money`. Un saldo negativo lleva el signo menos y el color de error.
+- **Pendiente de integración**: las cuatro consultas de suma (`MovementRepository.sumByAccountUpTo`, `TransferRepository.sumIncomingByAccountUpTo` y `sumOutgoingByAccountUpTo`) no se pudieron probar contra MySQL (sin Docker ni Testcontainers) ni desde la aplicación, porque todavía no se pueden crear movimientos ni transferencias. Solo se verificó que la API arranca y que Spring Data valida sus JPQL. Los tests del servicio usan repositorios simulados, así que **no prueban el SQL**: el filtro por fecha (`<= hoy`), el signo según el tipo de la partida y el aislamiento por usuario quedan sin verificar con datos reales. Verificarlos con movimientos reales en HU-19 (movimientos) y con transferencias en HU-27, y con una base de pruebas cuando haya Docker.
 
 ### HU-09 · Administrar categorías
 

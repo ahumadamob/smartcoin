@@ -1,7 +1,7 @@
 import { Page, expect, test } from '@playwright/test';
 import { startPeriod, startSession } from './support';
 
-/** Épica 2 · Cuentas y categorías. Por ahora, HU-07 (cuentas). Cada corrida usa un usuario propio. */
+/** Épica 2 · Cuentas y categorías. HU-07 (cuentas) y HU-08 (saldo actual). Cada corrida usa un usuario propio. */
 
 const firstDayOfStartPeriod = `${startPeriod()}-01`;
 
@@ -66,6 +66,13 @@ test.describe('HU-07 · cuentas', () => {
     await expect(row(page, 'Banco Nación')).toContainText('Banco');
   });
 
+  test('HU-08: una cuenta nueva muestra su saldo inicial como saldo actual y como subtotal', async () => {
+    const bank = row(page, 'Banco Nación');
+    await expect(bank).toContainText('Saldo actual');
+    await expect(bank.getByTestId('balance')).toHaveText('$ 150.000,50');
+    await expect(group(page, '$ (ARS)').getByTestId('subtotal')).toContainText('$ 150.000,50');
+  });
+
   test('alta de una cuenta en dólares: se agrupa aparte y no se mezcla con los pesos', async () => {
     await page.getByRole('button', { name: 'Nueva cuenta' }).click();
     await fillAccount(page, {
@@ -80,6 +87,14 @@ test.describe('HU-07 · cuentas', () => {
     await expect(group(page, 'US$ (USD)').getByText('Caja de ahorro USD')).toBeVisible();
     await expect(group(page, '$ (ARS)').getByText('Caja de ahorro USD')).toHaveCount(0);
     await expect(group(page, '$ (ARS)').getByText('Banco Nación')).toBeVisible();
+  });
+
+  test('HU-08: los subtotales de pesos y dólares aparecen separados y nunca hay un total que los mezcle', async () => {
+    await expect(group(page, '$ (ARS)').getByTestId('subtotal')).toContainText('$ 150.000,50');
+    await expect(group(page, 'US$ (USD)').getByTestId('subtotal')).toContainText('US$ 1.200,00');
+    await expect(page.getByTestId('subtotal')).toHaveCount(2);
+    await expect(group(page, 'US$ (USD)').getByTestId('subtotal')).not.toContainText('150.000');
+    await expect(page.getByText(/total general/i)).toHaveCount(0);
   });
 
   test('nombre repetido, sin distinguir mayúsculas: muestra el error y no crea la cuenta', async () => {
@@ -127,9 +142,21 @@ test.describe('HU-07 · cuentas', () => {
 
     await expect(page.getByText('Cuenta «Banco Nación (principal)» guardada.')).toBeVisible();
     await expect(row(page, 'Banco Nación (principal)')).toContainText('-$ 1.500,25');
+    // HU-08: sin movimientos, el saldo actual es el inicial, y el subtotal se recalcula en el backend.
+    await expect(row(page, 'Banco Nación (principal)').getByTestId('balance')).toHaveText('-$ 1.500,25');
+    await expect(group(page, '$ (ARS)').getByTestId('subtotal')).toContainText('-$ 1.500,25');
+    await expect(group(page, 'US$ (USD)').getByTestId('subtotal')).toContainText('US$ 1.200,00');
 
     await page.reload();
     await expect(row(page, 'Banco Nación (principal)')).toContainText('-$ 1.500,25');
+    await expect(group(page, '$ (ARS)').getByTestId('subtotal')).toContainText('-$ 1.500,25');
+  });
+
+  test('HU-08: un saldo negativo se distingue a simple vista', async () => {
+    const balance = row(page, 'Banco Nación (principal)').locator('.balance');
+    await expect(balance).toHaveClass(/negative/);
+    await expect(group(page, '$ (ARS)').getByTestId('subtotal')).toHaveClass(/negative/);
+    await expect(group(page, 'US$ (USD)').getByTestId('subtotal')).not.toHaveClass(/negative/);
   });
 
   test('renombrar a un nombre que ya tiene otra cuenta da el error', async () => {
