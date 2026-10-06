@@ -44,7 +44,7 @@ public class AccountController {
 	}
 
 	@GetMapping
-	@Operation(summary = "Listar las cuentas",
+	@Operation(operationId = "listAccounts", summary = "Listar las cuentas",
 			description = "Todas las cuentas del usuario, ordenadas por moneda y nombre, sin paginación. Cada una "
 					+ "indica qué campos se pueden editar y por qué. El saldo actual y los subtotales llegan con HU-08.")
 	@ApiResponse(responseCode = "200", description = "Cuentas del usuario.")
@@ -55,7 +55,7 @@ public class AccountController {
 	}
 
 	@GetMapping("/{id}")
-	@Operation(summary = "Ver una cuenta",
+	@Operation(operationId = "getAccount", summary = "Ver una cuenta",
 			description = "Una cuenta del usuario. Si no existe o es de otro usuario, responde 404.")
 	@ApiResponse(responseCode = "200", description = "La cuenta.")
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
@@ -67,7 +67,7 @@ public class AccountController {
 	}
 
 	@PostMapping
-	@Operation(summary = "Crear una cuenta",
+	@Operation(operationId = "createAccount", summary = "Crear una cuenta",
 			description = "La fecha de apertura va entre el primer día del período inicial del usuario y hoy, ambos "
 					+ "inclusive. El nombre no puede repetirse entre las cuentas del usuario, sin distinguir mayúsculas.")
 	@ApiResponse(responseCode = "201", description = "Cuenta creada.")
@@ -85,7 +85,7 @@ public class AccountController {
 	}
 
 	@PutMapping("/{id}")
-	@Operation(summary = "Editar una cuenta",
+	@Operation(operationId = "updateAccount", summary = "Editar una cuenta",
 			description = "Reemplaza todos los campos. Nombre y tipo se editan siempre. La moneda, solo si la cuenta "
 					+ "no está referenciada por Conceptos, partidas, movimientos, transferencias ni cierres. El saldo "
 					+ "inicial y la fecha de apertura, solo si no tiene cierres, y la fecha no puede quedar después de "
@@ -106,7 +106,7 @@ public class AccountController {
 	}
 
 	@DeleteMapping("/{id}")
-	@Operation(summary = "Eliminar una cuenta",
+	@Operation(operationId = "deleteAccount", summary = "Eliminar una cuenta",
 			description = "Solo si no está referenciada por Conceptos, partidas, movimientos, transferencias ni cierres.")
 	@ApiResponse(responseCode = "204", description = "Cuenta eliminada.")
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",

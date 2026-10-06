@@ -40,66 +40,6 @@ export class CuentasService extends BaseService {
     }
 
     /**
-     * Eliminar una cuenta
-     * Solo si no está referenciada por Conceptos, partidas, movimientos, transferencias ni cierres.
-     * @endpoint delete /api/accounts/{id}
-     * @param id 
-     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
-     * @param reportProgress flag to report request and response progress.
-     * @param options additional options
-     */
-    public _delete(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
-    public _delete(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
-    public _delete(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
-    public _delete(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
-        if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling _delete.');
-        }
-
-        let localVarHeaders = this.defaultHeaders;
-
-        // authentication (bearerAuth) required
-        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
-
-        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
-            'application/problem+json'
-        ]);
-        if (localVarHttpHeaderAcceptSelected !== undefined) {
-            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
-        }
-
-        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
-
-        const localVarTransferCache: boolean = options?.transferCache ?? true;
-
-
-        let responseType_: 'text' | 'json' | 'blob' = 'json';
-        if (localVarHttpHeaderAcceptSelected) {
-            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
-                responseType_ = 'text';
-            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
-                responseType_ = 'json';
-            } else {
-                responseType_ = 'blob';
-            }
-        }
-
-        let localVarPath = `/api/accounts/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
-        const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
-            {
-                context: localVarHttpContext,
-                responseType: <any>responseType_,
-                ...(withCredentials ? { withCredentials } : {}),
-                headers: localVarHeaders,
-                observe: observe,
-                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
-                reportProgress: reportProgress
-            }
-        );
-    }
-
-    /**
      * Crear una cuenta
      * La fecha de apertura va entre el primer día del período inicial del usuario y hoy, ambos inclusive. El nombre no puede repetirse entre las cuentas del usuario, sin distinguir mayúsculas.
      * @endpoint post /api/accounts
@@ -108,12 +48,12 @@ export class CuentasService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public create1(accountRequest: AccountRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AccountResponse>;
-    public create1(accountRequest: AccountRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AccountResponse>>;
-    public create1(accountRequest: AccountRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AccountResponse>>;
-    public create1(accountRequest: AccountRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public createAccount(accountRequest: AccountRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AccountResponse>;
+    public createAccount(accountRequest: AccountRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AccountResponse>>;
+    public createAccount(accountRequest: AccountRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AccountResponse>>;
+    public createAccount(accountRequest: AccountRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (accountRequest === null || accountRequest === undefined) {
-            throw new Error('Required parameter accountRequest was null or undefined when calling create1.');
+            throw new Error('Required parameter accountRequest was null or undefined when calling createAccount.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -171,6 +111,66 @@ export class CuentasService extends BaseService {
     }
 
     /**
+     * Eliminar una cuenta
+     * Solo si no está referenciada por Conceptos, partidas, movimientos, transferencias ni cierres.
+     * @endpoint delete /api/accounts/{id}
+     * @param id 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public deleteAccount(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public deleteAccount(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public deleteAccount(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public deleteAccount(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling deleteAccount.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/accounts/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Ver una cuenta
      * Una cuenta del usuario. Si no existe o es de otro usuario, responde 404.
      * @endpoint get /api/accounts/{id}
@@ -179,12 +179,12 @@ export class CuentasService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public get(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AccountResponse>;
-    public get(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AccountResponse>>;
-    public get(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AccountResponse>>;
-    public get(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public getAccount(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AccountResponse>;
+    public getAccount(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AccountResponse>>;
+    public getAccount(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AccountResponse>>;
+    public getAccount(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling get.');
+            throw new Error('Required parameter id was null or undefined when calling getAccount.');
         }
 
         let localVarHeaders = this.defaultHeaders;
@@ -239,10 +239,10 @@ export class CuentasService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public list(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<AccountResponse>>;
-    public list(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<AccountResponse>>>;
-    public list(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<AccountResponse>>>;
-    public list(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public listAccounts(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<AccountResponse>>;
+    public listAccounts(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<AccountResponse>>>;
+    public listAccounts(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<AccountResponse>>>;
+    public listAccounts(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -298,15 +298,15 @@ export class CuentasService extends BaseService {
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public update(id: number, accountRequest: AccountRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AccountResponse>;
-    public update(id: number, accountRequest: AccountRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AccountResponse>>;
-    public update(id: number, accountRequest: AccountRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AccountResponse>>;
-    public update(id: number, accountRequest: AccountRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public updateAccount(id: number, accountRequest: AccountRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AccountResponse>;
+    public updateAccount(id: number, accountRequest: AccountRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AccountResponse>>;
+    public updateAccount(id: number, accountRequest: AccountRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AccountResponse>>;
+    public updateAccount(id: number, accountRequest: AccountRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (id === null || id === undefined) {
-            throw new Error('Required parameter id was null or undefined when calling update.');
+            throw new Error('Required parameter id was null or undefined when calling updateAccount.');
         }
         if (accountRequest === null || accountRequest === undefined) {
-            throw new Error('Required parameter accountRequest was null or undefined when calling update.');
+            throw new Error('Required parameter accountRequest was null or undefined when calling updateAccount.');
         }
 
         let localVarHeaders = this.defaultHeaders;
