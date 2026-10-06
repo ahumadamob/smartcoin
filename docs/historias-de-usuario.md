@@ -143,7 +143,7 @@ Reglas: RN-01.
 
 **Como** usuario **quiero** cargar mis cuentas **para** saber dónde está mi plata.
 
-1. Alta con nombre, tipo, moneda, fecha de apertura y saldo inicial (puede ser negativo). La fecha de apertura sugerida es el primer día del período inicial y no puede ser anterior.
+1. Alta con nombre, tipo, moneda, fecha de apertura y saldo inicial (puede ser negativo). La fecha de apertura sugerida es el primer día del período inicial; no puede ser anterior a ese día ni futura (400 `VALIDATION_ERROR`).
 2. Nombre repetido, sin distinguir mayúsculas: 409 `ACCOUNT_NAME_TAKEN`.
 3. Nombre y tipo se editan siempre. Moneda, saldo inicial y fecha de apertura, solo en las condiciones de RN-33; si no, 409 `FIELD_NOT_EDITABLE`.
 4. Eliminar una cuenta referenciada: 409 `ACCOUNT_IN_USE`.

@@ -193,7 +193,7 @@ Consecuencias:
 **RN-33. Cuentas.**
 
 - Nombre único por usuario, sin distinguir mayúsculas (`ACCOUNT_NAME_TAKEN`).
-- Fecha de apertura igual o posterior al primer día del período inicial del usuario (por defecto, ese día).
+- Fecha de apertura entre el primer día del período inicial del usuario y hoy, ambos inclusive; no puede ser futura. Fuera de ese rango: `VALIDATION_ERROR`. La pantalla sugiere el primer día del período inicial.
 - Nombre y tipo se editan siempre.
 - La moneda se edita solo si la cuenta no está referenciada por Conceptos, partidas, movimientos, transferencias ni cierres.
 - El saldo inicial y la fecha de apertura se editan solo si la cuenta no tiene cierres, y la fecha no puede quedar después de su primer movimiento o transferencia.

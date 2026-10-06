@@ -84,7 +84,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-12. Tipo, periodicidad, período de inicio y cuotas de un Concepto no se editan.** Para cambiarlos se da de baja y se crea otro.
 
-**S-13. La cuenta tiene fecha de apertura y saldo inicial a esa fecha.** No se aceptan movimientos anteriores. Por defecto, la fecha de apertura es el primer día del período inicial del usuario.
+**S-13. La cuenta tiene fecha de apertura y saldo inicial a esa fecha.** No se aceptan movimientos anteriores. Por defecto, la fecha de apertura es el primer día del período inicial del usuario. La fecha de apertura debe estar entre el primer día del período inicial y hoy, ambos inclusive: no puede ser futura. *Confirmada.*
 
 **S-14. El usuario tiene un período inicial**, que se define al crearlo (por defecto, el mes actual). No existen períodos anteriores.
 
