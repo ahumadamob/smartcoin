@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.smartcoin.account.domain.Account;
+import com.smartcoin.account.domain.AccountTotal;
 import com.smartcoin.account.domain.AccountType;
 import com.smartcoin.account.domain.AccountValues;
 import com.smartcoin.account.repository.AccountRepository;
@@ -18,6 +19,7 @@ import com.smartcoin.entry.repository.BudgetEntryRepository;
 import com.smartcoin.movement.repository.MovementRepository;
 import com.smartcoin.period.repository.AccountClosingRepository;
 import com.smartcoin.shared.domain.Currency;
+import com.smartcoin.shared.domain.EntryKind;
 import com.smartcoin.shared.error.BusinessException;
 import com.smartcoin.shared.error.ErrorCode;
 import com.smartcoin.transfer.repository.TransferRepository;
@@ -375,13 +377,133 @@ class AccountServiceTest {
 		Account account = newAccount();
 		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID)).thenReturn(List.of(account));
 
-		List<AccountService.AccountView> views = service.list(USER_ID);
+		AccountService.AccountList list = service.list(USER_ID);
 
-		assertThat(views).hasSize(1);
+		assertThat(list.accounts()).hasSize(1);
 		verify(accounts).findByUserIdOrderByCurrencyAscNameAsc(USER_ID);
 		verify(closings).existsByUserIdAndAccountId(USER_ID, ACCOUNT_ID);
 		verify(movements).findFirstMovementDate(USER_ID, ACCOUNT_ID);
 		verify(transfers).findFirstTransferDate(USER_ID, ACCOUNT_ID);
-		verifyNoMoreInteractions(accounts);
+		verify(movements).sumByAccountUpTo(USER_ID, TODAY, EntryKind.INCOME);
+		verify(movements).sumByAccountUpTo(USER_ID, TODAY, EntryKind.EXPENSE);
+		verify(transfers).sumIncomingByAccountUpTo(USER_ID, TODAY);
+		verify(transfers).sumOutgoingByAccountUpTo(USER_ID, TODAY);
+		verifyNoMoreInteractions(accounts, movements, transfers);
+	}
+
+	// --- saldo actual y subtotales por moneda (HU-08, RN-35, RN-04) ---
+
+	private static Account account(long id, Currency currency, String initialBalance) {
+		Account account = newAccount();
+		ReflectionTestUtils.setField(account, "id", id);
+		account.setName("Cuenta " + id);
+		account.setCurrency(currency);
+		account.setInitialBalance(new BigDecimal(initialBalance));
+		return account;
+	}
+
+	private static AccountTotal total(long accountId, String amount) {
+		return new AccountTotal(accountId, new BigDecimal(amount));
+	}
+
+	@Test
+	void anAccountWithoutActivityShowsItsInitialBalance() {
+		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID))
+				.thenReturn(List.of(account(1, Currency.ARS, "100000.00")));
+
+		AccountService.AccountList list = service.list(USER_ID);
+
+		assertThat(list.accounts().get(0).currentBalance()).isEqualTo(new BigDecimal("100000.00"));
+		assertThat(list.subtotals()).containsExactly(
+				new AccountService.CurrencySubtotal(Currency.ARS, new BigDecimal("100000.00")));
+	}
+
+	@Test
+	void theBalanceCombinesMovementsAndTransfersOfTheAccount() {
+		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID))
+				.thenReturn(List.of(account(1, Currency.ARS, "100000.00"), account(2, Currency.ARS, "0.00")));
+		when(movements.sumByAccountUpTo(USER_ID, TODAY, EntryKind.INCOME)).thenReturn(List.of(total(1, "50000.00")));
+		when(movements.sumByAccountUpTo(USER_ID, TODAY, EntryKind.EXPENSE)).thenReturn(List.of(total(1, "20000.00")));
+		when(transfers.sumOutgoingByAccountUpTo(USER_ID, TODAY)).thenReturn(List.of(total(1, "30000.00")));
+		when(transfers.sumIncomingByAccountUpTo(USER_ID, TODAY)).thenReturn(List.of(total(2, "30000.00")));
+
+		AccountService.AccountList list = service.list(USER_ID);
+
+		assertThat(list.accounts().get(0).currentBalance()).isEqualTo(new BigDecimal("100000.00"));
+		assertThat(list.accounts().get(1).currentBalance()).isEqualTo(new BigDecimal("30000.00"));
+		assertThat(list.subtotals()).containsExactly(
+				new AccountService.CurrencySubtotal(Currency.ARS, new BigDecimal("130000.00")));
+	}
+
+	@Test
+	void anAdvanceSalaryCountsFromTheDateOfThePaymentEvenIfItsEntryIsOfNextMonth() {
+		// El repositorio suma por la fecha del movimiento (<= hoy), sin mirar el período de la partida: el sueldo
+		// de noviembre cobrado el 02/10 ya figura en lo que devuelve para hoy (06/10).
+		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID))
+				.thenReturn(List.of(account(1, Currency.ARS, "10000.00")));
+		when(movements.sumByAccountUpTo(USER_ID, TODAY, EntryKind.INCOME)).thenReturn(List.of(total(1, "800000.00")));
+
+		assertThat(service.list(USER_ID).accounts().get(0).currentBalance()).isEqualTo(new BigDecimal("810000.00"));
+	}
+
+	@Test
+	void theBalanceIsAskedForTodayFromTheClockNotForALaterDate() {
+		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID)).thenReturn(List.of());
+
+		service.list(USER_ID);
+
+		// Con el reloj en 06/10/2026 en Mendoza: lo que tenga fecha posterior queda fuera de la consulta.
+		verify(movements, times(2)).sumByAccountUpTo(eq(USER_ID), eq(LocalDate.of(2026, 10, 6)), any());
+		verify(transfers).sumIncomingByAccountUpTo(USER_ID, LocalDate.of(2026, 10, 6));
+		verify(transfers).sumOutgoingByAccountUpTo(USER_ID, LocalDate.of(2026, 10, 6));
+	}
+
+	@Test
+	void subtotalsAreSeparatedByCurrencyAndNeverMixed() {
+		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID)).thenReturn(List.of(
+				account(1, Currency.ARS, "100000.00"), account(2, Currency.ARS, "-2500.50"),
+				account(3, Currency.USD, "250.00")));
+		when(transfers.sumIncomingByAccountUpTo(USER_ID, TODAY)).thenReturn(List.of(total(3, "1000.00")));
+
+		AccountService.AccountList list = service.list(USER_ID);
+
+		assertThat(list.subtotals()).containsExactly(
+				new AccountService.CurrencySubtotal(Currency.ARS, new BigDecimal("97499.50")),
+				new AccountService.CurrencySubtotal(Currency.USD, new BigDecimal("1250.00")));
+	}
+
+	@Test
+	void onlyCurrenciesWithAccountsHaveASubtotal() {
+		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID))
+				.thenReturn(List.of(account(3, Currency.USD, "250.00")));
+
+		assertThat(service.list(USER_ID).subtotals()).extracting(AccountService.CurrencySubtotal::currency)
+				.containsExactly(Currency.USD);
+	}
+
+	@Test
+	void sumsOfOtherUsersAreNeverRequestedNorAdded() {
+		// Todas las consultas de suma reciben el userId del usuario actual, y el repositorio filtra por él: lo de
+		// otro usuario no llega. Un total que apunte a una cuenta ajena no suma en ninguna cuenta de la lista.
+		when(accounts.findByUserIdOrderByCurrencyAscNameAsc(USER_ID))
+				.thenReturn(List.of(account(1, Currency.ARS, "1000.00")));
+		when(movements.sumByAccountUpTo(USER_ID, TODAY, EntryKind.INCOME)).thenReturn(List.of(total(999, "5000.00")));
+
+		AccountService.AccountList list = service.list(USER_ID);
+
+		assertThat(list.accounts().get(0).currentBalance()).isEqualTo(new BigDecimal("1000.00"));
+		assertThat(list.subtotals().get(0).balance()).isEqualTo(new BigDecimal("1000.00"));
+		verify(movements, never()).sumByAccountUpTo(eq(OTHER_USER_ID), any(), any());
+		verify(transfers, never()).sumIncomingByAccountUpTo(eq(OTHER_USER_ID), any());
+		verify(transfers, never()).sumOutgoingByAccountUpTo(eq(OTHER_USER_ID), any());
+	}
+
+	@Test
+	void getAlsoReturnsTheCurrentBalance() {
+		existing();
+		when(movements.sumByAccountUpTo(USER_ID, TODAY, EntryKind.INCOME)).thenReturn(List.of());
+		when(movements.sumByAccountUpTo(USER_ID, TODAY, EntryKind.EXPENSE)).thenReturn(List.of(total(ACCOUNT_ID, "200.50")));
+
+		assertThat(service.get(USER_ID, ACCOUNT_ID).currentBalance()).isEqualTo(new BigDecimal("799.50"));
 	}
 }

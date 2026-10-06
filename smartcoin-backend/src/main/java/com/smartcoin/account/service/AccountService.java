@@ -4,20 +4,31 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.smartcoin.account.domain.Account;
 import com.smartcoin.account.domain.AccountEditability;
+import com.smartcoin.account.domain.AccountTotal;
 import com.smartcoin.account.domain.AccountUsage;
 import com.smartcoin.account.domain.AccountValues;
+import com.smartcoin.account.domain.BalanceCalculator;
+import com.smartcoin.account.domain.BalanceCalculator.Totals;
 import com.smartcoin.account.domain.OpeningDateRule;
 import com.smartcoin.account.repository.AccountRepository;
 import com.smartcoin.budgetitem.repository.BudgetItemRepository;
 import com.smartcoin.entry.repository.BudgetEntryRepository;
 import com.smartcoin.movement.repository.MovementRepository;
 import com.smartcoin.period.repository.AccountClosingRepository;
+import com.smartcoin.shared.domain.Currency;
+import com.smartcoin.shared.domain.EntryKind;
 import com.smartcoin.shared.error.BusinessException;
 import com.smartcoin.shared.error.ErrorCode;
 import com.smartcoin.transfer.repository.TransferRepository;
@@ -28,12 +39,20 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Administrar cuentas (HU-07, RN-33). Toda consulta lleva el {@code userId} del usuario actual. */
+/** Administrar cuentas (HU-07, RN-33) y calcular su saldo (HU-08, RN-35). Toda consulta lleva el {@code userId} del usuario actual. */
 @Service
 public class AccountService {
 
-	/** Una cuenta con lo que se puede editar de ella. */
-	public record AccountView(Account account, AccountEditability editability) {
+	/** Una cuenta con lo que se puede editar de ella y su saldo a hoy (RN-35). */
+	public record AccountView(Account account, AccountEditability editability, BigDecimal currentBalance) {
+	}
+
+	/** Suma de los saldos de las cuentas de una moneda. Nunca se mezclan monedas (RN-04). */
+	public record CurrencySubtotal(Currency currency, BigDecimal balance) {
+	}
+
+	/** Las cuentas del usuario con su saldo a hoy y un subtotal por cada moneda que tiene cuentas. */
+	public record AccountList(List<AccountView> accounts, List<CurrencySubtotal> subtotals) {
 	}
 
 	private final AccountRepository accounts;
@@ -59,15 +78,19 @@ public class AccountService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<AccountView> list(long userId) {
-		return accounts.findByUserIdOrderByCurrencyAscNameAsc(userId).stream()
-				.map(account -> view(userId, account))
+	public AccountList list(long userId) {
+		List<Account> all = accounts.findByUserIdOrderByCurrencyAscNameAsc(userId);
+		Map<Long, Totals> totals = totalsUpTo(userId, today());
+		List<AccountView> views = all.stream()
+				.map(account -> view(userId, account, totals))
 				.toList();
+		return new AccountList(views, subtotals(views));
 	}
 
 	@Transactional(readOnly = true)
 	public AccountView get(long userId, long id) {
-		return view(userId, find(userId, id));
+		Account account = find(userId, id);
+		return view(userId, account, totalsUpTo(userId, today()));
 	}
 
 	@Transactional
@@ -82,7 +105,9 @@ public class AccountService {
 		account.setUserId(userId);
 		apply(account, normalized);
 		Account saved = save(account);
-		return new AccountView(saved, AccountEditability.of(AccountUsage.unused()));
+		// Una cuenta nueva no tiene movimientos ni transferencias: su saldo es el inicial.
+		return new AccountView(saved, AccountEditability.of(AccountUsage.unused()),
+				BalanceCalculator.balance(saved.getInitialBalance(), Totals.none()));
 	}
 
 	@Transactional
@@ -102,7 +127,8 @@ public class AccountService {
 		}
 
 		apply(account, requested);
-		return new AccountView(save(account), editability);
+		Account saved = save(account);
+		return new AccountView(saved, editability, balanceOf(saved, totalsUpTo(userId, today())));
 	}
 
 	@Transactional
@@ -135,8 +161,48 @@ public class AccountService {
 		return LocalDate.now(clock);
 	}
 
-	private AccountView view(long userId, Account account) {
-		return new AccountView(account, AccountEditability.of(usageOf(userId, account)));
+	private AccountView view(long userId, Account account, Map<Long, Totals> totals) {
+		return new AccountView(account, AccountEditability.of(usageOf(userId, account)), balanceOf(account, totals));
+	}
+
+	private static BigDecimal balanceOf(Account account, Map<Long, Totals> totals) {
+		return BalanceCalculator.balance(account.getInitialBalance(),
+				totals.getOrDefault(account.getId(), Totals.none()));
+	}
+
+	/**
+	 * Totales de movimientos y transferencias con fecha menor o igual a {@code date}, por cuenta (RN-35): cuatro
+	 * consultas agrupadas, sin importar cuántas cuentas haya. El cierre de mes reutiliza esta consulta con otra fecha.
+	 */
+	private Map<Long, Totals> totalsUpTo(long userId, LocalDate date) {
+		Map<Long, BigDecimal> income = byAccount(movements.sumByAccountUpTo(userId, date, EntryKind.INCOME));
+		Map<Long, BigDecimal> expense = byAccount(movements.sumByAccountUpTo(userId, date, EntryKind.EXPENSE));
+		Map<Long, BigDecimal> incoming = byAccount(transfers.sumIncomingByAccountUpTo(userId, date));
+		Map<Long, BigDecimal> outgoing = byAccount(transfers.sumOutgoingByAccountUpTo(userId, date));
+		Set<Long> ids = new HashSet<>();
+		Stream.of(income, expense, incoming, outgoing).forEach(map -> ids.addAll(map.keySet()));
+		Map<Long, Totals> result = new HashMap<>();
+		for (Long id : ids) {
+			result.put(id, new Totals(income.getOrDefault(id, BigDecimal.ZERO),
+					expense.getOrDefault(id, BigDecimal.ZERO), incoming.getOrDefault(id, BigDecimal.ZERO),
+					outgoing.getOrDefault(id, BigDecimal.ZERO)));
+		}
+		return result;
+	}
+
+	private static Map<Long, BigDecimal> byAccount(List<AccountTotal> totals) {
+		return totals.stream().collect(Collectors.toMap(AccountTotal::accountId, AccountTotal::total));
+	}
+
+	/** Un subtotal por moneda con cuentas, en el orden del enum (ARS, USD). */
+	private static List<CurrencySubtotal> subtotals(List<AccountView> views) {
+		Map<Currency, BigDecimal> byCurrency = new EnumMap<>(Currency.class);
+		for (AccountView view : views) {
+			byCurrency.merge(view.account().getCurrency(), view.currentBalance(), BigDecimal::add);
+		}
+		return byCurrency.entrySet().stream()
+				.map(e -> new CurrencySubtotal(e.getKey(), e.getValue().setScale(2)))
+				.toList();
 	}
 
 	private AccountUsage usageOf(long userId, Account account) {

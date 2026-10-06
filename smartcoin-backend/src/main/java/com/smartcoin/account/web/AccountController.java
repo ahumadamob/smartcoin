@@ -1,7 +1,6 @@
 package com.smartcoin.account.web;
 
 import java.net.URI;
-import java.util.List;
 
 import jakarta.validation.Valid;
 
@@ -46,12 +45,13 @@ public class AccountController {
 	@GetMapping
 	@Operation(operationId = "listAccounts", summary = "Listar las cuentas",
 			description = "Todas las cuentas del usuario, ordenadas por moneda y nombre, sin paginación. Cada una "
-					+ "indica qué campos se pueden editar y por qué. El saldo actual y los subtotales llegan con HU-08.")
-	@ApiResponse(responseCode = "200", description = "Cuentas del usuario.")
+					+ "trae su saldo a hoy (RN-35) y qué campos se pueden editar y por qué. Aparte, un subtotal de saldos "
+					+ "por moneda: nunca hay un total que mezcle monedas.")
+	@ApiResponse(responseCode = "200", description = "Cuentas del usuario con sus saldos y subtotales por moneda.")
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
-	public List<AccountResponse> list() {
-		return accounts.list(currentUser.id()).stream().map(AccountResponse::from).toList();
+	public AccountListResponse list() {
+		return AccountListResponse.from(accounts.list(currentUser.id()));
 	}
 
 	@GetMapping("/{id}")

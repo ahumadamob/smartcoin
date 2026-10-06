@@ -17,7 +17,9 @@ import com.smartcoin.account.domain.AccountType;
 import com.smartcoin.account.domain.AccountUsage;
 import com.smartcoin.account.domain.AccountValues;
 import com.smartcoin.account.service.AccountService;
+import com.smartcoin.account.service.AccountService.AccountList;
 import com.smartcoin.account.service.AccountService.AccountView;
+import com.smartcoin.account.service.AccountService.CurrencySubtotal;
 import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.error.BusinessException;
 import com.smartcoin.shared.error.ErrorCode;
@@ -115,7 +117,7 @@ class AccountControllerTest {
 		account.setCurrency(Currency.ARS);
 		account.setOpeningDate(LocalDate.of(2026, 8, 1));
 		account.setInitialBalance(new BigDecimal("-1500.50"));
-		return new AccountView(account, AccountEditability.of(usage));
+		return new AccountView(account, AccountEditability.of(usage), new BigDecimal("98499.50"));
 	}
 
 	@Test
@@ -131,6 +133,7 @@ class AccountControllerTest {
 				.andExpect(jsonPath("$.currency").value("ARS"))
 				.andExpect(jsonPath("$.openingDate").value("2026-08-01"))
 				.andExpect(jsonPath("$.initialBalance").value(-1500.50))
+				.andExpect(jsonPath("$.currentBalance").value(98499.50))
 				.andExpect(jsonPath("$.editability.currency.editable").value(true))
 				.andExpect(jsonPath("$.editability.currency.reason").doesNotExist());
 
@@ -151,17 +154,37 @@ class AccountControllerTest {
 	}
 
 	@Test
-	void listRespondsOkWithTheEditabilityOfEachAccount() throws Exception {
-		when(accounts.list(USER_ID)).thenReturn(List.of(view(new AccountUsage(true, true, null))));
+	void listRespondsWithTheAccountsTheirBalanceAndOneSubtotalPerCurrency() throws Exception {
+		when(accounts.list(USER_ID)).thenReturn(new AccountList(List.of(view(new AccountUsage(true, true, null))),
+				List.of(new CurrencySubtotal(Currency.ARS, new BigDecimal("98499.50")),
+						new CurrencySubtotal(Currency.USD, new BigDecimal("250.00")))));
 
 		mvc.perform(get("/api/accounts").header("Authorization", bearer()))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$[0].id").value(42))
-				.andExpect(jsonPath("$[0].editability.currency.editable").value(false))
-				.andExpect(jsonPath("$[0].editability.currency.reason").isNotEmpty())
-				.andExpect(jsonPath("$[0].editability.initialBalance.editable").value(false))
-				.andExpect(jsonPath("$[0].editability.openingDate.editable").value(false))
-				.andExpect(jsonPath("$[0].editability.openingDate.reason").isNotEmpty());
+				.andExpect(jsonPath("$.accounts.length()").value(1))
+				.andExpect(jsonPath("$.accounts[0].id").value(42))
+				.andExpect(jsonPath("$.accounts[0].currentBalance").value(98499.50))
+				.andExpect(jsonPath("$.accounts[0].editability.currency.editable").value(false))
+				.andExpect(jsonPath("$.accounts[0].editability.currency.reason").isNotEmpty())
+				.andExpect(jsonPath("$.accounts[0].editability.initialBalance.editable").value(false))
+				.andExpect(jsonPath("$.accounts[0].editability.openingDate.editable").value(false))
+				.andExpect(jsonPath("$.accounts[0].editability.openingDate.reason").isNotEmpty())
+				.andExpect(jsonPath("$.subtotals.length()").value(2))
+				.andExpect(jsonPath("$.subtotals[0].currency").value("ARS"))
+				.andExpect(jsonPath("$.subtotals[0].balance").value(98499.50))
+				.andExpect(jsonPath("$.subtotals[1].currency").value("USD"))
+				.andExpect(jsonPath("$.subtotals[1].balance").value(250.00))
+				.andExpect(jsonPath("$.total").doesNotExist());
+	}
+
+	@Test
+	void listWithoutAccountsRespondsEmptyListsNotNull() throws Exception {
+		when(accounts.list(USER_ID)).thenReturn(new AccountList(List.of(), List.of()));
+
+		mvc.perform(get("/api/accounts").header("Authorization", bearer()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.accounts").isEmpty())
+				.andExpect(jsonPath("$.subtotals").isEmpty());
 	}
 
 	@Test

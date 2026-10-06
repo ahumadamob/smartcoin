@@ -11,7 +11,7 @@ import com.smartcoin.shared.domain.Currency;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Una cuenta del usuario, con qué campos se pueden editar.")
+@Schema(description = "Una cuenta del usuario, con su saldo actual y qué campos se pueden editar.")
 public record AccountResponse(
 
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "12")
@@ -31,6 +31,11 @@ public record AccountResponse(
 
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "150000.00")
 		BigDecimal initialBalance,
+
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "100000.00",
+				description = "Saldo a hoy (RN-35): saldo inicial más movimientos y transferencias con fecha hasta hoy. "
+						+ "Puede ser negativo.")
+		BigDecimal currentBalance,
 
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 				description = "Edición de los campos que no son siempre editables. El nombre y el tipo siempre se pueden editar.")
@@ -58,7 +63,7 @@ public record AccountResponse(
 	static AccountResponse from(AccountView view) {
 		AccountEditability e = view.editability();
 		return new AccountResponse(view.account().getId(), view.account().getName(), view.account().getType(),
-				view.account().getCurrency(), view.account().getOpeningDate(), view.account().getInitialBalance(),
+				view.account().getCurrency(), view.account().getOpeningDate(), view.account().getInitialBalance(), view.currentBalance(),
 				new Editability(FieldState.from(e.currency()), FieldState.from(e.initialBalance()),
 						FieldState.from(e.openingDate())));
 	}
