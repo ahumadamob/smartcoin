@@ -36,14 +36,14 @@ public record AccountResponse(
 				description = "Edición de los campos que no son siempre editables. El nombre y el tipo siempre se pueden editar.")
 		Editability editability) {
 
-	@Schema(description = "Qué campos condicionados (RN-33) se pueden editar hoy.")
+	@Schema(name = "AccountEditability", description = "Qué campos condicionados (RN-33) se pueden editar hoy.")
 	public record Editability(
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) FieldState currency,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) FieldState initialBalance,
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) FieldState openingDate) {
 	}
 
-	@Schema(description = "Si un campo se puede editar y, si no, el motivo.")
+	@Schema(name = "FieldEditability", description = "Si un campo se puede editar y, si no, el motivo.")
 	public record FieldState(
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean editable,
 			@Schema(nullable = true, description = "Motivo en español, solo cuando no es editable.",

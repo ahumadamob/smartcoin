@@ -3,12 +3,17 @@ api.module.ts
 api/administracinDeUsuarios.service.ts
 api/api.ts
 api/autenticacin.service.ts
+api/cuentas.service.ts
 configuration.ts
 encoder.ts
 index.ts
+model/accountEditability.ts
+model/accountRequest.ts
+model/accountResponse.ts
 model/changePasswordRequest.ts
 model/createUserRequest.ts
 model/createdUserResponse.ts
+model/fieldEditability.ts
 model/loginRequest.ts
 model/loginResponse.ts
 model/models.ts
