@@ -1,0 +1,74 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">Cuentas</h1>
+    @if (formState() === null && !loading()) {
+      <button mat-flat-button type="button" (click)="openNew()">Nueva cuenta</button>
+    }
+  </header>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (formState() !== null) {
+    <mat-card appearance="outlined" class="form-card">
+      <mat-card-header>
+        <h2 class="subtitle">{{ editedAccount() ? 'Editar cuenta' : 'Nueva cuenta' }}</h2>
+      </mat-card-header>
+      <mat-card-content>
+        <app-account-form
+          [account]="editedAccount()"
+          [suggestedOpeningDate]="suggestedOpeningDate()"
+          (saved)="onSaved($event)"
+          (cancelled)="closeForm()"
+        />
+      </mat-card-content>
+    </mat-card>
+  }
+
+  @if (loading()) {
+    <p>Cargando cuentas…</p>
+  } @else if (groups().length === 0) {
+    <p class="empty">Todavía no cargaste ninguna cuenta. Empezá con «Nueva cuenta».</p>
+  }
+
+  @for (group of groups(); track group.currency) {
+    <section class="group" [attr.aria-labelledby]="'group-' + group.currency">
+      <h2 class="subtitle" [id]="'group-' + group.currency">{{ group.label }}</h2>
+      <ul class="list">
+        @for (account of group.accounts; track account.id) {
+          <li class="row">
+            <div class="info">
+              <span class="name">{{ account.name }}</span>
+              <span class="detail">
+                {{ typeLabels[account.type] }} · desde el {{ account.openingDate | date: dateFormat }}
+              </span>
+            </div>
+            <div class="balance">
+              <span class="detail">Saldo inicial</span>
+              <span class="amount">{{ account.initialBalance | money: account.currency }}</span>
+            </div>
+            <div class="row-actions">
+              <button
+                mat-button
+                type="button"
+                (click)="openEdit(account)"
+                [attr.aria-label]="'Editar ' + account.name"
+              >
+                Editar
+              </button>
+              <button
+                mat-button
+                type="button"
+                (click)="confirmDelete(account)"
+                [attr.aria-label]="'Eliminar ' + account.name"
+              >
+                Eliminar
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</div>

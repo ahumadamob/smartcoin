@@ -56,9 +56,8 @@ export const routes: Routes = [
       },
       {
         path: 'cuentas',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/accounts/accounts').then((m) => m.Accounts),
         title: 'Cuentas',
-        data: { heading: 'Cuentas' },
       },
       {
         path: 'categorias',
