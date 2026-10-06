@@ -15,6 +15,7 @@ import com.smartcoin.user.domain.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -37,7 +38,7 @@ class TokenServiceTest {
 	void issuesHs256TokenWithSubjectVersionAndEightHourExpiry() {
 		IssuedToken issued = service.issue(user(42, 5));
 
-		Jwt jwt = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build().decode(issued.value());
+		Jwt jwt = decoder().decode(issued.value());
 		assertThat(jwt.getHeaders()).containsEntry("alg", "HS256");
 		assertThat(jwt.getSubject()).isEqualTo("42");
 		assertThat(((Number) jwt.getClaim("cv")).intValue()).isEqualTo(5);
@@ -58,5 +59,14 @@ class TokenServiceTest {
 		ReflectionTestUtils.setField(user, "id", id);
 		user.setCredentialsVersion(credentialsVersion);
 		return user;
+	}
+
+	/** Decodifica con el reloj fijo con el que se emitió el token: la prueba no depende del día en que se corre. */
+	private NimbusJwtDecoder decoder() {
+		NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+		JwtTimestampValidator timestamps = new JwtTimestampValidator();
+		timestamps.setClock(Clock.fixed(NOW, ZoneId.of("America/Argentina/Mendoza")));
+		decoder.setJwtValidator(timestamps);
+		return decoder;
 	}
 }

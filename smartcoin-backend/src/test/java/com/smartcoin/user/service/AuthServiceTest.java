@@ -27,6 +27,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -73,7 +74,7 @@ class AuthServiceTest {
 
 		AuthService.Login login = service.login("persona@ejemplo.com", PASSWORD);
 
-		Jwt jwt = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build()
+		Jwt jwt = decoder()
 				.decode(login.token().value());
 		assertThat(jwt.getSubject()).isEqualTo("42");
 		assertThat(((Number) jwt.getClaim("cv")).intValue()).isEqualTo(3);
@@ -182,7 +183,7 @@ class AuthServiceTest {
 
 		AuthService.Login login = service.changePassword(42, PASSWORD, "una-contraseña-nueva");
 
-		Jwt jwt = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build()
+		Jwt jwt = decoder()
 				.decode(login.token().value());
 		assertThat(jwt.getSubject()).isEqualTo("42");
 		assertThat(((Number) jwt.getClaim("cv")).intValue()).isEqualTo(4);
@@ -270,5 +271,14 @@ class AuthServiceTest {
 		user.setCredentialsVersion(credentialsVersion);
 		user.setMustChangePassword(mustChangePassword);
 		return user;
+	}
+
+	/** Decodifica con el reloj fijo con el que se emitió el token: la prueba no depende del día en que se corre. */
+	private NimbusJwtDecoder decoder() {
+		NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+		JwtTimestampValidator timestamps = new JwtTimestampValidator();
+		timestamps.setClock(Clock.fixed(NOW, ZoneId.of("America/Argentina/Mendoza")));
+		decoder.setJwtValidator(timestamps);
+		return decoder;
 	}
 }
