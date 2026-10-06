@@ -82,4 +82,6 @@ El login y el cambio de contraseña obligatorio van fuera del layout; el resto, 
 - En `e2e/`, un archivo por épica.
 - Nunca usan el usuario real. Cada corrida crea un usuario propio con el endpoint de administración (`APP_ADMIN_KEY` leída de una variable de entorno), con un email único como `e2e-<timestamp>@prueba.local` y un período inicial dos meses antes del actual, para poder probar cierres.
 - Como los datos se aíslan por usuario, no tocan los datos reales. Esos usuarios quedan en la base; limpiarlos es una tarea pendiente para cuando haya Docker.
+- Los helpers para crear el usuario de prueba y dejar la sesión guardada están en `e2e/support.ts`.
+- Los tests de `base-tecnica.spec.ts` usan un token falso: toda pantalla que llame a la API desde su historia suma ahí su respuesta simulada (`page.route`), si no el 401 los manda al login.
 - Claude Code puede ejecutarlos y revisar capturas y trazas cuando un test falla.

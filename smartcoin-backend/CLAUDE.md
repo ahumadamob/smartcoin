@@ -161,6 +161,8 @@ Qué hace cada historia que agrega un recurso (cuentas, categorías, Conceptos, 
 3. Test de servicio de listado y totales: se consulta solo con el `userId` del usuario actual (`verify` sobre el repositorio).
 4. Los DTO de entrada no llevan usuario, y los endpoints nuevos exigen token. No agregar excepciones al test de token.
 
+Los repositorios de Concepto, partida, movimiento, transferencia y cierre de cuenta nacen en HU-07 solo con consultas de existencia (`existsByUserIdAndAccountId`, primera fecha de movimiento y de transferencia): lo que necesita el servicio de cuentas. Cada historia dueña de su tabla agrega el resto.
+
 No hay una clase base compartida para el punto 2: con un solo patrón de dos líneas no ahorra repetición. Si varias historias repiten el mismo código, extraerlo entonces.
 
 **Prohibido por ahora**: `@SpringBootTest`, `@DataJpaTest` y cualquier test que se conecte a MySQL, porque la única base tiene datos reales. Si una consulta necesita test de integración, se anota como pendiente en el PR o la historia, para cuando haya Docker y Testcontainers.

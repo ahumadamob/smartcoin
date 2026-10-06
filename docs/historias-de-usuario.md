@@ -151,6 +151,14 @@ Reglas: RN-01.
 
 Reglas: RN-33.
 
+**Notas de implementación**
+
+- La respuesta de cada cuenta trae `editability` (`currency`, `initialBalance` y `openingDate`, cada uno con `editable` y `reason`), calculado por el backend; el frontend solo lo muestra. Nombre y tipo siempre se editan.
+- La edición (`PUT`) reemplaza todos los campos. Un campo no editable se envía con su valor actual; enviar el mismo valor no es un cambio.
+- La fecha de apertura se valida (400 `VALIDATION_ERROR`) solo cuando cambia en una edición. Si no se puede cambiar por la fecha de su primer movimiento o transferencia, responde 409 `FIELD_NOT_EDITABLE`.
+- El nombre se guarda sin espacios en los extremos. La unicidad la da la colación de la base (`utf8mb4_0900_as_ci`): no distingue mayúsculas, sí tildes.
+- Las referencias (Conceptos, partidas, movimientos, transferencias, cierres) todavía no se pueden crear. Sus verificaciones están probadas con repositorios simulados, y las consultas de existencia solo se validan al arrancar la API. **Pendiente de integración** (cuando haya Docker y Testcontainers): ejecutarlas contra una base real con datos en cada tabla. El HU-08 agrega el saldo actual y los subtotales por moneda.
+
 ### HU-08 · Ver el saldo actual de cada cuenta
 
 **Como** usuario **quiero** ver cuánto tengo en cada cuenta **para** saber con qué cuento hoy.
