@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-// Estas pantallas todavía no llaman a la API: alcanza con una sesión guardada que el guard acepte. Lo único que el
-// layout pide es el usuario actual para el menú de usuario, que se responde acá porque el token es falso.
+// Estas pruebas solo recorren el menú: alcanza con una sesión guardada que el guard acepte. Lo único que piden el
+// layout (el usuario actual, para el menú de usuario) y la pantalla de cuentas (su lista) se responde acá, porque el
+// token es falso. Cada pantalla que llame a la API desde su historia suma su respuesta simulada.
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/accounts', (route) => route.fulfill({ json: [] }));
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({
       json: {
