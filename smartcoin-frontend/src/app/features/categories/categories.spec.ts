@@ -113,6 +113,7 @@ describe('Categories', () => {
       expect(api.listCategories).toHaveBeenCalledTimes(2);
       expect(names()).toEqual(['Impuestos']);
       expect(field('Nueva categoría').value).toBe('');
+      expect(root().querySelector('mat-error')).toBeNull();
       expect(snackBar.open).toHaveBeenCalledWith(
         'Categoría «Impuestos» creada.',
         undefined,

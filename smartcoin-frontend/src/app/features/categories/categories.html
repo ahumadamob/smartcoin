@@ -3,7 +3,13 @@
     <h1 class="title">Categorías</h1>
   </header>
 
-  <form class="add" [formGroup]="addForm" (ngSubmit)="add()" novalidate>
+  <form
+    class="add"
+    [formGroup]="addForm"
+    #addDirective="ngForm"
+    (ngSubmit)="add(addDirective)"
+    novalidate
+  >
     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="add-field">
       <mat-label>Nueva categoría</mat-label>
       <input

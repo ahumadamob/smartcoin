@@ -188,6 +188,17 @@ Reglas: RN-04, RN-35.
 
 Reglas: RN-34.
 
+**Notas de implementación**
+
+- Depende del supuesto S-17 (`docs/decisiones.md`): las categorías son opcionales y no tienen tipo, sirven para ingresos y gastos. Por eso solo guardan `name`.
+- `GET /api/categories` devuelve un array de `{ id, name }` ordenado por nombre, sin paginación. `POST` responde 201 con el recurso, `PUT` 200 y `DELETE` 204. El cuerpo de alta y de cambio de nombre es solo `{ name }`.
+- El nombre es obligatorio, de hasta 60 caracteres, y se guarda sin espacios en los extremos. Uno vacío, en blanco o demasiado largo responde 400 `VALIDATION_ERROR`. La unicidad la da la colación de la base (`utf8mb4_0900_as_ci`): no distingue mayúsculas, sí tildes. Dos usuarios pueden usar el mismo nombre.
+- Al renombrar, la búsqueda de conflicto excluye a la propia categoría: cambiar solo las mayúsculas de su nombre no es un conflicto.
+- Eliminar verifica con `BudgetItemRepository.existsByUserIdAndCategoryId` y `BudgetEntryRepository.existsByUserIdAndCategoryId`. Si alguna da verdadero, responde 409 `CATEGORY_IN_USE`; la clave foránea frena además una referencia creada entre la verificación y el borrado.
+- **Criterio 4 diferido**: que la categoría sea opcional en Conceptos y partidas puntuales se cumple en HU-10 y HU-16, al crear esos recursos. Hoy lo permite el modelo (`category_id` admite nulo) pero no hay nada que implementar.
+- Frontend: la lista y el alta comparten pantalla; el cambio de nombre se hace en la propia fila (Enter guarda, Escape cancela, el foco va al campo) y eliminar pide confirmación con el nombre.
+- **Pendiente de integración** (cuando haya Docker y Testcontainers): las dos consultas de existencia no se pudieron probar contra MySQL con Conceptos o partidas reales, porque todavía no se pueden crear. El servicio se prueba con repositorios simulados, que **no prueban el SQL**; solo se verificó que la API arranca y que Spring Data valida sus JPQL. Verificarlas en HU-10 (Conceptos) y HU-16 (partidas puntuales).
+
 **Endpoints de la épica**
 
 | Método y ruta | Uso |

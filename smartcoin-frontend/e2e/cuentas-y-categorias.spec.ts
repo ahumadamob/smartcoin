@@ -1,7 +1,7 @@
 import { Page, expect, test } from '@playwright/test';
 import { startPeriod, startSession } from './support';
 
-/** Épica 2 · Cuentas y categorías. HU-07 (cuentas) y HU-08 (saldo actual). Cada corrida usa un usuario propio. */
+/** Épica 2 · Cuentas y categorías. HU-07 (cuentas), HU-08 (saldo actual) y HU-09 (categorías). Cada corrida usa un usuario propio. */
 
 const firstDayOfStartPeriod = `${startPeriod()}-01`;
 
@@ -28,8 +28,7 @@ async function fillAccount(
 /** Fila de la lista de una cuenta. */
 const row = (page: Page, name: string) => page.getByRole('listitem').filter({ hasText: name });
 /** Grupo de la lista de una moneda: su encabezado y las cuentas. */
-const group = (page: Page, heading: string) =>
-  page.getByRole('region', { name: heading });
+const group = (page: Page, heading: string) => page.getByRole('region', { name: heading });
 
 test.describe('HU-07 · cuentas', () => {
   test.describe.configure({ mode: 'serial' });
@@ -56,7 +55,12 @@ test.describe('HU-07 · cuentas', () => {
   });
 
   test('alta de una cuenta en pesos con saldo con coma decimal', async () => {
-    await fillAccount(page, { name: 'Banco Nación', type: 'Banco', currency: '$ (ARS)', balance: '150.000,50' });
+    await fillAccount(page, {
+      name: 'Banco Nación',
+      type: 'Banco',
+      currency: '$ (ARS)',
+      balance: '150.000,50',
+    });
     await page.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(page.getByText('Cuenta «Banco Nación» creada.')).toBeVisible();
@@ -99,7 +103,12 @@ test.describe('HU-07 · cuentas', () => {
 
   test('nombre repetido, sin distinguir mayúsculas: muestra el error y no crea la cuenta', async () => {
     await page.getByRole('button', { name: 'Nueva cuenta' }).click();
-    await fillAccount(page, { name: 'BANCO NACIÓN', type: 'Efectivo', currency: '$ (ARS)', balance: '0' });
+    await fillAccount(page, {
+      name: 'BANCO NACIÓN',
+      type: 'Efectivo',
+      currency: '$ (ARS)',
+      balance: '0',
+    });
     await page.getByRole('button', { name: 'Guardar' }).click();
 
     await expect(page.getByRole('alert')).toHaveText('Ya tenés una cuenta con ese nombre.');
@@ -121,7 +130,9 @@ test.describe('HU-07 · cuentas', () => {
     });
     await page.getByRole('button', { name: 'Guardar' }).click();
 
-    await expect(page.getByRole('alert')).toContainText('La fecha de apertura no puede ser futura.');
+    await expect(page.getByRole('alert')).toContainText(
+      'La fecha de apertura no puede ser futura.',
+    );
     await page.getByRole('button', { name: 'Cancelar' }).click();
   });
 
@@ -132,7 +143,10 @@ test.describe('HU-07 · cuentas', () => {
     await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Banco Nación');
     await expect(page.getByLabel('Saldo inicial')).toHaveValue('150000,50');
     // La cuenta no tiene referencias: ningún campo está bloqueado.
-    await expect(page.getByLabel('Moneda', { exact: true })).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByLabel('Moneda', { exact: true })).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     await expect(page.getByLabel('Saldo inicial')).toBeEnabled();
     await expect(page.getByLabel('Fecha de apertura')).toBeEnabled();
 
@@ -143,7 +157,9 @@ test.describe('HU-07 · cuentas', () => {
     await expect(page.getByText('Cuenta «Banco Nación (principal)» guardada.')).toBeVisible();
     await expect(row(page, 'Banco Nación (principal)')).toContainText('-$ 1.500,25');
     // HU-08: sin movimientos, el saldo actual es el inicial, y el subtotal se recalcula en el backend.
-    await expect(row(page, 'Banco Nación (principal)').getByTestId('balance')).toHaveText('-$ 1.500,25');
+    await expect(row(page, 'Banco Nación (principal)').getByTestId('balance')).toHaveText(
+      '-$ 1.500,25',
+    );
     await expect(group(page, '$ (ARS)').getByTestId('subtotal')).toContainText('-$ 1.500,25');
     await expect(group(page, 'US$ (USD)').getByTestId('subtotal')).toContainText('US$ 1.200,00');
 
@@ -185,5 +201,111 @@ test.describe('HU-07 · cuentas', () => {
     // Sin cuentas en dólares, el grupo desaparece.
     await expect(group(page, 'US$ (USD)')).toHaveCount(0);
     await expect(row(page, 'Banco Nación (principal)')).toBeVisible();
+  });
+});
+
+test.describe('HU-09 · categorías', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+
+  const names = () =>
+    page.getByRole('list', { name: 'Categorías' }).getByRole('listitem').locator('.name');
+
+  async function addCategory(name: string) {
+    await page.getByLabel('Nueva categoría').fill(name);
+    await page.getByRole('button', { name: 'Agregar' }).click();
+  }
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    await startSession(page, playwright);
+    await page.goto('/categorias');
+  });
+
+  test.afterAll(async () => {
+    await page.close();
+  });
+
+  test('sin categorías lo avisa y aclara que son opcionales', async () => {
+    await expect(page.getByRole('heading', { level: 1, name: 'Categorías' })).toBeVisible();
+    await expect(page.getByText('Todavía no creaste ninguna categoría')).toBeVisible();
+  });
+
+  test('alta: aparece en la lista, el campo se vacía y la lista queda ordenada por nombre', async () => {
+    await addCategory('Servicios');
+    await expect(page.getByText('Categoría «Servicios» creada.')).toBeVisible();
+    await addCategory('  Hogar ');
+    await expect(page.getByText('Categoría «Hogar» creada.')).toBeVisible();
+
+    await expect(names()).toHaveText(['Hogar', 'Servicios']);
+    await expect(page.getByLabel('Nueva categoría')).toHaveValue('');
+    await expect(page.getByText('Ingresá el nombre de la categoría.')).toHaveCount(0);
+  });
+
+  test('un nombre en blanco no se envía y pide el nombre', async () => {
+    await page.getByLabel('Nueva categoría').fill('   ');
+    await page.getByRole('button', { name: 'Agregar' }).click();
+
+    await expect(page.getByText('Ingresá el nombre de la categoría.')).toBeVisible();
+    await expect(names()).toHaveCount(2);
+  });
+
+  test('nombre repetido, sin distinguir mayúsculas: muestra el error y no crea la categoría', async () => {
+    await addCategory('hogar');
+
+    await expect(page.getByRole('alert')).toHaveText('Ya tenés una categoría con ese nombre.');
+    await expect(names()).toHaveText(['Hogar', 'Servicios']);
+  });
+
+  test('cambio de nombre: el campo trae el nombre actual con el foco y el cambio queda guardado', async () => {
+    await page.getByRole('button', { name: 'Renombrar Servicios' }).click();
+    const input = page.getByLabel('Nombre de la categoría');
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue('Servicios');
+
+    await input.fill('Impuestos');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+
+    await expect(page.getByText('Categoría «Impuestos» guardada.')).toBeVisible();
+    await expect(names()).toHaveText(['Hogar', 'Impuestos']);
+    await page.reload();
+    await expect(names()).toHaveText(['Hogar', 'Impuestos']);
+  });
+
+  test('renombrar a un nombre que ya tiene otra categoría da el error y deja el campo abierto', async () => {
+    await page.getByRole('button', { name: 'Renombrar Impuestos' }).click();
+    await page.getByLabel('Nombre de la categoría').fill('HOGAR');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('Ya tenés una categoría con ese nombre.');
+    await expect(page.getByLabel('Nombre de la categoría')).toHaveValue('HOGAR');
+
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(names()).toHaveText(['Hogar', 'Impuestos']);
+  });
+
+  test('renombrar a su mismo nombre cambiando las mayúsculas no es un conflicto', async () => {
+    await page.getByRole('button', { name: 'Renombrar Hogar' }).click();
+    await page.getByLabel('Nombre de la categoría').fill('HOGAR');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+
+    await expect(page.getByText('Categoría «HOGAR» guardada.')).toBeVisible();
+    await expect(names()).toHaveText(['HOGAR', 'Impuestos']);
+  });
+
+  test('eliminación: pide confirmación; cancelar no borra y confirmar sí', async () => {
+    await page.getByRole('button', { name: 'Eliminar Impuestos' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('«Impuestos»');
+    await dialog.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(names()).toHaveText(['HOGAR', 'Impuestos']);
+
+    await page.getByRole('button', { name: 'Eliminar Impuestos' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Eliminar' }).click();
+
+    await expect(page.getByText('Categoría «Impuestos» eliminada.')).toBeVisible();
+    await expect(names()).toHaveText(['HOGAR']);
   });
 });

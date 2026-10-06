@@ -12,6 +12,7 @@ import {
   AbstractControl,
   FormControl,
   FormGroup,
+  FormGroupDirective,
   ReactiveFormsModule,
   ValidationErrors,
   Validators,
@@ -92,7 +93,7 @@ export class Categories implements OnInit {
     });
   }
 
-  protected add(): void {
+  protected add(directive: FormGroupDirective): void {
     if (this.newName.invalid) {
       this.newName.markAsTouched();
       return;
@@ -102,7 +103,8 @@ export class Categories implements OnInit {
     this.api.createCategory({ name: this.newName.value.trim() }).subscribe({
       next: (category) => {
         this.adding.set(false);
-        this.newName.reset('');
+        // El directivo recuerda que el formulario se envió: sin resetearlo a él, el campo vacío se vería inválido.
+        directive.resetForm({ name: '' });
         this.reload();
         this.snackBar.open(`Categoría «${category.name}» creada.`, undefined, { duration: 4000 });
       },
