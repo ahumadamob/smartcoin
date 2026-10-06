@@ -1,0 +1,73 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form">
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  <mat-form-field appearance="outline">
+    <mat-label>Nombre</mat-label>
+    <input matInput formControlName="name" maxlength="100" autocomplete="off" required />
+    @if (form.controls.name.hasError('required') || form.controls.name.hasError('blank')) {
+      <mat-error>Ingresá el nombre de la cuenta.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Tipo</mat-label>
+    <mat-select formControlName="type" required>
+      @for (type of types; track type) {
+        <mat-option [value]="type">{{ typeLabels[type] }}</mat-option>
+      }
+    </mat-select>
+    @if (form.controls.type.hasError('required')) {
+      <mat-error>Elegí el tipo de cuenta.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Moneda</mat-label>
+    <mat-select formControlName="currency" required>
+      @for (currency of currencies; track currency) {
+        <mat-option [value]="currency">{{ currencyLabels[currency] }}</mat-option>
+      }
+    </mat-select>
+    @if (reasons().currency; as reason) {
+      <mat-hint class="reason">{{ reason }}</mat-hint>
+    }
+    @if (form.controls.currency.hasError('required')) {
+      <mat-error>Elegí la moneda.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Fecha de apertura</mat-label>
+    <input matInput type="date" formControlName="openingDate" required />
+    @if (reasons().openingDate; as reason) {
+      <mat-hint class="reason">{{ reason }}</mat-hint>
+    } @else if (!editing()) {
+      <mat-hint>Sugerida: el primer día de tu período inicial.</mat-hint>
+    }
+    @if (form.controls.openingDate.hasError('required')) {
+      <mat-error>Ingresá la fecha de apertura.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Saldo inicial</mat-label>
+    <input matInput formControlName="initialBalance" inputmode="decimal" autocomplete="off" required />
+    @if (reasons().initialBalance; as reason) {
+      <mat-hint class="reason">{{ reason }}</mat-hint>
+    } @else {
+      <mat-hint>Con coma decimal. Puede ser negativo.</mat-hint>
+    }
+    @if (form.controls.initialBalance.hasError('required')) {
+      <mat-error>Ingresá el saldo inicial.</mat-error>
+    } @else if (form.controls.initialBalance.hasError('amount')) {
+      <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
+    }
+  </mat-form-field>
+
+  <div class="actions">
+    <button mat-button type="button" (click)="cancelled.emit()">Cancelar</button>
+    <button mat-flat-button type="submit" [disabled]="submitting()">Guardar</button>
+  </div>
+</form>

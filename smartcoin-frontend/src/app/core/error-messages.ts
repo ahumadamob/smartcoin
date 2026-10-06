@@ -5,6 +5,10 @@ const MESSAGES: Record<string, string> = {
   // La API solo devuelve 401 con credenciales incorrectas o con una sesión que ya no sirve.
   UNAUTHORIZED: 'Email o contraseña incorrectos.',
   INVALID_CURRENT_PASSWORD: 'La contraseña actual es incorrecta.',
+  ACCOUNT_NAME_TAKEN: 'Ya tenés una cuenta con ese nombre.',
+  ACCOUNT_IN_USE:
+    'No se puede eliminar la cuenta porque ya tiene Conceptos, partidas, movimientos, transferencias o cierres.',
+  FIELD_NOT_EDITABLE: 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.',
 };
 
 const VALIDATION_ERROR = 'VALIDATION_ERROR';

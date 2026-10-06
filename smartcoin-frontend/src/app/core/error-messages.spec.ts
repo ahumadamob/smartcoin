@@ -16,6 +16,17 @@ describe('messageFor', () => {
     ).toBe('La contraseña actual es incorrecta.');
   });
 
+  it.each([
+    ['ACCOUNT_NAME_TAKEN', 'Ya tenés una cuenta con ese nombre.'],
+    [
+      'ACCOUNT_IN_USE',
+      'No se puede eliminar la cuenta porque ya tiene Conceptos, partidas, movimientos, transferencias o cierres.',
+    ],
+    ['FIELD_NOT_EDITABLE', 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.'],
+  ])('traduce %s', (code, expected) => {
+    expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);
+  });
+
   describe('VALIDATION_ERROR', () => {
     it('muestra el primer error por campo', () => {
       const body = {
