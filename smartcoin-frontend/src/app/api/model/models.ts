@@ -2,6 +2,8 @@ export * from './accountEditability';
 export * from './accountListResponse';
 export * from './accountRequest';
 export * from './accountResponse';
+export * from './categoryRequest';
+export * from './categoryResponse';
 export * from './changePasswordRequest';
 export * from './createUserRequest';
 export * from './createdUserResponse';
