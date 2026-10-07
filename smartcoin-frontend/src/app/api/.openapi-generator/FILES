@@ -4,6 +4,7 @@ api/administracinDeUsuarios.service.ts
 api/api.ts
 api/autenticacin.service.ts
 api/categoras.service.ts
+api/conceptos.service.ts
 api/cuentas.service.ts
 configuration.ts
 encoder.ts
@@ -12,6 +13,9 @@ model/accountEditability.ts
 model/accountListResponse.ts
 model/accountRequest.ts
 model/accountResponse.ts
+model/budgetItemGeneration.ts
+model/budgetItemRequest.ts
+model/budgetItemResponse.ts
 model/categoryRequest.ts
 model/categoryResponse.ts
 model/changePasswordRequest.ts
