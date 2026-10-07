@@ -19,6 +19,8 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { BudgetItemDetail } from '../model/budgetItemDetail';
 // @ts-ignore
+import { BudgetItemListItem } from '../model/budgetItemListItem';
+// @ts-ignore
 import { BudgetItemRequest } from '../model/budgetItemRequest';
 // @ts-ignore
 import { BudgetItemResponse } from '../model/budgetItemResponse';
@@ -163,6 +165,96 @@ export class ConceptosService extends BaseService {
         return this.httpClient.request<BudgetItemDetail>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Listar los Conceptos
+     * Todos los Conceptos del usuario, sin paginación y sin totales de montos (tienen periodicidades y monedas distintas). Orden: los finalizados al final y, dentro de cada grupo, por nombre. Filtros opcionales: &#x60;kind&#x60; (tipo) y &#x60;categoryId&#x60; o &#x60;withoutCategory&#x3D;true&#x60; (categoría o ninguna; no se combinan). El estado y las cuotas se calculan contra el período actual (D-27).
+     * @endpoint get /api/budget-items
+     * @param kind Solo Conceptos de este tipo.
+     * @param categoryId Solo Conceptos de esta categoría.
+     * @param withoutCategory Solo Conceptos sin categoría. No se combina con &#x60;categoryId&#x60;.
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public listBudgetItems(kind?: 'INCOME' | 'EXPENSE', categoryId?: number, withoutCategory?: boolean, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<BudgetItemListItem>>;
+    public listBudgetItems(kind?: 'INCOME' | 'EXPENSE', categoryId?: number, withoutCategory?: boolean, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<BudgetItemListItem>>>;
+    public listBudgetItems(kind?: 'INCOME' | 'EXPENSE', categoryId?: number, withoutCategory?: boolean, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<BudgetItemListItem>>>;
+    public listBudgetItems(kind?: 'INCOME' | 'EXPENSE', categoryId?: number, withoutCategory?: boolean, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'kind',
+            <any>kind,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'categoryId',
+            <any>categoryId,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'withoutCategory',
+            <any>withoutCategory,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/budget-items`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<Array<BudgetItemListItem>>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

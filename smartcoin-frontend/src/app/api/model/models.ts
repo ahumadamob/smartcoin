@@ -6,6 +6,7 @@ export * from './budgetItemDetail';
 export * from './budgetItemEditability';
 export * from './budgetItemEntryCounts';
 export * from './budgetItemGeneration';
+export * from './budgetItemListItem';
 export * from './budgetItemRequest';
 export * from './budgetItemResponse';
 export * from './categoryRequest';

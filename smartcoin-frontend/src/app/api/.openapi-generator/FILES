@@ -17,6 +17,7 @@ model/budgetItemDetail.ts
 model/budgetItemEditability.ts
 model/budgetItemEntryCounts.ts
 model/budgetItemGeneration.ts
+model/budgetItemListItem.ts
 model/budgetItemRequest.ts
 model/budgetItemResponse.ts
 model/categoryRequest.ts
