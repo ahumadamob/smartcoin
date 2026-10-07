@@ -1,0 +1,179 @@
+import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  FormGroupDirective,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatSelectModule } from '@angular/material/select';
+import {
+  AccountResponse,
+  BudgetItemRequest,
+  BudgetItemResponse,
+  CategoryResponse,
+  ConceptosService,
+} from '../../api';
+import { messageFor } from '../../core/error-messages';
+import { parseAmount } from '../../shared/amount';
+import { CURRENCY_LABELS } from '../accounts/account-labels';
+import {
+  ESTIMATION_RULES,
+  KIND_LABELS,
+  KINDS,
+  OFFSET_LABEL,
+  PERIODICITIES,
+  PERIODICITY_LABELS,
+} from './budget-item-labels';
+
+const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function notBlank(control: AbstractControl): ValidationErrors | null {
+  return typeof control.value === 'string' && control.value.trim() === '' ? { blank: true } : null;
+}
+
+/** Monto con coma decimal y sin signo: el monto vigente no puede ser negativo. */
+function amountFormat(control: AbstractControl): ValidationErrors | null {
+  const text = (control.value as string).trim();
+  return text === '' || (parseAmount(text) !== null && !text.startsWith('-')) ? null : { amount: true };
+}
+
+/** Período `YYYY-MM`. Los navegadores sin selector de mes dejan escribirlo a mano. */
+function periodFormat(control: AbstractControl): ValidationErrors | null {
+  const text = control.value as string;
+  return text === '' || PERIOD_PATTERN.test(text) ? null : { period: true };
+}
+
+function wholeNumber(control: AbstractControl): ValidationErrors | null {
+  const value = control.value as number | null;
+  return value === null || Number.isInteger(value) ? null : { whole: true };
+}
+
+/**
+ * Alta de un Concepto recurrente (HU-10). Solo valida el formato; las reglas (rango del período de inicio, fin
+ * anterior al inicio, cuenta o categoría inexistentes) las decide el backend y acá se muestra su error. El monto se
+ * convierte de coma decimal a número antes de enviarlo.
+ */
+@Component({
+  selector: 'app-budget-item-form',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatRadioModule,
+    MatSelectModule,
+  ],
+  templateUrl: './budget-item-form.html',
+  styleUrl: './budget-item-form.scss',
+})
+export class BudgetItemForm {
+  private readonly api = inject(ConceptosService);
+
+  /** Cuentas del usuario, para elegir la cuenta por defecto. */
+  readonly accounts = input.required<AccountResponse[]>();
+  readonly categories = input.required<CategoryResponse[]>();
+  /** Período de inicio sugerido (`YYYY-MM`): el mes actual. */
+  readonly suggestedStartPeriod = input.required<string>();
+
+  /** El Concepto se creó; trae el resumen de las partidas generadas. */
+  readonly saved = output<BudgetItemResponse>();
+
+  protected readonly kinds = KINDS;
+  protected readonly kindLabels = KIND_LABELS;
+  protected readonly periodicities = PERIODICITIES;
+  protected readonly periodicityLabels = PERIODICITY_LABELS;
+  protected readonly estimationRules = ESTIMATION_RULES;
+  protected readonly offsetLabel = OFFSET_LABEL;
+  protected readonly currencyLabels = CURRENCY_LABELS;
+
+  protected readonly form = new FormGroup({
+    name: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, notBlank, Validators.maxLength(100)],
+    }),
+    kind: new FormControl<BudgetItemRequest.KindEnum | null>(null, Validators.required),
+    defaultAccountId: new FormControl<number | null>(null, Validators.required),
+    categoryId: new FormControl<number | null>(null),
+    periodicity: new FormControl<BudgetItemRequest.PeriodicityEnum | null>('MONTHLY', Validators.required),
+    dueDay: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(1),
+      Validators.max(31),
+      wholeNumber,
+    ]),
+    dueInPreviousMonth: new FormControl(false, { nonNullable: true }),
+    startPeriod: new FormControl('', { nonNullable: true, validators: [Validators.required, periodFormat] }),
+    endPeriod: new FormControl('', { nonNullable: true, validators: periodFormat }),
+    estimationRule: new FormControl<BudgetItemRequest.EstimationRuleEnum | null>('LAST_VALUE', Validators.required),
+    currentAmount: new FormControl('', { nonNullable: true, validators: [Validators.required, amountFormat] }),
+  });
+  protected readonly error = signal<string | null>(null);
+  protected readonly submitting = signal(false);
+
+  private readonly directive = viewChild.required(FormGroupDirective);
+
+  constructor() {
+    effect(() => this.form.controls.startPeriod.reset(this.suggestedStartPeriod()));
+  }
+
+  private defaults() {
+    return {
+      name: '',
+      kind: null,
+      defaultAccountId: null,
+      categoryId: null,
+      periodicity: 'MONTHLY' as const,
+      dueDay: null,
+      dueInPreviousMonth: false,
+      startPeriod: this.suggestedStartPeriod(),
+      endPeriod: '',
+      estimationRule: 'LAST_VALUE' as const,
+      currentAmount: '',
+    };
+  }
+
+  protected submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    const value = this.form.getRawValue();
+    const request: BudgetItemRequest = {
+      name: value.name.trim(),
+      kind: value.kind!,
+      defaultAccountId: value.defaultAccountId!,
+      categoryId: value.categoryId,
+      periodicity: value.periodicity!,
+      dueDay: value.dueDay!,
+      dueMonthOffset: value.dueInPreviousMonth ? -1 : 0,
+      startPeriod: value.startPeriod,
+      endPeriod: value.endPeriod === '' ? null : value.endPeriod,
+      estimationRule: value.estimationRule!,
+      currentAmount: parseAmount(value.currentAmount)!,
+    };
+    this.error.set(null);
+    this.submitting.set(true);
+    this.api.createBudgetItem(request).subscribe({
+      next: (item) => {
+        this.submitting.set(false);
+        // El directivo recuerda que el formulario se envió: sin resetearlo a él, los campos vacíos se verían inválidos.
+        this.directive().resetForm(this.defaults());
+        this.saved.emit(item);
+      },
+      error: (e: unknown) => {
+        this.submitting.set(false);
+        this.error.set(messageFor(e));
+      },
+    });
+  }
+}

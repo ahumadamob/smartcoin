@@ -1,0 +1,129 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Nombre</mat-label>
+    <input matInput formControlName="name" maxlength="100" autocomplete="off" required />
+    @if (form.controls.name.hasError('required') || form.controls.name.hasError('blank')) {
+      <mat-error>Ingresá el nombre del Concepto.</mat-error>
+    }
+  </mat-form-field>
+
+  <div class="pair">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Tipo</mat-label>
+      <mat-select formControlName="kind" required>
+        @for (kind of kinds; track kind) {
+          <mat-option [value]="kind">{{ kindLabels[kind] }}</mat-option>
+        }
+      </mat-select>
+      @if (form.controls.kind.hasError('required')) {
+        <mat-error>Elegí si es un ingreso o un gasto.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Periodicidad</mat-label>
+      <mat-select formControlName="periodicity" required>
+        @for (periodicity of periodicities; track periodicity) {
+          <mat-option [value]="periodicity">{{ periodicityLabels[periodicity] }}</mat-option>
+        }
+      </mat-select>
+      @if (form.controls.periodicity.hasError('required')) {
+        <mat-error>Elegí la periodicidad.</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Cuenta por defecto</mat-label>
+    <mat-select formControlName="defaultAccountId" required>
+      @for (account of accounts(); track account.id) {
+        <mat-option [value]="account.id">{{ account.name }} · {{ currencyLabels[account.currency] }}</mat-option>
+      }
+    </mat-select>
+    <mat-hint>Su moneda es la del Concepto y la de sus partidas.</mat-hint>
+    @if (form.controls.defaultAccountId.hasError('required')) {
+      <mat-error>Elegí la cuenta por defecto.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Categoría</mat-label>
+    <mat-select formControlName="categoryId">
+      <mat-option [value]="null">Sin categoría</mat-option>
+      @for (category of categories(); track category.id) {
+        <mat-option [value]="category.id">{{ category.name }}</mat-option>
+      }
+    </mat-select>
+    <mat-hint>Opcional.</mat-hint>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Día de vencimiento</mat-label>
+    <input matInput type="number" formControlName="dueDay" min="1" max="31" step="1" inputmode="numeric" required />
+    <mat-hint>Del 1 al 31. Si el mes no tiene ese día, vence el último día del mes.</mat-hint>
+    @if (form.controls.dueDay.hasError('required')) {
+      <mat-error>Ingresá el día de vencimiento.</mat-error>
+    } @else if (form.controls.dueDay.invalid) {
+      <mat-error>Tiene que ser un día del 1 al 31.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-checkbox formControlName="dueInPreviousMonth" class="offset">{{ offsetLabel }}</mat-checkbox>
+
+  <div class="pair">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Período de inicio</mat-label>
+      <input matInput type="month" formControlName="startPeriod" placeholder="AAAA-MM" required />
+      <mat-hint>Primer mes con partida.</mat-hint>
+      @if (form.controls.startPeriod.hasError('required')) {
+        <mat-error>Ingresá el período de inicio.</mat-error>
+      } @else if (form.controls.startPeriod.hasError('period')) {
+        <mat-error>Escribilo como año y mes, por ejemplo 2026-10.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Período de fin</mat-label>
+      <input matInput type="month" formControlName="endPeriod" placeholder="AAAA-MM" />
+      <mat-hint>Opcional. Vacío, el Concepto no tiene fin.</mat-hint>
+      @if (form.controls.endPeriod.hasError('period')) {
+        <mat-error>Escribilo como año y mes, por ejemplo 2027-12.</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  <fieldset class="rule">
+    <legend id="estimation-rule-label">Regla de estimación</legend>
+    <mat-radio-group formControlName="estimationRule" aria-labelledby="estimation-rule-label" class="rule-options">
+      @for (rule of estimationRules; track rule.value) {
+        <mat-radio-button [value]="rule.value">
+          <span class="rule-name">{{ rule.label }}</span>
+          <span class="rule-description">{{ rule.description }}</span>
+        </mat-radio-button>
+      }
+    </mat-radio-group>
+  </fieldset>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Monto vigente</mat-label>
+    <input matInput formControlName="currentAmount" inputmode="decimal" autocomplete="off" required />
+    <mat-hint>Con coma decimal. Es el presupuestado de cada partida que se genera.</mat-hint>
+    @if (form.controls.currentAmount.hasError('required')) {
+      <mat-error>Ingresá el monto vigente.</mat-error>
+    } @else if (form.controls.currentAmount.hasError('amount')) {
+      <mat-error>Escribilo sin signo, con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
+    }
+  </mat-form-field>
+
+  <p class="notice">
+    El tipo, la periodicidad y los períodos de inicio y de fin no se pueden cambiar después de guardar.
+  </p>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  <div class="actions">
+    <button mat-flat-button type="submit" [disabled]="submitting()">Crear Concepto</button>
+  </div>
+</form>

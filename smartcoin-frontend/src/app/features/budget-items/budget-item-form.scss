@@ -1,0 +1,60 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.offset {
+  margin-top: -8px;
+}
+
+.rule {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+}
+
+.rule legend {
+  padding: 0 4px;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.rule-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rule-name,
+.rule-description {
+  display: block;
+}
+
+.rule-description {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.notice {
+  margin: 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error {
+  margin: 0;
+  color: var(--mat-sys-error);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

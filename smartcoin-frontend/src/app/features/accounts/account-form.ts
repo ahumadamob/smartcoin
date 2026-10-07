@@ -14,7 +14,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { AccountRequest, AccountResponse, CuentasService } from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPES, CURRENCIES, CURRENCY_LABELS } from './account-labels';
-import { formatAmountInput, parseAmount } from './amount';
+import { formatAmountInput, parseAmount } from '../../shared/amount';
 
 function notBlank(control: AbstractControl): ValidationErrors | null {
   return typeof control.value === 'string' && control.value.trim() === '' ? { blank: true } : null;

@@ -24,6 +24,10 @@ describe('messageFor', () => {
     ],
     ['CATEGORY_NAME_TAKEN', 'Ya tenés una categoría con ese nombre.'],
     ['CATEGORY_IN_USE', 'No se puede eliminar la categoría porque la usan Conceptos o partidas.'],
+    [
+      'PERIOD_NOT_AVAILABLE',
+      'Ese período no está disponible: tiene que estar entre tu primer período abierto y el horizonte.',
+    ],
     ['FIELD_NOT_EDITABLE', 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.'],
   ])('traduce %s', (code, expected) => {
     expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);

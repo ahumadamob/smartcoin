@@ -1,5 +1,5 @@
 /**
- * Saldo escrito por el usuario: coma decimal (hasta 2 decimales), punto opcional como separador de miles y signo
+ * Monto escrito por el usuario: coma decimal (hasta 2 decimales), punto opcional como separador de miles y signo
  * menos opcional. `1.234,50`, `-1500,5`, `0`. Un punto solo (`1.5`) no vale: sería ambiguo.
  */
 const AMOUNT_PATTERN = /^-?(\d+|\d{1,3}(\.\d{3})+)(,\d{1,2})?$/;

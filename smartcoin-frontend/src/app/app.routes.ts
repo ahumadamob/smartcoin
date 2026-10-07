@@ -50,9 +50,8 @@ export const routes: Routes = [
       },
       {
         path: 'conceptos',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/budget-items/budget-items').then((m) => m.BudgetItems),
         title: 'Conceptos',
-        data: { heading: 'Conceptos' },
       },
       {
         path: 'cuentas',
