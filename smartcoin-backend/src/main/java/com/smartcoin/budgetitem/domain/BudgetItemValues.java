@@ -14,6 +14,15 @@ public record BudgetItemValues(String name, EntryKind kind, Long defaultAccountI
 		EstimationRule estimationRule, BigDecimal currentAmount, Integer installmentsTotal,
 		Integer firstInstallmentNumber) {
 
+	/** Los datos que tiene hoy un Concepto, para compararlos con los de una edición (RN-15). */
+	public static BudgetItemValues of(BudgetItem item) {
+		return new BudgetItemValues(item.getName(), item.getKind(), item.getDefaultAccount().getId(),
+				item.getCategory() == null ? null : item.getCategory().getId(), item.getPeriodicity(),
+				item.getDueDay(), item.getDueMonthOffset(), item.getStartPeriod(), item.getEndPeriod(),
+				item.getEstimationRule(), item.getCurrentAmount(), item.getInstallmentsTotal(),
+				item.getFirstInstallmentNumber());
+	}
+
 	/** Un Concepto recurrente sin cuotas. */
 	public BudgetItemValues(String name, EntryKind kind, Long defaultAccountId, Long categoryId,
 			Periodicity periodicity, int dueDay, int dueMonthOffset, YearMonth startPeriod, YearMonth endPeriod,

@@ -88,7 +88,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-11. Cambiar el monto vigente de un Concepto actualiza sus partidas pendientes no editadas.** Es una corrección del Concepto (por ejemplo, un error de tipeo al crearlo) y no contradice D-11, que se refiere a editar partidas.
 
-**S-12. Tipo, periodicidad, período de inicio y cuotas de un Concepto no se editan.** Para cambiarlos se da de baja y se crea otro.
+**S-12. Tipo, periodicidad, período de inicio, período de fin y cuotas de un Concepto no se editan** (RN-15). Para cambiarlos se da de baja y se crea otro. En una baja el fin se fija (HU-18), pero eso no es editarlo.
 
 **S-13. La cuenta tiene fecha de apertura y saldo inicial a esa fecha.** No se aceptan movimientos anteriores. Por defecto, la fecha de apertura es el primer día del período inicial del usuario. La fecha de apertura debe estar entre el primer día del período inicial y hoy, ambos inclusive: no puede ser futura. *Confirmada.*
 
