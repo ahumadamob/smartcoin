@@ -231,8 +231,8 @@ Reglas: RN-10, RN-11, RN-12, RN-13.
 - El nombre se guarda sin espacios en los extremos y puede repetirse (S-19). El monto vigente puede ser 0 (RN-03).
 - **Cuotas**: HU-10 no tiene `installmentsTotal` ni `firstInstallmentNumber`; los agrega HU-11.
 - Reglas puras en `budgetitem/domain`: `DueDateCalculator` (RN-12) y `ScheduleCalculator` (RN-11 y RN-13). El calendario devuelve cada período con su índice k desde el inicio, así HU-11 calcula la cuota `f + k` sin tocarlo. El primer período abierto (RN-08) es `PeriodRange.firstOpen`.
-- `EntryGenerator.generate(Concepto, horizonte)` es el componente reutilizable de RN-13: calcula el calendario, busca los períodos destino en una consulta, guarda las partidas con un `saveAll` (T-17) y actualiza `generated_until`. No abre transacción: corre en la del caso de uso. Hoy solo lo llama el alta; `HorizonService` tiene el TODO para llamarlo por cada Concepto en HU-12.
-- El alta llama a `HorizonService.ensureHorizon` antes de generar (RN-07): si el mes cambió desde el último inicio de sesión, falta el período del nuevo horizonte. Hoy esa operación solo crea períodos; las partidas de los demás Conceptos son HU-12.
+- `EntryGenerator.generate(Concepto, horizonte)` es el componente reutilizable de RN-13: calcula el calendario, busca los períodos destino en una consulta, guarda las partidas con un `saveAll` (T-17) y actualiza `generated_until`. No abre transacción: corre en la del caso de uso. Lo llaman el alta y, desde HU-12, `HorizonService.ensureHorizon` por cada Concepto pendiente.
+- El alta llama a `HorizonService.ensureHorizon` antes de generar (RN-07): si el mes cambió desde el último inicio de sesión, falta el período del nuevo horizonte. Desde HU-12 esa operación, además de crear los períodos, genera las partidas de los demás Conceptos.
 - Las partidas recurrentes se guardan con `name` y `category_id` nulos: muestran los del Concepto.
 - Frontend: `/conceptos` tiene el formulario de alta (`BudgetItemForm`) y, después de guardar, un resumen ("Se generaron 25 partidas, de octubre 2026 a octubre 2028. Primer vencimiento: 25/09/2026."). No hay lista de Conceptos (HU-14) ni se ven las partidas (HU-15). Sin cuentas, la pantalla manda a cargar una. El período de inicio sugerido es el mes actual del navegador; el rango válido lo decide el backend. Los períodos usan `<input type="month">`; donde el navegador no lo soporta se escriben como `AAAA-MM`.
 - Verificado de punta a punta contra la base, a través de la aplicación y con un usuario de prueba: el alta inserta el Concepto y sus partidas sin violar ninguna restricción; y, pendiente de HU-07 y HU-09, eliminar la cuenta o la categoría que usa un Concepto responde `ACCOUNT_IN_USE` y `CATEGORY_IN_USE` (las consultas de existencia sobre `budget_item`).
@@ -244,7 +244,7 @@ Reglas: RN-10, RN-11, RN-12, RN-13.
   - Cada partida recurrente muestra el nombre y la categoría de su Concepto (en la fila están nulos).
   - Las partidas de un usuario no aparecen en los meses de otro (`period_id` del propio usuario).
   - Con un período cerrado (HU-30 a HU-33): un Concepto con inicio en ese período responde `PERIOD_NOT_AVAILABLE`. Hoy no se puede cerrar un mes, así que la consulta del último período cerrado solo corrió sin resultados.
-  - El valor guardado de `generated_until`: se verá en HU-12, cuando al avanzar el horizonte no se dupliquen partidas.
+  - Avance del horizonte (HU-12): el primer mes que cambie, el período nuevo aparece con una partida por cada Concepto que le toca, con el monto vigente de ese momento y sin duplicados; `generated_until` queda en el horizonte nuevo (o en el fin del Concepto).
   - Cuotas (HU-11): un plan mensual de 12 cuotas con primera cuota 4 y inicio en el mes actual tiene 9 partidas, con las cuotas 4 a 12 en orden, y ninguna después de la última.
   - Cuotas: cada partida de un Concepto en cuotas muestra "cuota x de n" con el número que le toca; en uno bimestral, trimestral, semestral o anual, la cuota avanza de a una por partida, no por mes.
   - Cuotas: un plan que termina después del horizonte muestra las cuotas 1 a 25 de n (si empieza en el mes actual) y ninguna partida más allá del horizonte; el fin que muestra el Concepto es el calculado.
@@ -271,7 +271,7 @@ Reglas: RN-13, RN-14.
 - Frontend: la casilla "Es en cuotas" del formulario muestra el total y la primera cuota (1 por defecto, o vacía, que el backend completa con 1), oculta el período de fin y explica que el fin se calcula y para qué sirve la primera cuota. Solo valida el formato (enteros ≥ 1). El resumen agrega "Son las cuotas 4 a 12 de 12." (o "Es la cuota 12 de 12."); si el plan termina después del horizonte, agrega cuándo termina y que las demás se generan a medida que avance el horizonte.
 - **Criterios que se completan en otra historia**:
   - Criterio 2, "cada partida muestra cuota x de n": se ve en la vista del mes (HU-15). Hoy el backend guarda `installment_number` y la respuesta de partidas va a traer el total de cuotas del Concepto; todavía no hay dónde mostrarlo.
-  - Criterio 4, "aunque el horizonte avance no se generan partidas después de la última cuota": se verifica con datos en HU-12. Hoy está garantizado por el fin calculado y por `generated_until`, con tests del generador, pero el horizonte todavía no avanza.
+  - Criterio 4, "aunque el horizonte avance no se generan partidas después de la última cuota": HU-12 lo garantiza con tests (un plan cortado por el horizonte continúa con su número y no pasa de la última cuota). La verificación con datos reales queda en la lista pendiente de HU-12.
   - La lista de verificación con datos reales para HU-15 (en las notas de HU-10) suma los puntos de cuotas.
 - **Observación fuera de esta historia**: el cuerpo acepta números decimales en los campos enteros y los trunca (`"installmentsTotal": 12.5` se guarda como 12, como ya pasa con `dueDay`). Es la configuración por defecto de Jackson. Si se quiere rechazarlos hay que desactivar `ACCEPT_FLOAT_AS_INT` para toda la API, así que queda para decidir aparte.
 - Verificado de punta a punta con un usuario de prueba, a través de la aplicación y en el navegador: la Heladera (12 cuotas, primera 4) genera 9 partidas, de octubre 2026 a junio 2027, y el resumen dice "Son las cuotas 4 a 12 de 12."; con la primera cuota en 13 se ve el error del backend y se conserva lo cargado; un plan de 60 cuotas genera 25 y avisa cuándo termina. Como con HU-10, las partidas y su `installment_number` no se pueden leer todavía: eso se verifica en HU-15.
@@ -286,6 +286,24 @@ Reglas: RN-13, RN-14.
 4. Ejecutarlo dos veces seguidas no crea nada nuevo.
 
 Reglas: RN-06, RN-07, RN-13.
+
+**Notas de implementación**
+
+- Depende de D-09 (partidas materializadas; `generated_until` evita que una partida eliminada reaparezca), S-22 (resuelta: ver `decisiones.md`) y T-17 (un `saveAll` por Concepto). No agrega supuestos nuevos.
+- Sin cambios de API ni de pantalla: `docs/openapi.json` queda igual al regenerarlo.
+- `HorizonService.ensureHorizon` crea los períodos que faltan (sin llamar a `saveAll` si no falta ninguno) y después, con el horizonte calculado con el `Clock`, genera con `EntryGenerator.generate` los Conceptos que devuelve `BudgetItemRepository.findPendingGeneration(userId, horizonte)`. Todo en la transacción del caso de uso. Lo invocan el alta de usuario, el inicio de sesión y el alta de Conceptos.
+- La consulta trae solo los Conceptos del usuario con `generated_until` nulo o anterior al menor entre el horizonte y su fin. Uno terminado o al día no se trae ni cuesta nada: importa porque corre en cada inicio de sesión. Un Concepto anual o semestral se trae una vez por mes de avance del horizonte aunque no le toque partida: ahí se anota `generated_until` y deja de traerse.
+- `generated_until` se actualiza sobre la entidad gestionada (sin `save` explícito). La segunda ejecución seguida no trae ningún Concepto y no guarda períodos ni partidas.
+- Varios meses de ausencia: el horizonte se calcula con el mes actual, así que se crean todos los períodos que faltan y cada Concepto genera de una vez todo lo que le corresponde según su periodicidad, con el monto vigente de ese momento.
+- Alta de Conceptos: sigue llamando a `ensureHorizon` antes de guardar el Concepto nuevo, que por eso no está en la consulta; y aunque estuviera, `generated_until` impediría duplicar. Hay un test del orden en `BudgetItemServiceTest`.
+- No se implementa el disparo al editar un Concepto (HU-13) ni la eliminación con "Solo este mes" (HU-18).
+- **Riesgo conocido, sin resolver**: dos inicios de sesión simultáneos del mismo usuario en un mes nuevo pueden intentar crear los mismos períodos y partidas. `UNIQUE (user_id, period_month)` y `UNIQUE (budget_item_id, period_id)` evitan los duplicados, pero una de las transacciones fallaría y ese inicio de sesión daría error. Las reglas no lo definen; se acepta porque la aplicación se usa de a un usuario por vez.
+- Tests (`HorizonServiceTest`, `HorizonGenerationTest`), con repositorios simulados y `Clock` fijo: el ejemplo de la historia, periodicidades, Concepto terminado, cuotas cortadas por el horizonte (con primera cuota distinta de 1 y trimestral), salto de varios meses con cruce de año, segunda ejecución sin guardados, período ya procesado sin partida, Conceptos de otro usuario.
+- **Pendiente de integración**: `findPendingGeneration` no se pudo probar contra MySQL (sin Docker ni Testcontainers); el repositorio simulado de los tests aplica el mismo criterio pero **no prueba el JPQL ni la comparación de `CHAR(7)`**. La aplicación lo ejecuta sin error en el inicio de sesión.
+- **Criterios que se completan en otra historia**:
+  - Criterio 3, "una partida eliminada con Solo este mes no vuelve a aparecer": de punta a punta en HU-18. Hoy lo cubre el test de un período ya procesado sin partida.
+  - Criterio 1, "al editar un Concepto se asegura el horizonte": el disparo llega con HU-13.
+  - El avance del horizonte con datos reales no se puede probar porque no se puede adelantar el reloj de la aplicación. **Verificar la primera vez que cambie el mes, mirando en la vista del mes (HU-15)**: que aparece el período nuevo con sus partidas, una por cada Concepto que le toca, con el monto vigente de ese momento, sin duplicados, y que un plan de cuotas cortado por el horizonte sigue con el número que corresponde. Se suma a la lista de verificación de HU-15 de las notas de HU-10.
 
 ### HU-13 · Editar un Concepto
 

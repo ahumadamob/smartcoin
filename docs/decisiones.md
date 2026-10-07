@@ -108,7 +108,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-21. Al crear un Concepto no se compara su período de inicio con la fecha de apertura de la cuenta.** RN-10 no lo pide; la fecha de apertura se controla al registrar cada movimiento (RN-21). Agregado en HU-10.
 
-**S-22. Un plan de cuotas que termina después del horizonte queda incompleto hasta HU-12.** El alta genera solo las cuotas que entran (RN-13) y el resumen lo avisa: indica hasta qué cuota se generó y cuándo termina el plan. Mientras no exista HU-12, que genera las que faltan al avanzar el horizonte, nada las crea. Con la numeración no hay riesgo: sale del índice desde el inicio (RN-14), no de cuántas partidas existen. *Confirmada* (HU-11).
+**S-22. Un plan de cuotas que termina después del horizonte se completa al avanzar el horizonte.** El alta genera solo las cuotas que entran (RN-13) y el resumen lo avisa: indica hasta qué cuota se generó y cuándo termina el plan. Desde HU-12, asegurar el horizonte (RN-07) genera las que faltan, con el número que les toca: sale del índice desde el inicio (RN-14), no de cuántas partidas existen, y nunca se genera después de la última cuota. *Confirmada* (HU-11). *Resuelta* en HU-12; falta verificarla con datos reales cuando cambie el mes.
 
 ## Técnicas
 
