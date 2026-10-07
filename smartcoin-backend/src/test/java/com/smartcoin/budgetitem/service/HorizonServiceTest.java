@@ -7,6 +7,8 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 
+import com.smartcoin.budgetitem.domain.BudgetItem;
+import com.smartcoin.budgetitem.repository.BudgetItemRepository;
 import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.PeriodRange;
 import com.smartcoin.period.domain.PeriodStatus;
@@ -19,11 +21,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +43,12 @@ class HorizonServiceTest {
 	@Mock
 	BudgetPeriodRepository periods;
 
+	@Mock
+	BudgetItemRepository items;
+
+	@Mock
+	EntryGenerator generator;
+
 	@Captor
 	ArgumentCaptor<List<BudgetPeriod>> saved;
 
@@ -45,7 +59,7 @@ class HorizonServiceTest {
 		AppProperties properties = new AppProperties(ZONE, new AppProperties.Budget(24, 10),
 				new AppProperties.Security("0123456789abcdef0123456789abcdef", Duration.ofHours(8), "", 10));
 		Clock clock = Clock.fixed(Instant.parse("2026-10-15T12:00:00Z"), ZONE);
-		service = new HorizonService(periods, properties, clock);
+		service = new HorizonService(periods, items, generator, properties, clock);
 	}
 
 	private static User user(long id, YearMonth start) {
@@ -91,6 +105,33 @@ class HorizonServiceTest {
 
 		service.ensureHorizon(user(7L, YearMonth.of(2026, 10)));
 
-		verify(periods).saveAll(List.of());
+		verify(periods, never()).saveAll(anyList());
+	}
+
+	@Test
+	void generatesEachPendingItemAfterCreatingThePeriodsWithTheHorizonOfTheClock() {
+		when(periods.findPeriodMonthsByUserId(7L))
+				.thenReturn(PeriodRange.required(YearMonth.of(2026, 10), YearMonth.of(2026, 10), 24));
+		BudgetItem first = new BudgetItem();
+		BudgetItem second = new BudgetItem();
+		YearMonth horizon = YearMonth.of(2028, 10);
+		when(items.findPendingGeneration(7L, horizon)).thenReturn(List.of(first, second));
+
+		service.ensureHorizon(user(7L, YearMonth.of(2026, 10)));
+
+		verify(generator).generate(first, horizon);
+		verify(generator).generate(second, horizon);
+	}
+
+	@Test
+	void periodsAreCreatedBeforeTheItemsAreGenerated() {
+		when(periods.findPeriodMonthsByUserId(7L)).thenReturn(List.of());
+		when(items.findPendingGeneration(7L, YearMonth.of(2028, 10))).thenReturn(List.of(new BudgetItem()));
+
+		service.ensureHorizon(user(7L, YearMonth.of(2026, 10)));
+
+		InOrder order = inOrder(periods, generator);
+		order.verify(periods).saveAll(anyList());
+		order.verify(generator).generate(any(BudgetItem.class), eq(YearMonth.of(2028, 10)));
 	}
 }

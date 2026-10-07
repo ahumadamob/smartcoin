@@ -1,5 +1,8 @@
 package com.smartcoin.budgetitem.repository;
 
+import java.time.YearMonth;
+import java.util.List;
+
 import com.smartcoin.budgetitem.domain.BudgetItem;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,4 +18,16 @@ public interface BudgetItemRepository extends JpaRepository<BudgetItem, Long> {
 	/** HU-09 (RN-34): ¿algún Concepto del usuario usa esta categoría? */
 	@Query("select count(i) > 0 from BudgetItem i where i.userId = :userId and i.category.id = :categoryId")
 	boolean existsByUserIdAndCategoryId(@Param("userId") Long userId, @Param("categoryId") Long categoryId);
+
+	/**
+	 * HU-12 (RN-07, RN-13): los Conceptos del usuario a los que todavía les falta generar, es decir, los que tienen
+	 * {@code generated_until} anterior al menor entre el horizonte y su fin. Uno terminado o al día no se trae.
+	 */
+	@Query("""
+			select i from BudgetItem i
+			where i.userId = :userId
+			  and (i.generatedUntil is null
+			       or (i.generatedUntil < :horizon and (i.endPeriod is null or i.generatedUntil < i.endPeriod)))
+			order by i.id""")
+	List<BudgetItem> findPendingGeneration(@Param("userId") Long userId, @Param("horizon") YearMonth horizon);
 }
