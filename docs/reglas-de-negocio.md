@@ -84,6 +84,8 @@ Después, `generated_until = min(horizonte, fin)`. Con desfase −1, el vencimie
 | Monto vigente | Sí | Reemplaza el presupuestado de las partidas pendientes no editadas de períodos abiertos. Las editadas no cambian. |
 | Tipo, periodicidad, inicio, fin, cuotas | No | 409 `FIELD_NOT_EDITABLE`. Para cambiarlos se da de baja (RN-31) y se crea otro Concepto. |
 
+Aclaraciones (HU-13): «período abierto» es todo período no cerrado, incluidos los meses pasados que todavía no se cerraron (S-24). Un Concepto finalizado se edita igual (S-23). «Pendientes» incluye las partidas Parciales (S-11). El vencimiento y la cuenta de una partida editada (RN-18) sí cambian: «editada» se refiere solo al monto. Enviar el mismo valor que ya tiene un dato no editable no es un cambio. Un pedido rechazado no cambia nada: ni el Concepto ni sus partidas.
+
 ## 4. Partidas
 
 **RN-16. Estado.** En la base, una partida está `PENDING` o `CONSOLIDATED`. Hacia afuera:

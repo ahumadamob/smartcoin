@@ -111,6 +111,8 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | Clase | Regla |
 |---|---|
 | `DueDateCalculator` | RN-12 |
+| `BudgetItemEditability` | RN-15: qué datos de un Concepto no se editan (tipo, periodicidad, inicio, fin, cuotas) y el motivo |
+| `BudgetItemEditEffects` | RN-15: a qué partidas alcanza cada cambio (vencimiento, cuenta, monto vigente) |
 | `ScheduleCalculator` | RN-11, RN-13, RN-14: qué períodos corresponden y el índice k de cada uno, del que sale el número de cuota |
 | `EstimationCalculator` | RN-26: base, estimación y destino |
 | `MovementDateValidator` | RN-21: ventana, apertura, fecha futura |

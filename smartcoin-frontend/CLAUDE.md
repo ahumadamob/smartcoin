@@ -53,6 +53,7 @@ src/app/
 | Cambio de contraseña | `/cambiar-contrasena` (obligatorio, fuera del layout) o dentro del layout (voluntario) | HU-04, HU-05 |
 | Presupuesto del mes | `/presupuesto/:period` (sin período, el actual) | HU-15 a HU-26 |
 | Conceptos | `/conceptos` | HU-10 a HU-14 |
+| Editar un Concepto | `/conceptos/:id/editar` | HU-13 |
 | Cuentas | `/cuentas` | HU-07, HU-08 |
 | Categorías | `/categorias` | HU-09 |
 | Transferencias | `/transferencias` | HU-27 a HU-29 |

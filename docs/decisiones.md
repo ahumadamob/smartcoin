@@ -86,7 +86,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-10. Un mes se cierra a partir de su último día y solo si el anterior está cerrado.**
 
-**S-11. Cambiar el monto vigente de un Concepto actualiza sus partidas pendientes no editadas.** Es una corrección del Concepto (por ejemplo, un error de tipeo al crearlo) y no contradice D-11, que se refiere a editar partidas.
+**S-11. Cambiar el monto vigente de un Concepto actualiza sus partidas pendientes no editadas.** Es una corrección del Concepto (por ejemplo, un error de tipeo al crearlo) y no contradice D-11, que se refiere a editar partidas. «Pendientes» incluye las Parciales (RN-16): reciben el monto nuevo y su pendiente se recalcula (RN-17). Aclarado en HU-13.
 
 **S-12. Tipo, periodicidad, período de inicio, período de fin y cuotas de un Concepto no se editan** (RN-15). Para cambiarlos se da de baja y se crea otro. En una baja el fin se fija (HU-18), pero eso no es editarlo.
 
@@ -109,6 +109,12 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 **S-21. Al crear un Concepto no se compara su período de inicio con la fecha de apertura de la cuenta.** RN-10 no lo pide; la fecha de apertura se controla al registrar cada movimiento (RN-21). Agregado en HU-10.
 
 **S-22. Un plan de cuotas que termina después del horizonte se completa al avanzar el horizonte.** El alta genera solo las cuotas que entran (RN-13) y el resumen lo avisa: indica hasta qué cuota se generó y cuándo termina el plan. Desde HU-12, asegurar el horizonte (RN-07) genera las que faltan, con el número que les toca: sale del índice desde el inicio (RN-14), no de cuántas partidas existen, y nunca se genera después de la última cuota. *Confirmada* (HU-11). *Resuelta* en HU-12; falta verificarla con datos reales cuando cambie el mes.
+
+**S-23. Un Concepto finalizado (su fin es anterior al período actual) se puede editar igual.** RN-15 no lo excluye, y puede tener partidas pendientes en meses pasados que todavía no se cerraron. Los cambios alcanzan solo a las partidas que existan y pasen los filtros de RN-15. *Confirmada* (HU-13).
+
+**S-24. «Período abierto», en RN-15, es todo período no cerrado, incluidos los meses pasados que todavía no se cerraron.** Es la lectura literal de RN-08 y RN-09: lo único que congela un período es cerrarlo. Una partida pendiente de un mes pasado sin cerrar cambia con el Concepto. *Confirmada* (HU-13).
+
+**S-25. Al cambiar la cuenta por defecto de un Concepto no se compara con la fecha de apertura de la cuenta nueva.** Es la misma razón que S-21: la fecha de apertura se controla al registrar cada movimiento (RN-21). *Sin confirmar* (agregado en HU-13).
 
 ## Técnicas
 
