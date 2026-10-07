@@ -26,6 +26,8 @@ import javax.crypto.spec.SecretKeySpec;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.smartcoin.account.domain.Account;
 import com.smartcoin.budgetitem.domain.BudgetItem;
+import com.smartcoin.budgetitem.domain.BudgetItemStatus;
+import com.smartcoin.budgetitem.domain.BudgetItemStatusCalculator;
 import com.smartcoin.budgetitem.domain.BudgetItemValues;
 import com.smartcoin.budgetitem.domain.EstimationRule;
 import com.smartcoin.budgetitem.domain.Periodicity;
@@ -592,6 +594,95 @@ class BudgetItemControllerTest {
 				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 		mvc.perform(put("/api/budget-items/31").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
 				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+		verifyNoInteractions(items);
+	}
+
+	private ResultActions list(String query) throws Exception {
+		return mvc.perform(get("/api/budget-items" + query).header("Authorization", bearer()));
+	}
+
+	private static BudgetItemService.ListRow row(BudgetItem item, BudgetItemStatusCalculator.Result state) {
+		Account account = item.getDefaultAccount();
+		account.setName("Banco Nación");
+		return new BudgetItemService.ListRow(item, account.getId(), account.getName(), Currency.ARS,
+				item.getCategory() == null ? null : item.getCategory().getId(),
+				item.getCategory() == null ? null : "Hogar", state);
+	}
+
+	@Test
+	void listRespondsAnArrayWithTheShapeOfEachItemAndItsState() throws Exception {
+		BudgetItem fridge = createdInInstallments().item();
+		BudgetItem salary = created().item();
+		salary.setCategory(null);
+		when(items.list(USER_ID, null, null, false)).thenReturn(List.of(
+				row(fridge, new BudgetItemStatusCalculator.Result(BudgetItemStatus.ACTIVE, 4, 8)),
+				row(salary, new BudgetItemStatusCalculator.Result(BudgetItemStatus.SCHEDULED, null, null))));
+
+		list("")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(2))
+				.andExpect(jsonPath("$[0].name").value("Heladera"))
+				.andExpect(jsonPath("$[0].defaultAccountName").value("Banco Nación"))
+				.andExpect(jsonPath("$[0].currency").value("ARS"))
+				.andExpect(jsonPath("$[0].categoryName").value("Hogar"))
+				.andExpect(jsonPath("$[0].periodicity").value("MONTHLY"))
+				.andExpect(jsonPath("$[0].dueDay").value(25))
+				.andExpect(jsonPath("$[0].dueMonthOffset").value(-1))
+				.andExpect(jsonPath("$[0].estimationRule").value("LAST_VALUE"))
+				.andExpect(jsonPath("$[0].currentAmount").value(1200000.50))
+				.andExpect(jsonPath("$[0].endPeriod").value("2027-06"))
+				.andExpect(jsonPath("$[0].installmentsTotal").value(12))
+				.andExpect(jsonPath("$[0].status").value("ACTIVE"))
+				.andExpect(jsonPath("$[0].currentInstallment").value(4))
+				.andExpect(jsonPath("$[0].installmentsRemaining").value(8))
+				.andExpect(jsonPath("$[1].categoryId").doesNotExist())
+				.andExpect(jsonPath("$[1].status").value("SCHEDULED"))
+				.andExpect(jsonPath("$[1].currentInstallment").doesNotExist());
+	}
+
+	@Test
+	void listRespondsAnEmptyArrayWhenThereAreNoItems() throws Exception {
+		when(items.list(USER_ID, null, null, false)).thenReturn(List.of());
+
+		list("").andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+	}
+
+	@Test
+	void listPassesTheFiltersToTheServiceWithTheUserFromTheToken() throws Exception {
+		when(items.list(USER_ID, EntryKind.EXPENSE, 3L, false)).thenReturn(List.of());
+		when(items.list(USER_ID, EntryKind.INCOME, null, true)).thenReturn(List.of());
+
+		list("?kind=EXPENSE&categoryId=3").andExpect(status().isOk());
+		list("?kind=INCOME&withoutCategory=true").andExpect(status().isOk());
+
+		verify(items).list(USER_ID, EntryKind.EXPENSE, 3L, false);
+		verify(items).list(USER_ID, EntryKind.INCOME, null, true);
+	}
+
+	@ParameterizedTest
+	@CsvSource({ "?kind=OTHER", "?categoryId=abc", "?withoutCategory=maybe" })
+	void listRejectsInvalidParametersWithValidationError(String query) throws Exception {
+		list(query)
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		verifyNoInteractions(items);
+	}
+
+	@Test
+	void listShowsTheServiceErrors() throws Exception {
+		when(items.list(USER_ID, null, 99L, false))
+				.thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "La categoría no existe."));
+		when(items.list(USER_ID, null, 3L, true))
+				.thenThrow(BusinessException.invalidField("withoutCategory", "No se combinan."));
+
+		list("?categoryId=99").andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+		list("?categoryId=3&withoutCategory=true").andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("withoutCategory"));
+	}
+
+	@Test
+	void listRequiresAToken() throws Exception {
+		mvc.perform(get("/api/budget-items")).andExpect(status().isUnauthorized());
 		verifyNoInteractions(items);
 	}
 }

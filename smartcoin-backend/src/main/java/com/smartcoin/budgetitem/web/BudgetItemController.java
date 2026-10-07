@@ -1,13 +1,16 @@
 package com.smartcoin.budgetitem.web;
 
 import java.net.URI;
+import java.util.List;
 
 import jakarta.validation.Valid;
 
 import com.smartcoin.budgetitem.service.BudgetItemService;
+import com.smartcoin.shared.domain.EntryKind;
 import com.smartcoin.shared.security.CurrentUser;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -62,6 +66,31 @@ public class BudgetItemController {
 	public ResponseEntity<BudgetItemResponse> create(@Valid @RequestBody BudgetItemRequest request) {
 		BudgetItemResponse created = BudgetItemResponse.from(items.create(currentUser.id(), request.toValues()));
 		return ResponseEntity.created(URI.create("/api/budget-items/" + created.id())).body(created);
+	}
+
+	@GetMapping
+	@Operation(operationId = "listBudgetItems", summary = "Listar los Conceptos",
+			description = "Todos los Conceptos del usuario, sin paginación y sin totales de montos (tienen "
+					+ "periodicidades y monedas distintas). Orden: los finalizados al final y, dentro de cada grupo, "
+					+ "por nombre. Filtros opcionales: `kind` (tipo) y `categoryId` o `withoutCategory=true` "
+					+ "(categoría o ninguna; no se combinan). El estado y las cuotas se calculan contra el período "
+					+ "actual (D-27).")
+	@ApiResponse(responseCode = "200", description = "Los Conceptos que cumplen los filtros; vacía si ninguno.")
+	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: `kind` inválido, o `categoryId` y "
+			+ "`withoutCategory` juntos.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "NOT_FOUND: `categoryId` no existe o es de otro usuario.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	public List<BudgetItemListItemResponse> list(
+			@Parameter(description = "Solo Conceptos de este tipo.") @RequestParam(required = false) EntryKind kind,
+			@Parameter(description = "Solo Conceptos de esta categoría.") @RequestParam(required = false)
+			Long categoryId,
+			@Parameter(description = "Solo Conceptos sin categoría. No se combina con `categoryId`.")
+			@RequestParam(defaultValue = "false") boolean withoutCategory) {
+		return items.list(currentUser.id(), kind, categoryId, withoutCategory).stream()
+				.map(BudgetItemListItemResponse::from).toList();
 	}
 
 	@GetMapping("/{id}")
