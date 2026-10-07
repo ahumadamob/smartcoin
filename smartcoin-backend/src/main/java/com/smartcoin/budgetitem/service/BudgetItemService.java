@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.YearMonth;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,6 +16,8 @@ import com.smartcoin.budgetitem.domain.BudgetItemEditEffects;
 import com.smartcoin.budgetitem.domain.BudgetItemEditEffects.EditedField;
 import com.smartcoin.budgetitem.domain.BudgetItemEditEffects.EntryState;
 import com.smartcoin.budgetitem.domain.BudgetItemEditability;
+import com.smartcoin.budgetitem.domain.BudgetItemStatus;
+import com.smartcoin.budgetitem.domain.BudgetItemStatusCalculator;
 import com.smartcoin.budgetitem.domain.BudgetItemValues;
 import com.smartcoin.budgetitem.domain.DueDateCalculator;
 import com.smartcoin.budgetitem.domain.InstallmentPlan;
@@ -30,6 +33,7 @@ import com.smartcoin.period.domain.PeriodStatus;
 import com.smartcoin.period.repository.BudgetPeriodRepository;
 import com.smartcoin.shared.config.AppProperties;
 import com.smartcoin.shared.domain.Currency;
+import com.smartcoin.shared.domain.EntryKind;
 import com.smartcoin.shared.error.BusinessException;
 import com.smartcoin.shared.error.ErrorCode;
 import com.smartcoin.user.domain.User;
@@ -58,6 +62,14 @@ public class BudgetItemService {
 	 * dentro de la transacción: la cuenta por defecto se carga diferida y fuera de ella no se puede leer.
 	 */
 	public record Detail(BudgetItem item, Currency currency, EntryCounts counts) {
+	}
+
+	/**
+	 * Una fila de la lista. La cuenta, la moneda y la categoría se leen acá, dentro de la transacción, para que la
+	 * respuesta no lea asociaciones fuera de ella ({@code open-in-view: false}).
+	 */
+	public record ListRow(BudgetItem item, Long accountId, String accountName, Currency currency, Long categoryId,
+			String categoryName, BudgetItemStatusCalculator.Result state) {
 	}
 
 	private final BudgetItemRepository items;
@@ -149,6 +161,42 @@ public class BudgetItemService {
 	@Transactional(readOnly = true)
 	public Detail get(long userId, long id) {
 		return detail(userId, find(userId, id));
+	}
+
+	/**
+	 * Lista los Conceptos del usuario (HU-14, D-28), con el estado calculado contra el período actual. Los filtros
+	 * se aplican acá sobre los Conceptos del usuario. Una categoría inexistente o ajena en el filtro es 404.
+	 * Orden: los Finalizados al final y, dentro de cada grupo, por nombre sin distinguir mayúsculas.
+	 */
+	@Transactional(readOnly = true)
+	public List<ListRow> list(long userId, EntryKind kind, Long categoryId, boolean withoutCategory) {
+		if (categoryId != null && withoutCategory) {
+			throw BusinessException.invalidField("withoutCategory",
+					"No se puede filtrar por una categoría y por «sin categoría» a la vez.");
+		}
+		if (categoryId != null) {
+			categories.findByIdAndUserId(categoryId, userId)
+					.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "La categoría no existe."));
+		}
+		YearMonth current = YearMonth.now(clock);
+		return items.findAllByUserIdWithAccountAndCategory(userId).stream()
+				.filter(i -> kind == null || i.getKind() == kind)
+				.filter(i -> categoryId == null
+						|| (i.getCategory() != null && categoryId.equals(i.getCategory().getId())))
+				.filter(i -> !withoutCategory || i.getCategory() == null)
+				.map(i -> {
+					Account account = i.getDefaultAccount();
+					Category category = i.getCategory();
+					return new ListRow(i, account.getId(), account.getName(), account.getCurrency(),
+							category == null ? null : category.getId(), category == null ? null : category.getName(),
+							BudgetItemStatusCalculator.calculate(i.getStartPeriod(), i.getEndPeriod(),
+									i.getPeriodicity(), i.installmentPlan(), current));
+				})
+				.sorted(Comparator
+						.comparing((ListRow r) -> r.state().status() == BudgetItemStatus.FINISHED)
+						.thenComparing(r -> r.item().getName(), String.CASE_INSENSITIVE_ORDER)
+						.thenComparing(r -> r.item().getId()))
+				.toList();
 	}
 
 	/**
