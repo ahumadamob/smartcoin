@@ -12,7 +12,7 @@
   }
 
   @if (created(); as item) {
-    <section class="created" role="status" aria-label="Concepto creado">
+    <section #summary class="created" role="status" aria-label="Concepto creado">
       <p class="created-title">Concepto «{{ item.name }}» creado.</p>
       <p>
         @if (item.generation.entryCount === 1) {

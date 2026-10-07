@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  ElementRef,
+  inject,
+  OnInit,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -44,6 +53,18 @@ export class BudgetItems implements OnInit {
   protected readonly error = signal<string | null>(null);
   /** El último Concepto creado en esta pantalla, con su resumen de generación. */
   protected readonly created = signal<BudgetItemResponse | null>(null);
+
+  private readonly summary = viewChild<ElementRef<HTMLElement>>('summary');
+
+  constructor() {
+    // El botón de guardar queda al final del formulario: el resumen, que está arriba, se trae a la vista.
+    effect(() => {
+      // Depende también del Concepto creado: en el segundo guardado el elemento del resumen es el mismo.
+      if (this.created() !== null) {
+        this.summary()?.nativeElement.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }
 
   ngOnInit(): void {
     forkJoin({

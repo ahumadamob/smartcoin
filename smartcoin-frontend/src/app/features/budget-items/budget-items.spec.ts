@@ -107,6 +107,26 @@ describe('BudgetItems', () => {
     expect(root().querySelector('app-budget-item-form')).toBeTruthy();
   });
 
+  it('trae el resumen a la vista, porque el botón de guardar queda al final del formulario', async () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      await setup([ACCOUNT]);
+      save(item({ entryCount: 25, firstPeriod: '2026-11', lastPeriod: '2028-11', firstDueDate: '2026-10-25' }));
+      await fixture.whenStable();
+
+      expect(scrollIntoView).toHaveBeenCalledOnce();
+      expect(scrollIntoView.mock.contexts[0]).toBe(root().querySelector('[role="status"]'));
+
+      save(item({ entryCount: 1, firstPeriod: '2027-03', lastPeriod: '2027-03', firstDueDate: '2027-02-25' }));
+      await fixture.whenStable();
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+    }
+  });
+
   it('con una sola partida lo dice en singular', async () => {
     await setup([ACCOUNT]);
     save(item({ entryCount: 1, firstPeriod: '2027-03', lastPeriod: '2027-03', firstDueDate: '2027-02-25' }));
