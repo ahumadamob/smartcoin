@@ -115,4 +115,17 @@ class PeriodRangeTest {
 
 		assertThat(PeriodRange.missing(current, current, HORIZON, existing)).hasSize(25);
 	}
+
+	@Test
+	void withoutClosedPeriodsTheFirstOpenIsTheStartPeriod() {
+		assertThat(PeriodRange.firstOpen(YearMonth.of(2026, 8), null)).isEqualTo(YearMonth.of(2026, 8));
+	}
+
+	@Test
+	void theFirstOpenPeriodIsTheOneAfterTheLastClosed() {
+		assertThat(PeriodRange.firstOpen(YearMonth.of(2026, 8), YearMonth.of(2026, 9)))
+				.isEqualTo(YearMonth.of(2026, 10));
+		assertThat(PeriodRange.firstOpen(YearMonth.of(2026, 8), YearMonth.of(2026, 12)))
+				.isEqualTo(YearMonth.of(2027, 1));
+	}
 }

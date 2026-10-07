@@ -19,6 +19,15 @@ public final class PeriodRange {
 		return current.plusMonths(horizonMonths);
 	}
 
+	/**
+	 * Primer período abierto (RN-08): el siguiente al último cerrado, o el período inicial si no hay ninguno cerrado.
+	 *
+	 * @param lastClosed último período cerrado, o {@code null} si no hay ninguno
+	 */
+	public static YearMonth firstOpen(YearMonth start, YearMonth lastClosed) {
+		return lastClosed == null ? start : lastClosed.plusMonths(1);
+	}
+
 	/** Todos los períodos que deben existir, en orden. Vacío si el inicio supera el horizonte. */
 	public static List<YearMonth> required(YearMonth start, YearMonth current, int horizonMonths) {
 		YearMonth last = horizon(current, horizonMonths);

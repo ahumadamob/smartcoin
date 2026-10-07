@@ -38,7 +38,7 @@ public class HorizonService {
 				properties.budget().horizonMonths(), periods.findPeriodMonthsByUserId(user.getId()));
 		periods.saveAll(missing.stream().map(month -> BudgetPeriod.open(user.getId(), month)).toList());
 
-		// TODO(iteración 3, RN-13): generar las partidas de cada Concepto del usuario hasta el horizonte.
-		// Se llama a continuación de crear los períodos, para que existan los períodos destino.
+		// TODO(HU-12, RN-07): a continuación de crear los períodos, para que existan los períodos destino, llamar a
+		// EntryGenerator.generate(item, horizonte) por cada Concepto del usuario. Hoy solo lo llama el alta (HU-10).
 	}
 }
