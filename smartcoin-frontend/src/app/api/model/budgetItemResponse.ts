@@ -11,7 +11,7 @@ import { BudgetItemGeneration } from './budgetItemGeneration';
 
 
 /**
- * Un Concepto recién creado, con el resumen de las partidas que generó.
+ * Un Concepto recién creado, con el resumen de las partidas que generó. En un Concepto en cuotas, `endPeriod` es el período de la última cuota, calculado (RN-14).
  */
 export interface BudgetItemResponse { 
     id: number;
@@ -27,7 +27,18 @@ export interface BudgetItemResponse {
     dueDay: number;
     dueMonthOffset: number;
     startPeriod: string;
+    /**
+     * Último período posible. En un Concepto en cuotas, el de la última cuota.
+     */
     endPeriod?: string | null;
+    /**
+     * Total de cuotas, o nulo si no es en cuotas (RN-14).
+     */
+    installmentsTotal?: number | null;
+    /**
+     * Cuota que corresponde al período de inicio, o nulo si no es en cuotas.
+     */
+    firstInstallmentNumber?: number | null;
     estimationRule: BudgetItemResponse.EstimationRuleEnum;
     currentAmount: number;
     /**

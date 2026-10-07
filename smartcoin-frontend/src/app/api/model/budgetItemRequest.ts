@@ -10,7 +10,7 @@
 
 
 /**
- * Datos para crear un Concepto recurrente (RN-10). Los Conceptos en cuotas todavía no se pueden crear: este cuerpo no tiene datos de cuotas.
+ * Datos para crear un Concepto (RN-10), recurrente o en cuotas (RN-14). Con `installmentsTotal` es un plan de cuotas: el período de fin no se informa, se calcula como el inicio más (total − primera cuota) pasos de la periodicidad.
  */
 export interface BudgetItemRequest { 
     /**
@@ -46,7 +46,7 @@ export interface BudgetItemRequest {
      */
     startPeriod: string;
     /**
-     * Último período posible (YYYY-MM), igual o posterior al de inicio. Puede superar el horizonte. Sin él, el Concepto no tiene fin.
+     * Último período posible (YYYY-MM), igual o posterior al de inicio. Puede superar el horizonte. Sin él, el Concepto no tiene fin. En un Concepto en cuotas no se informa: se calcula.
      */
     endPeriod?: string | null;
     /**
@@ -57,6 +57,14 @@ export interface BudgetItemRequest {
      * Monto vigente, con hasta 2 decimales: el presupuestado de las partidas que se generan.
      */
     currentAmount: number;
+    /**
+     * Total de cuotas (RN-14). Si se informa, el Concepto es en cuotas y el fin se calcula. No se edita después.
+     */
+    installmentsTotal?: number | null;
+    /**
+     * Número de la primera cuota, la que corresponde al período de inicio: entre 1 y el total. Permite cargar un plan ya empezado. Por defecto 1; solo se informa junto con el total. No se edita después.
+     */
+    firstInstallmentNumber?: number | null;
 }
 export namespace BudgetItemRequest {
     export const KindEnum = {

@@ -40,8 +40,8 @@ export class ConceptosService extends BaseService {
     }
 
     /**
-     * Crear un Concepto recurrente
-     * Guarda el Concepto y, en la misma operación, genera sus partidas desde el período de inicio hasta el horizonte o el fin, según la periodicidad, con el vencimiento de RN-12 y el monto vigente como presupuestado.
+     * Crear un Concepto
+     * Guarda el Concepto y, en la misma operación, genera sus partidas desde el período de inicio hasta el horizonte o el fin, según la periodicidad, con el vencimiento de RN-12 y el monto vigente como presupuestado. Con &#x60;installmentsTotal&#x60; el Concepto es en cuotas: el fin se calcula (RN-14) y cada partida lleva su número de cuota. Si el plan termina después del horizonte, se generan solo las cuotas que entran.
      * @endpoint post /api/budget-items
      * @param budgetItemRequest 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

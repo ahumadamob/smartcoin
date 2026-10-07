@@ -10,7 +10,7 @@
 
 
 /**
- * Resumen de las partidas que generó el alta: una por período que corresponde, desde el inicio hasta el horizonte o el fin.
+ * Resumen de las partidas que generó el alta: una por período que corresponde, desde el inicio hasta el horizonte o el fin. Si el plan de cuotas termina después del horizonte, solo se generan las cuotas que entran; las demás se generan al avanzar el horizonte.
  */
 export interface BudgetItemGeneration { 
     entryCount: number;
@@ -26,5 +26,13 @@ export interface BudgetItemGeneration {
      * Vencimiento de la primera partida (RN-12). Con desfase −1 cae en el mes anterior a su período.
      */
     firstDueDate: string;
+    /**
+     * Número de cuota de la primera partida generada. Nulo si no es en cuotas.
+     */
+    firstInstallment?: number | null;
+    /**
+     * Número de cuota de la última partida generada. Es igual al total de cuotas si el plan se generó completo; menor si termina después del horizonte. Nulo si no es en cuotas.
+     */
+    lastInstallment?: number | null;
 }
 
