@@ -6,6 +6,7 @@ import { expect, test } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/accounts', (route) => route.fulfill({ json: { accounts: [], subtotals: [] } }));
   await page.route('**/api/categories', (route) => route.fulfill({ json: [] }));
+  await page.route(/\/api\/budget-items(\?.*)?$/, (route) => route.fulfill({ json: [] }));
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({
       json: {

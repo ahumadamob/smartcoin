@@ -2,8 +2,8 @@ import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { API_URL, startPeriod, startSession } from './support';
 
 /**
- * Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente), HU-11 (en cuotas) y HU-13 (editar
- * un Concepto). Cada corrida usa un usuario propio.
+ * Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente), HU-11 (en cuotas), HU-13 (editar
+ * un Concepto) y HU-14 (listar Conceptos). Cada corrida usa un usuario propio.
  */
 
 const MONTHS = [
@@ -88,7 +88,7 @@ test.describe('HU-10 · crear un Concepto recurrente', () => {
     expect(category.status(), 'alta de la categoría de prueba').toBe(201);
     accountId = (await account.json()).id;
     categoryId = (await category.json()).id;
-    await page.goto('/conceptos');
+    await page.goto('/conceptos/nuevo');
   });
 
   test.afterAll(async () => {
@@ -97,7 +97,7 @@ test.describe('HU-10 · crear un Concepto recurrente', () => {
   });
 
   test('el formulario sugiere el mes actual y explica el desfase y las reglas de estimación', async () => {
-    await expect(page.getByRole('heading', { level: 1, name: 'Conceptos' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Nuevo Concepto' })).toBeVisible();
     await expect(page.getByLabel('Período de inicio')).toHaveValue(periodValue(month(0)));
     await expect(
       page.getByRole('checkbox', {
@@ -239,7 +239,7 @@ test.describe('HU-11 · crear un Concepto en cuotas', () => {
       },
     });
     expect(account.status(), 'alta de la cuenta de prueba').toBe(201);
-    await page.goto('/conceptos');
+    await page.goto('/conceptos/nuevo');
   });
 
   test.afterAll(async () => {
@@ -384,7 +384,7 @@ test.describe('HU-13 · editar un Concepto', () => {
       });
       expect(account.status(), `alta de la cuenta ${name}`).toBe(201);
     }
-    await page.goto('/conceptos');
+    await page.goto('/conceptos/nuevo');
   });
 
   test.afterAll(async () => {
@@ -535,5 +535,218 @@ test.describe('HU-13 · editar un Concepto', () => {
 
     await expect(page.getByRole('alert')).toHaveText('El Concepto no existe.');
     await expect(page.getByLabel('Nombre', { exact: true })).toHaveCount(0);
+  });
+});
+
+test.describe('HU-14 · listar Conceptos', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let taxesId: number;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = await api.post('/api/accounts', {
+      data: {
+        name: 'Banco Nación',
+        type: 'BANK',
+        currency: 'ARS',
+        openingDate: `${startPeriod()}-01`,
+        initialBalance: 0,
+      },
+    });
+    expect(account.status(), 'alta de la cuenta de prueba').toBe(201);
+    const category = await api.post('/api/categories', { data: { name: 'Impuestos' } });
+    expect(category.status(), 'alta de la categoría de prueba').toBe(201);
+    taxesId = (await category.json()).id;
+    await page.goto('/conceptos');
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const rowOf = (name: string) => page.getByRole('row', { name: new RegExp(name) });
+  const table = () => page.getByRole('table', { name: 'Conceptos' });
+  /** Hace clic en un filtro y espera la respuesta de la lista, ya filtrada. */
+  async function filter(label: string, option: string) {
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'GET' && /\/api\/budget-items\?/.test(r.url())),
+      (async () => {
+        await page.getByRole('combobox', { name: label, exact: true }).click();
+        await page.getByRole('option', { name: option, exact: true }).click();
+      })(),
+    ]);
+    expect(response.status()).toBe(200);
+    // El panel de opciones se cierra con una animación: hasta entonces sigue en el DOM.
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+  }
+
+  test('sin Conceptos muestra el estado vacío con cómo empezar', async () => {
+    await expect(page.getByRole('heading', { level: 1, name: 'Conceptos' })).toBeVisible();
+    await expect(page.getByText('Todavía no cargaste ningún Concepto. Empezá con «Nuevo Concepto».')).toBeVisible();
+    await expect(table()).toHaveCount(0);
+  });
+
+  test('«Nuevo Concepto» lleva al alta y se crean un ingreso, un gasto con categoría y uno en cuotas', async () => {
+    await page.getByRole('link', { name: 'Nuevo Concepto' }).click();
+    await expect(page).toHaveURL(/\/conceptos\/nuevo$/);
+
+    await fillItem(page, {
+      name: 'Sueldo',
+      kind: 'Ingreso',
+      account: 'Banco Nación · $ (ARS)',
+      dueDay: '25',
+      amount: '1.200.000',
+    });
+    await page.getByRole('checkbox', { name: /Vence el mes anterior/ }).check();
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+    await expect(summary(page)).toContainText('Concepto «Sueldo» creado.');
+
+    await fillItem(page, {
+      name: 'Monotributo',
+      kind: 'Gasto',
+      account: 'Banco Nación · $ (ARS)',
+      category: 'Impuestos',
+      dueDay: '20',
+      amount: '85.000,50',
+    });
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+    await expect(summary(page)).toContainText('Concepto «Monotributo» creado.');
+
+    await fillItem(page, { name: 'Heladera', kind: 'Gasto', account: 'Banco Nación · $ (ARS)', dueDay: '10', amount: '150.000' });
+    await page.getByRole('checkbox', { name: 'Es en cuotas' }).check();
+    await page.getByLabel('Total de cuotas').fill('12');
+    await page.getByLabel('Primera cuota').fill('4');
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+    await expect(summary(page)).toContainText('Concepto «Heladera» creado.');
+
+    await summary(page).getByRole('link', { name: 'Volver a la lista' }).click();
+    await expect(page).toHaveURL(/\/conceptos$/);
+  });
+
+  test('por la API se suman uno finalizado y uno por comenzar', async () => {
+    const base = {
+      kind: 'EXPENSE',
+      periodicity: 'MONTHLY',
+      dueDay: 5,
+      dueMonthOffset: 0,
+      estimationRule: 'LAST_VALUE',
+      currentAmount: 1000,
+    };
+    const accounts = await (await api.get('/api/accounts')).json();
+    const defaultAccountId = accounts.accounts[0].id;
+    for (const extra of [
+      { name: 'Gimnasio', startPeriod: periodValue(month(-2)), endPeriod: periodValue(month(-1)) },
+      { name: 'Seguro', startPeriod: periodValue(month(1)) },
+    ]) {
+      const response = await api.post('/api/budget-items', { data: { ...base, defaultAccountId, ...extra } });
+      expect(response.status(), `alta de ${extra.name}`).toBe(201);
+    }
+    await page.reload();
+  });
+
+  test('la lista muestra cada Concepto con su estado y deja los finalizados al final', async () => {
+    await expect(table()).toBeVisible();
+    const names = await table().locator('tbody tr td:first-child').allTextContents();
+    expect(names).toEqual(['Heladera', 'Monotributo', 'Seguro', 'Sueldo', 'Gimnasio']);
+
+    await expect(rowOf('Sueldo')).toContainText('Ingreso');
+    await expect(rowOf('Sueldo')).toContainText('día 25, el mes anterior');
+    await expect(rowOf('Sueldo')).toContainText('$ 1.200.000,00');
+    await expect(rowOf('Monotributo')).toContainText('Impuestos');
+    await expect(rowOf('Monotributo')).toContainText('día 20');
+    await expect(rowOf('Monotributo')).toContainText('$ 85.000,50');
+    await expect(rowOf('Monotributo').getByTestId('status')).toHaveText('Activo');
+    // Heladera empieza este mes en la cuota 4: es la cuota 4 de 12 y quedan 8.
+    await expect(rowOf('Heladera').getByTestId('status')).toHaveText('Cuota 4 de 12, quedan 8');
+    await expect(rowOf('Seguro').getByTestId('status')).toContainText('Por comenzar');
+    await expect(rowOf('Seguro').getByTestId('status')).toContainText(periodText(month(1)));
+    await expect(rowOf('Gimnasio').getByTestId('status')).toContainText('Finalizado');
+    await expect(rowOf('Gimnasio').getByTestId('status')).toContainText(periodText(month(-1)));
+  });
+
+  test('filtra por tipo, por categoría, sin categoría y combinados', async () => {
+    await filter('Tipo', 'Ingreso');
+    await expect(table().locator('tbody tr')).toHaveCount(1);
+    await expect(rowOf('Sueldo')).toBeVisible();
+
+    await filter('Tipo', 'Gasto');
+    await expect(table().locator('tbody tr')).toHaveCount(4);
+
+    await filter('Categoría', 'Impuestos');
+    await expect(table().locator('tbody tr')).toHaveCount(1);
+    await expect(rowOf('Monotributo')).toBeVisible();
+
+    await filter('Categoría', 'Sin categoría');
+    await expect(table().locator('tbody tr')).toHaveCount(3);
+    await expect(rowOf('Monotributo')).toHaveCount(0);
+  });
+
+  test('un filtro sin resultados muestra otro texto y «Quitar filtros» vuelve a la lista completa', async () => {
+    await filter('Tipo', 'Ingreso');
+    await filter('Categoría', 'Impuestos');
+
+    await expect(page.getByText('Ningún Concepto coincide con los filtros.')).toBeVisible();
+    await expect(page.getByText('Todavía no cargaste ningún Concepto.')).toHaveCount(0);
+    await expect(table()).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Quitar filtros' }).click();
+    await expect(table().locator('tbody tr')).toHaveCount(5);
+  });
+
+  test('«Editar» de una fila abre la edición del Concepto y se vuelve a la lista', async () => {
+    await rowOf('Monotributo').getByRole('link', { name: 'Editar Monotributo' }).click();
+
+    await expect(page).toHaveURL(/\/conceptos\/\d+\/editar$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Editar Concepto' })).toBeVisible();
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Monotributo');
+
+    await page.getByRole('link', { name: 'Volver a la lista' }).first().click();
+    await expect(page).toHaveURL(/\/conceptos$/);
+    await expect(table()).toBeVisible();
+  });
+
+  test('se llega a «Editar» con el teclado', async () => {
+    await page.getByRole('link', { name: 'Editar Heladera' }).focus();
+    await page.keyboard.press('Enter');
+
+    await expect(page).toHaveURL(/\/conceptos\/\d+\/editar$/);
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Heladera');
+  });
+
+  test('por la API: una categoría inexistente es 404 y categoría con sin categoría es 400', async () => {
+    const missing = await api.get('/api/budget-items?categoryId=999999999');
+    expect(missing.status()).toBe(404);
+    expect((await missing.json()).code).toBe('NOT_FOUND');
+
+    const both = await api.get(`/api/budget-items?categoryId=${taxesId}&withoutCategory=true`);
+    expect(both.status()).toBe(400);
+    expect((await both.json()).code).toBe('VALIDATION_ERROR');
+
+    const invalid = await api.get('/api/budget-items?kind=OTRO');
+    expect(invalid.status()).toBe(400);
+  });
+
+  test('un error del backend en la lista se muestra en pantalla', async () => {
+    await page.route(/\/api\/budget-items(\?.*)?$/, (route) =>
+      route.fulfill({
+        status: 404,
+        contentType: 'application/problem+json',
+        json: { code: 'NOT_FOUND', detail: 'La categoría no existe.' },
+      }),
+    );
+    await page.goto('/conceptos');
+
+    await expect(page.getByRole('alert')).toHaveText('La categoría no existe.');
+    await expect(table()).toHaveCount(0);
+    await page.unroute(/\/api\/budget-items(\?.*)?$/);
   });
 });
