@@ -156,6 +156,22 @@ class BudgetItemControllerTest {
 				entry(YearMonth.of(2027, 1))));
 	}
 
+	/** "Heladera": 12 cuotas, primera 4, de 2026-10 a 2027-06; la respuesta resume las dos primeras partidas. */
+	private static Created createdInInstallments() {
+		Created plain = created();
+		BudgetItem item = plain.item();
+		item.setName("Heladera");
+		item.setStartPeriod(YearMonth.of(2026, 10));
+		item.setEndPeriod(YearMonth.of(2027, 6));
+		item.setInstallmentsTotal(12);
+		item.setFirstInstallmentNumber(4);
+		BudgetEntry first = entry(YearMonth.of(2026, 10));
+		first.setInstallmentNumber(4);
+		BudgetEntry second = entry(YearMonth.of(2026, 11));
+		second.setInstallmentNumber(5);
+		return new Created(item, List.of(first, second));
+	}
+
 	private static BudgetEntry entry(YearMonth period) {
 		BudgetEntry entry = new BudgetEntry();
 		entry.setPeriod(BudgetPeriod.open(USER_ID, period));
@@ -214,14 +230,109 @@ class BudgetItemControllerTest {
 	}
 
 	@Test
-	void installmentDataIsNotPartOfThisRequestAndIsIgnored() throws Exception {
+	void installmentDataReachesTheServiceAndTheEndPeriodIsSentAsNullWhenItIsLeftOut() throws Exception {
 		when(items.create(eq(USER_ID), any())).thenReturn(created());
 
-		create(body("installmentsTotal", "12")).andExpect(status().isCreated());
+		create(body("endPeriod", null).replace("}", ", \"installmentsTotal\": 12, \"firstInstallmentNumber\": 4}"))
+				.andExpect(status().isCreated());
 
 		ArgumentCaptor<BudgetItemValues> values = ArgumentCaptor.forClass(BudgetItemValues.class);
 		verify(items).create(eq(USER_ID), values.capture());
-		assertThat(values.getValue().endPeriod()).isEqualTo(YearMonth.of(2027, 1));
+		assertThat(values.getValue().installmentsTotal()).isEqualTo(12);
+		assertThat(values.getValue().firstInstallmentNumber()).isEqualTo(4);
+		assertThat(values.getValue().endPeriod()).isNull();
+	}
+
+	@Test
+	void installmentDataIsOptionalAndNullIsTheSameAsMissing() throws Exception {
+		when(items.create(eq(USER_ID), any())).thenReturn(created());
+
+		for (String body : List.of(VALID_BODY, body("installmentsTotal", "null"), body("firstInstallmentNumber", "null"))) {
+			create(body).andExpect(status().isCreated());
+		}
+	}
+
+	@Test
+	void theResponseOfAnInstallmentPlanCarriesItsInstallmentData() throws Exception {
+		when(items.create(eq(USER_ID), any())).thenReturn(createdInInstallments());
+
+		create(body("installmentsTotal", "12"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.installmentsTotal").value(12))
+				.andExpect(jsonPath("$.firstInstallmentNumber").value(4))
+				.andExpect(jsonPath("$.endPeriod").value("2027-06"))
+				.andExpect(jsonPath("$.generation.entryCount").value(2))
+				.andExpect(jsonPath("$.generation.firstInstallment").value(4))
+				.andExpect(jsonPath("$.generation.lastInstallment").value(5));
+	}
+
+	@Test
+	void theResponseOfAPlainConceptHasNullInstallmentData() throws Exception {
+		when(items.create(eq(USER_ID), any())).thenReturn(created());
+
+		create(VALID_BODY)
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.installmentsTotal").value((Object) null))
+				.andExpect(jsonPath("$.firstInstallmentNumber").value((Object) null))
+				.andExpect(jsonPath("$.generation.firstInstallment").value((Object) null))
+				.andExpect(jsonPath("$.generation.lastInstallment").value((Object) null));
+	}
+
+	@ParameterizedTest(name = "{0} = {1}")
+	@CsvSource({
+			"installmentsTotal, 0",
+			"installmentsTotal, -1",
+			"installmentsTotal, 361",
+			"installmentsTotal, 32767",
+			"firstInstallmentNumber, 0",
+			"firstInstallmentNumber, -2",
+	})
+	void installmentNumbersOutOfRangeRespondValidationErrorWithAnErrorForThatField(String field, String value)
+			throws Exception {
+		create(body(field, value))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors.length()").value(1))
+				.andExpect(jsonPath("$.errors[0].field").value(field))
+				.andExpect(jsonPath("$.errors[0].message").isNotEmpty());
+		verifyNoInteractions(items);
+	}
+
+	@ParameterizedTest(name = "{0} = {1}")
+	@CsvSource({ "installmentsTotal, \"doce\"", "firstInstallmentNumber, \"cuatro\"" })
+	void installmentNumbersThatCannotBeReadRespondValidationError(String field, String value) throws Exception {
+		create(body(field, value))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		verifyNoInteractions(items);
+	}
+
+	@ParameterizedTest
+	@CsvSource({ "installmentsTotal, 1", "installmentsTotal, 360", "firstInstallmentNumber, 1" })
+	void installmentNumbersOnTheLimitsAreAccepted(String field, String value) throws Exception {
+		when(items.create(eq(USER_ID), any())).thenReturn(created());
+
+		create(body(field, value)).andExpect(status().isCreated());
+	}
+
+	@ParameterizedTest(name = "{0}")
+	@CsvSource(delimiter = '|', value = {
+			"installmentsTotal | El total de cuotas es obligatorio si se informa la primera cuota.",
+			"firstInstallmentNumber | La primera cuota no puede ser mayor que el total de cuotas.",
+			"endPeriod | En un Concepto en cuotas el período de fin se calcula: no se informa.",
+	})
+	void theInstallmentErrorsOfTheServiceRespondValidationErrorWithTheErrorOfTheirField(String field, String message)
+			throws Exception {
+		when(items.create(eq(USER_ID), any())).thenThrow(BusinessException.invalidField(field, message));
+
+		create(VALID_BODY)
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value(message))
+				.andExpect(jsonPath("$.errors.length()").value(1))
+				.andExpect(jsonPath("$.errors[0].field").value(field))
+				.andExpect(jsonPath("$.errors[0].message").value(message));
 	}
 
 	@ParameterizedTest(name = "{0} = {1}")

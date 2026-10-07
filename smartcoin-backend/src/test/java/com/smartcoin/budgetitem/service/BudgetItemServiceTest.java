@@ -56,6 +56,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -367,6 +368,177 @@ class BudgetItemServiceTest {
 				() -> service.create(USER_ID, values(Periodicity.MONTHLY, 20, 0, "2030-01", "2029-12")));
 
 		assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+	}
+
+	// --- Cuotas (HU-11, RN-14) ---
+
+	/** "Heladera": gasto mensual en cuotas, vence el 10, 85.000,00. */
+	private static BudgetItemValues installments(Periodicity periodicity, String start, Integer total, Integer first,
+			String end) {
+		return new BudgetItemValues("Heladera", EntryKind.EXPENSE, ACCOUNT_ID, CATEGORY_ID, periodicity, 10, 0,
+				ym(start), end == null ? null : ym(end), EstimationRule.LAST_VALUE, new BigDecimal("85000.00"), total,
+				first);
+	}
+
+	private static List<Integer> numbersOf(Created created) {
+		return created.entries().stream().map(BudgetEntry::getInstallmentNumber).toList();
+	}
+
+	@Test
+	void theHeladeraExampleSavesTheCalculatedEndAndNumbersEveryEntry() {
+		Created created = service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", 12, 4, null));
+
+		BudgetItem item = created.item();
+		assertThat(item.getInstallmentsTotal()).isEqualTo(12);
+		assertThat(item.getFirstInstallmentNumber()).isEqualTo(4);
+		assertThat(item.getEndPeriod()).isEqualTo(ym("2027-06"));
+		assertThat(item.getGeneratedUntil()).isEqualTo(ym("2027-06"));
+		assertThat(periodsOf(created)).containsExactly(ym("2026-10"), ym("2026-11"), ym("2026-12"), ym("2027-01"),
+				ym("2027-02"), ym("2027-03"), ym("2027-04"), ym("2027-05"), ym("2027-06"));
+		assertThat(numbersOf(created)).containsExactly(4, 5, 6, 7, 8, 9, 10, 11, 12);
+	}
+
+	@Test
+	void theFirstInstallmentDefaultsToOneWhenOnlyTheTotalIsGiven() {
+		Created created = service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", 3, null, null));
+
+		assertThat(created.item().getFirstInstallmentNumber()).isEqualTo(1);
+		assertThat(created.item().getEndPeriod()).isEqualTo(ym("2026-12"));
+		assertThat(numbersOf(created)).containsExactly(1, 2, 3);
+	}
+
+	@Test
+	void aBimonthlyPlanAdvancesTwoMonthsPerInstallment() {
+		Created created = service.create(USER_ID, installments(Periodicity.BIMONTHLY, "2026-10", 6, 1, null));
+
+		assertThat(periodsOf(created)).containsExactly(ym("2026-10"), ym("2026-12"), ym("2027-02"), ym("2027-04"),
+				ym("2027-06"), ym("2027-08"));
+		assertThat(created.item().getEndPeriod()).isEqualTo(ym("2027-08"));
+		assertThat(numbersOf(created)).containsExactly(1, 2, 3, 4, 5, 6);
+	}
+
+	@Test
+	void anAnnualPlanThatCrossesTheHorizonGeneratesOnlyTheInstallmentsThatFit() {
+		Created created = service.create(USER_ID, installments(Periodicity.ANNUAL, "2026-10", 5, 2, null));
+
+		assertThat(created.item().getEndPeriod()).isEqualTo(ym("2029-10"));
+		assertThat(periodsOf(created)).containsExactly(ym("2026-10"), ym("2027-10"), ym("2028-10"));
+		assertThat(numbersOf(created)).containsExactly(2, 3, 4);
+		assertThat(created.item().getGeneratedUntil()).isEqualTo(HORIZON);
+	}
+
+	@Test
+	void aPlanThatEndsAfterTheHorizonGeneratesTheInstallmentsThatFitAndLeavesGeneratedUntilAtTheHorizon() {
+		Created created = service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", 60, 1, null));
+
+		assertThat(created.entries()).hasSize(25);
+		assertThat(numbersOf(created).getFirst()).isEqualTo(1);
+		assertThat(numbersOf(created).getLast()).isEqualTo(25);
+		assertThat(created.item().getEndPeriod()).isEqualTo(ym("2031-09"));
+		assertThat(created.item().getGeneratedUntil()).isEqualTo(HORIZON);
+	}
+
+	@Test
+	void aSingleInstallmentGeneratesOneEntryAndTheEndIsTheStart() {
+		Created created = service.create(USER_ID, installments(Periodicity.MONTHLY, "2027-03", 1, null, null));
+
+		assertThat(created.item().getEndPeriod()).isEqualTo(ym("2027-03"));
+		assertThat(numbersOf(created)).containsExactly(1);
+	}
+
+	@Test
+	void aFirstInstallmentEqualToTheTotalGeneratesASingleEntry() {
+		Created created = service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", 12, 12, null));
+
+		assertThat(created.item().getEndPeriod()).isEqualTo(ym("2026-10"));
+		assertThat(numbersOf(created)).containsExactly(12);
+	}
+
+	@Test
+	void theEntriesOfAnInstallmentPlanAreOtherwiseLikeAnyRecurringEntry() {
+		Created created = service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", 3, 1, null));
+
+		assertThat(created.entries()).allSatisfy(entry -> {
+			assertThat(entry.getOrigin()).isEqualTo(EntryOrigin.RECURRING);
+			assertThat(entry.getBudgetItem()).isSameAs(created.item());
+			assertThat(entry.getBudgetedAmount()).isEqualTo(new BigDecimal("85000.00"));
+			assertThat(entry.getStatus()).isEqualTo(StoredEntryStatus.PENDING);
+		});
+		assertThat(dueDatesOf(created)).containsExactly(LocalDate.of(2026, 10, 10), LocalDate.of(2026, 11, 10),
+				LocalDate.of(2026, 12, 10));
+	}
+
+	@Test
+	void anInstallmentPlanStillNeedsAStartBetweenTheFirstOpenPeriodAndTheHorizon() {
+		BusinessException e = rejected(
+				() -> service.create(USER_ID, installments(Periodicity.MONTHLY, "2028-11", 12, 1, null)));
+
+		assertThat(e.code()).isEqualTo(ErrorCode.PERIOD_NOT_AVAILABLE);
+		verify(items, never()).save(any());
+	}
+
+	@Test
+	void aFirstInstallmentWithoutTotalIsAValidationErrorOfTheTotal() {
+		BusinessException e = rejected(
+				() -> service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", null, 4, null)));
+
+		assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+		assertThat(e.field()).isEqualTo("installmentsTotal");
+		assertThat(e.getMessage()).isEqualTo("El total de cuotas es obligatorio si se informa la primera cuota.");
+		verify(items, never()).save(any());
+		verifyNoInteractions(entries, horizon);
+	}
+
+	@ParameterizedTest(name = "primera cuota {1} de {0}")
+	@CsvSource({ "12, 13", "1, 2", "360, 361" })
+	void aFirstInstallmentAboveTheTotalIsAValidationErrorOfTheFirstInstallment(int total, int first) {
+		BusinessException e = rejected(
+				() -> service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", total, first, null)));
+
+		assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+		assertThat(e.field()).isEqualTo("firstInstallmentNumber");
+		assertThat(e.getMessage()).isEqualTo("La primera cuota no puede ser mayor que el total de cuotas.");
+		verify(items, never()).save(any());
+		verifyNoInteractions(entries, horizon);
+	}
+
+	@Test
+	void installmentsTogetherWithAnEndPeriodAreAValidationErrorOfTheEndPeriod() {
+		BusinessException e = rejected(
+				() -> service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", 12, 1, "2027-09")));
+
+		assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+		assertThat(e.field()).isEqualTo("endPeriod");
+		assertThat(e.getMessage()).isEqualTo("En un Concepto en cuotas el período de fin se calcula: no se informa.");
+		verify(items, never()).save(any());
+		verifyNoInteractions(entries, horizon);
+	}
+
+	@Test
+	void anEndPeriodIsRejectedEvenIfItEqualsTheCalculatedOne() {
+		BusinessException e = rejected(
+				() -> service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-10", 12, 4, "2027-06")));
+
+		assertThat(e.field()).isEqualTo("endPeriod");
+	}
+
+	@Test
+	void theInstallmentErrorsComeBeforeTheEndBeforeStartError() {
+		BusinessException e = rejected(
+				() -> service.create(USER_ID, installments(Periodicity.MONTHLY, "2026-12", 12, 1, "2026-11")));
+
+		assertThat(e.field()).isEqualTo("endPeriod");
+		assertThat(e.getMessage()).contains("se calcula");
+	}
+
+	@Test
+	void withoutInstallmentsEverythingStaysAsInHu10() {
+		Created created = service.create(USER_ID, values(Periodicity.MONTHLY, 20, 0, "2026-10", "2027-01"));
+
+		assertThat(created.item().getInstallmentsTotal()).isNull();
+		assertThat(created.item().getFirstInstallmentNumber()).isNull();
+		assertThat(created.item().getEndPeriod()).isEqualTo(ym("2027-01"));
+		assertThat(numbersOf(created)).containsOnlyNulls();
 	}
 
 	// --- Aislamiento (RN-01) ---

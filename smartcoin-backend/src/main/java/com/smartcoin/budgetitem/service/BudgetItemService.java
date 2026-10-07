@@ -9,6 +9,7 @@ import com.smartcoin.account.domain.Account;
 import com.smartcoin.account.repository.AccountRepository;
 import com.smartcoin.budgetitem.domain.BudgetItem;
 import com.smartcoin.budgetitem.domain.BudgetItemValues;
+import com.smartcoin.budgetitem.domain.InstallmentPlan;
 import com.smartcoin.budgetitem.repository.BudgetItemRepository;
 import com.smartcoin.category.domain.Category;
 import com.smartcoin.category.repository.CategoryRepository;
@@ -59,13 +60,15 @@ public class BudgetItemService {
 	}
 
 	/**
-	 * Crea un Concepto recurrente y genera sus partidas (RN-13) en la misma transacción. Primero lo que está mal en
-	 * el pedido (400); después lo que el estado de los períodos no permite (409).
+	 * Crea un Concepto, recurrente o en cuotas, y genera sus partidas (RN-13) en la misma transacción. Primero lo que
+	 * está mal en el pedido (400); después lo que el estado de los períodos no permite (409). En un plan de cuotas el
+	 * período de fin no se informa: se calcula (RN-14).
 	 */
 	@Transactional
 	public Created create(long userId, BudgetItemValues values) {
 		User user = users.findById(userId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Credenciales inválidas o ausentes."));
+		InstallmentPlan plan = installmentPlan(values);
 		if (values.endPeriod() != null && values.endPeriod().isBefore(values.startPeriod())) {
 			throw BusinessException.invalidField("endPeriod",
 					"El período de fin no puede ser anterior al período de inicio.");
@@ -99,10 +102,43 @@ public class BudgetItemService {
 		item.setDueDay(values.dueDay());
 		item.setDueMonthOffset(values.dueMonthOffset());
 		item.setStartPeriod(values.startPeriod());
-		item.setEndPeriod(values.endPeriod());
+		if (plan == null) {
+			item.setEndPeriod(values.endPeriod());
+		}
+		else {
+			item.setEndPeriod(plan.endPeriod(values.startPeriod(), values.periodicity()));
+			item.setInstallmentsTotal(plan.total());
+			item.setFirstInstallmentNumber(plan.first());
+		}
 		item.setEstimationRule(values.estimationRule());
 		item.setCurrentAmount(values.currentAmount().setScale(2, RoundingMode.UNNECESSARY));
 		BudgetItem saved = items.save(item);
 		return new Created(saved, generator.generate(saved, last));
+	}
+
+	/**
+	 * El plan de cuotas del pedido (RN-14), o {@code null} si no es en cuotas. La primera cuota es 1 si no se
+	 * informa. El formato de cada número (≥ 1, máximo) ya lo controló Bean Validation; acá, lo que depende de otros
+	 * campos.
+	 */
+	private static InstallmentPlan installmentPlan(BudgetItemValues values) {
+		Integer total = values.installmentsTotal();
+		Integer first = values.firstInstallmentNumber();
+		if (total == null) {
+			if (first != null) {
+				throw BusinessException.invalidField("installmentsTotal",
+						"El total de cuotas es obligatorio si se informa la primera cuota.");
+			}
+			return null;
+		}
+		if (first != null && first > total) {
+			throw BusinessException.invalidField("firstInstallmentNumber",
+					"La primera cuota no puede ser mayor que el total de cuotas.");
+		}
+		if (values.endPeriod() != null) {
+			throw BusinessException.invalidField("endPeriod",
+					"En un Concepto en cuotas el período de fin se calcula: no se informa.");
+		}
+		return new InstallmentPlan(total, first == null ? 1 : first);
 	}
 }

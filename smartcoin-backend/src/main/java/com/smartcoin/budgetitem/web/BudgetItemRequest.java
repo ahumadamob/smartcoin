@@ -13,13 +13,15 @@ import jakarta.validation.constraints.Size;
 
 import com.smartcoin.budgetitem.domain.BudgetItemValues;
 import com.smartcoin.budgetitem.domain.EstimationRule;
+import com.smartcoin.budgetitem.domain.InstallmentPlan;
 import com.smartcoin.budgetitem.domain.Periodicity;
 import com.smartcoin.shared.domain.EntryKind;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Datos para crear un Concepto recurrente (RN-10). Los Conceptos en cuotas todavía no se pueden "
-		+ "crear: este cuerpo no tiene datos de cuotas.")
+@Schema(description = "Datos para crear un Concepto (RN-10), recurrente o en cuotas (RN-14). Con "
+		+ "`installmentsTotal` es un plan de cuotas: el período de fin no se informa, se calcula como el inicio más "
+		+ "(total − primera cuota) pasos de la periodicidad.")
 public record BudgetItemRequest(
 
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 100, example = "Monotributo",
@@ -67,7 +69,7 @@ public record BudgetItemRequest(
 
 		@Schema(nullable = true, type = "string", pattern = "^\\d{4}-\\d{2}$", example = "2027-12",
 				description = "Último período posible (YYYY-MM), igual o posterior al de inicio. Puede superar el "
-						+ "horizonte. Sin él, el Concepto no tiene fin.")
+						+ "horizonte. Sin él, el Concepto no tiene fin. En un Concepto en cuotas no se informa: se calcula.")
 		YearMonth endPeriod,
 
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
@@ -80,10 +82,25 @@ public record BudgetItemRequest(
 		@NotNull(message = "El monto vigente es obligatorio.")
 		@DecimalMin(value = "0", message = "El monto vigente no puede ser negativo.")
 		@Digits(integer = 17, fraction = 2, message = "El monto vigente admite hasta 2 decimales.")
-		BigDecimal currentAmount) {
+		BigDecimal currentAmount,
+
+		@Schema(nullable = true, minimum = "1", maximum = "" + InstallmentPlan.MAX_TOTAL, example = "12",
+				description = "Total de cuotas (RN-14). Si se informa, el Concepto es en cuotas y el fin se calcula. "
+						+ "No se edita después.")
+		@Min(value = 1, message = "El total de cuotas debe ser al menos 1.")
+		@Max(value = InstallmentPlan.MAX_TOTAL,
+				message = "El total de cuotas no puede superar " + InstallmentPlan.MAX_TOTAL + ".")
+		Integer installmentsTotal,
+
+		@Schema(nullable = true, minimum = "1", example = "4",
+				description = "Número de la primera cuota, la que corresponde al período de inicio: entre 1 y el "
+						+ "total. Permite cargar un plan ya empezado. Por defecto 1; solo se informa junto con el "
+						+ "total. No se edita después.")
+		@Min(value = 1, message = "La primera cuota debe ser al menos 1.")
+		Integer firstInstallmentNumber) {
 
 	BudgetItemValues toValues() {
 		return new BudgetItemValues(name, kind, defaultAccountId, categoryId, periodicity, dueDay, dueMonthOffset,
-				startPeriod, endPeriod, estimationRule, currentAmount);
+				startPeriod, endPeriod, estimationRule, currentAmount, installmentsTotal, firstInstallmentNumber);
 	}
 }

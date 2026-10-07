@@ -171,6 +171,11 @@ public class BudgetItem extends AuditedEntity {
 		return firstInstallmentNumber;
 	}
 
+	/** El plan de cuotas (RN-14), o {@code null} si el Concepto no es en cuotas. */
+	public InstallmentPlan installmentPlan() {
+		return installmentsTotal == null ? null : new InstallmentPlan(installmentsTotal, firstInstallmentNumber);
+	}
+
 	public void setFirstInstallmentNumber(Integer firstInstallmentNumber) {
 		this.firstInstallmentNumber = firstInstallmentNumber;
 	}

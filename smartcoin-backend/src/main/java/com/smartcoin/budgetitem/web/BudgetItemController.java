@@ -39,14 +39,17 @@ public class BudgetItemController {
 	}
 
 	@PostMapping
-	@Operation(operationId = "createBudgetItem", summary = "Crear un Concepto recurrente",
+	@Operation(operationId = "createBudgetItem", summary = "Crear un Concepto",
 			description = "Guarda el Concepto y, en la misma operación, genera sus partidas desde el período de inicio "
 					+ "hasta el horizonte o el fin, según la periodicidad, con el vencimiento de RN-12 y el monto "
-					+ "vigente como presupuestado.")
+					+ "vigente como presupuestado. Con `installmentsTotal` el Concepto es en cuotas: el fin se calcula "
+					+ "(RN-14) y cada partida lleva su número de cuota. Si el plan termina después del horizonte, se "
+					+ "generan solo las cuotas que entran.")
 	@ApiResponse(responseCode = "201", description = "Concepto creado, con el resumen de las partidas generadas.")
 	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: faltan datos, tienen formato inválido, el "
-			+ "período de fin es anterior al de inicio, o la cuenta por defecto o la categoría no existen para el "
-			+ "usuario. Trae `errors` por campo.",
+			+ "período de fin es anterior al de inicio, la cuenta por defecto o la categoría no existen para el "
+			+ "usuario, o los datos de cuotas son inválidos (primera cuota sin total o mayor que el total, o fin "
+			+ "informado junto con cuotas). Trae `errors` por campo.",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))

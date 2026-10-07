@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import com.smartcoin.budgetitem.domain.BudgetItem;
 import com.smartcoin.budgetitem.domain.DueDateCalculator;
+import com.smartcoin.budgetitem.domain.InstallmentPlan;
 import com.smartcoin.budgetitem.domain.ScheduleCalculator;
 import com.smartcoin.budgetitem.domain.ScheduleCalculator.Schedule;
 import com.smartcoin.budgetitem.domain.ScheduleCalculator.ScheduledPeriod;
@@ -53,13 +54,17 @@ public class EntryGenerator {
 
 	private List<BudgetEntry> build(BudgetItem item, Schedule schedule) {
 		List<YearMonth> months = schedule.periods().stream().map(ScheduledPeriod::period).toList();
+		InstallmentPlan plan = item.installmentPlan();
 		// Una sola consulta para todos los períodos destino, no una por partida.
 		Map<YearMonth, BudgetPeriod> byMonth = periods.findByUserIdAndPeriodMonthIn(item.getUserId(), months).stream()
 				.collect(Collectors.toMap(BudgetPeriod::getPeriodMonth, Function.identity()));
-		return months.stream().map(month -> entry(item, month, byMonth.get(month))).toList();
+		return schedule.periods().stream().map(scheduled -> entry(item, plan, scheduled, byMonth.get(scheduled.period())))
+				.toList();
 	}
 
-	private static BudgetEntry entry(BudgetItem item, YearMonth month, BudgetPeriod period) {
+	private static BudgetEntry entry(BudgetItem item, InstallmentPlan plan, ScheduledPeriod scheduled,
+			BudgetPeriod period) {
+		YearMonth month = scheduled.period();
 		if (period == null) {
 			throw new IllegalStateException("No existe el período " + month + " del usuario " + item.getUserId()
 					+ ": hay que asegurar el horizonte antes de generar.");
@@ -76,6 +81,8 @@ public class EntryGenerator {
 		entry.setBudgetedAmount(item.getCurrentAmount());
 		entry.setManual(false);
 		entry.setStatus(StoredEntryStatus.PENDING);
+		// El número sale del índice desde el inicio, no de cuántas partidas existen (RN-14).
+		entry.setInstallmentNumber(plan == null ? null : plan.installmentNumber(scheduled.index()));
 		return entry;
 	}
 }
