@@ -144,7 +144,7 @@ describe('BudgetItems', () => {
     await setup(of([fridge, old, { ...base, id: 5, name: 'Futuro', status: 'SCHEDULED', startPeriod: '2026-12' }]));
 
     const status = (i: number) => text(rows()[i].querySelector('[data-testid="status"]'));
-    expect(status(0)).toBe('Cuota 4 de 12, quedan 8');
+    expect(status(0)).toBe('Cuota 4 de 12, quedan 8 termina en junio 2027');
     expect(status(1)).toBe('Finalizado terminó en junio 2026');
     expect(status(2)).toBe('Por comenzar en diciembre 2026');
   });

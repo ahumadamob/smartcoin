@@ -632,7 +632,7 @@ test.describe('HU-14 · listar Conceptos', () => {
     await expect(page).toHaveURL(/\/conceptos$/);
   });
 
-  test('por la API se suman uno finalizado y uno por comenzar', async () => {
+  test('por la API se suman uno finalizado, uno por comenzar y un plan de 60 cuotas', async () => {
     const base = {
       kind: 'EXPENSE',
       periodicity: 'MONTHLY',
@@ -646,6 +646,8 @@ test.describe('HU-14 · listar Conceptos', () => {
     for (const extra of [
       { name: 'Gimnasio', startPeriod: periodValue(month(-2)), endPeriod: periodValue(month(-1)) },
       { name: 'Seguro', startPeriod: periodValue(month(1)) },
+      // 60 cuotas: el plan termina mucho después del horizonte, y la lista muestra el fin calculado.
+      { name: 'Auto', startPeriod: periodValue(month(0)), installmentsTotal: 60 },
     ]) {
       const response = await api.post('/api/budget-items', { data: { ...base, defaultAccountId, ...extra } });
       expect(response.status(), `alta de ${extra.name}`).toBe(201);
@@ -656,7 +658,7 @@ test.describe('HU-14 · listar Conceptos', () => {
   test('la lista muestra cada Concepto con su estado y deja los finalizados al final', async () => {
     await expect(table()).toBeVisible();
     const names = await table().locator('tbody tr td:first-child').allTextContents();
-    expect(names).toEqual(['Heladera', 'Monotributo', 'Seguro', 'Sueldo', 'Gimnasio']);
+    expect(names).toEqual(['Auto', 'Heladera', 'Monotributo', 'Seguro', 'Sueldo', 'Gimnasio']);
 
     await expect(rowOf('Sueldo')).toContainText('Ingreso');
     await expect(rowOf('Sueldo')).toContainText('día 25, el mes anterior');
@@ -666,7 +668,11 @@ test.describe('HU-14 · listar Conceptos', () => {
     await expect(rowOf('Monotributo')).toContainText('$ 85.000,50');
     await expect(rowOf('Monotributo').getByTestId('status')).toHaveText('Activo');
     // Heladera empieza este mes en la cuota 4: es la cuota 4 de 12 y quedan 8.
-    await expect(rowOf('Heladera').getByTestId('status')).toHaveText('Cuota 4 de 12, quedan 8');
+    await expect(rowOf('Heladera').getByTestId('status')).toContainText('Cuota 4 de 12, quedan 8');
+    // El fin del plan es el calculado: inicio + (12 − 4) meses.
+    await expect(rowOf('Heladera').getByTestId('status')).toContainText(`termina en ${periodText(month(8))}`);
+    await expect(rowOf('Auto').getByTestId('status')).toContainText('Cuota 1 de 60, quedan 59');
+    await expect(rowOf('Auto').getByTestId('status')).toContainText(`termina en ${periodText(month(59))}`);
     await expect(rowOf('Seguro').getByTestId('status')).toContainText('Por comenzar');
     await expect(rowOf('Seguro').getByTestId('status')).toContainText(periodText(month(1)));
     await expect(rowOf('Gimnasio').getByTestId('status')).toContainText('Finalizado');
@@ -679,14 +685,14 @@ test.describe('HU-14 · listar Conceptos', () => {
     await expect(rowOf('Sueldo')).toBeVisible();
 
     await filter('Tipo', 'Gasto');
-    await expect(table().locator('tbody tr')).toHaveCount(4);
+    await expect(table().locator('tbody tr')).toHaveCount(5);
 
     await filter('Categoría', 'Impuestos');
     await expect(table().locator('tbody tr')).toHaveCount(1);
     await expect(rowOf('Monotributo')).toBeVisible();
 
     await filter('Categoría', 'Sin categoría');
-    await expect(table().locator('tbody tr')).toHaveCount(3);
+    await expect(table().locator('tbody tr')).toHaveCount(4);
     await expect(rowOf('Monotributo')).toHaveCount(0);
   });
 
@@ -699,7 +705,7 @@ test.describe('HU-14 · listar Conceptos', () => {
     await expect(table()).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Quitar filtros' }).click();
-    await expect(table().locator('tbody tr')).toHaveCount(5);
+    await expect(table().locator('tbody tr')).toHaveCount(6);
   });
 
   test('«Editar» de una fila abre la edición del Concepto y se vuelve a la lista', async () => {
@@ -712,6 +718,19 @@ test.describe('HU-14 · listar Conceptos', () => {
     await page.getByRole('link', { name: 'Volver a la lista' }).first().click();
     await expect(page).toHaveURL(/\/conceptos$/);
     await expect(table()).toBeVisible();
+  });
+
+  test('después de editar el monto vigente, la lista muestra el monto nuevo', async () => {
+    await rowOf('Monotributo').getByRole('link', { name: 'Editar Monotributo' }).click();
+    await page.getByLabel('Monto vigente').fill('90.000,50');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cambiar monto' }).click();
+    await expect(page.getByText('Concepto «Monotributo» guardado.')).toBeVisible();
+
+    await page.getByRole('link', { name: 'Volver a la lista' }).first().click();
+
+    await expect(rowOf('Monotributo')).toContainText('$ 90.000,50');
+    await expect(rowOf('Monotributo')).not.toContainText('85.000,50');
   });
 
   test('se llega a «Editar» con el teclado', async () => {

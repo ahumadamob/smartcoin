@@ -16,6 +16,15 @@
   font: var(--mat-sys-headline-medium);
 }
 
+.header a {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.intro {
+  max-width: 640px;
+}
+
 .intro,
 .empty {
   margin: 8px 0 0;

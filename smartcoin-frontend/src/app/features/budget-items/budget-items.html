@@ -93,6 +93,8 @@
               <span [class.finished]="item.status === 'FINISHED'">{{ statusText(item) }}</span>
               @if (item.status === 'FINISHED' && item.endPeriod) {
                 <span class="detail">terminó en {{ item.endPeriod | period }}</span>
+              } @else if (item.status === 'ACTIVE' && item.endPeriod) {
+                <span class="detail">termina en {{ item.endPeriod | period }}</span>
               } @else if (item.status === 'SCHEDULED') {
                 <span class="detail">en {{ item.startPeriod | period }}</span>
               }
