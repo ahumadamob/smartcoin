@@ -1,63 +1,116 @@
 <div class="page">
   <header class="header">
-    <h1 class="title">Conceptos</h1>
-    <p class="intro">
-      Un Concepto es algo que se repite: un sueldo, un impuesto, un servicio. Lo definís una vez y se generan sus
-      partidas en cada período que corresponde.
-    </p>
+    <div>
+      <h1 class="title">Conceptos</h1>
+      <p class="intro">
+        Un Concepto es algo que se repite: un sueldo, un impuesto, un servicio. Lo definís una vez y se generan sus
+        partidas en cada período que corresponde.
+      </p>
+    </div>
+    <a mat-flat-button routerLink="/conceptos/nuevo">Nuevo Concepto</a>
   </header>
+
+  <div class="filters" role="group" aria-label="Filtros">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Tipo</mat-label>
+      <mat-select [value]="kindFilter()" (selectionChange)="setKind($event.value)">
+        <mat-option value="ALL">Todos</mat-option>
+        <mat-option value="INCOME">{{ kindLabels['INCOME'] }}</mat-option>
+        <mat-option value="EXPENSE">{{ kindLabels['EXPENSE'] }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Categoría</mat-label>
+      <mat-select [value]="categoryFilter()" (selectionChange)="setCategory($event.value)">
+        <mat-option value="ALL">Todas</mat-option>
+        <mat-option value="NONE">Sin categoría</mat-option>
+        @for (category of categories(); track category.id) {
+          <mat-option [value]="category.id">{{ category.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    @if (hasFilters()) {
+      <button mat-button type="button" (click)="clearFilters()">Quitar filtros</button>
+    }
+  </div>
 
   @if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
   }
 
-  @if (created(); as item) {
-    <section #summary class="created" role="status" aria-label="Concepto creado">
-      <p class="created-title">Concepto «{{ item.name }}» creado.</p>
-      <p>
-        @if (item.generation.entryCount === 1) {
-          Se generó 1 partida, en {{ item.generation.firstPeriod | period }}.
-        } @else {
-          Se generaron {{ item.generation.entryCount }} partidas, de {{ item.generation.firstPeriod | period }} a
-          {{ item.generation.lastPeriod | period }}.
-        }
-        Primer vencimiento: {{ item.generation.firstDueDate | date: dateFormat }}.
-      </p>
-      @if (item.installmentsTotal; as total) {
-        <p class="installments">
-          @if (item.generation.firstInstallment === item.generation.lastInstallment) {
-            Es la cuota {{ item.generation.lastInstallment }} de {{ total }}.
-          } @else {
-            Son las cuotas {{ item.generation.firstInstallment }} a {{ item.generation.lastInstallment }} de
-            {{ total }}.
-          }
-          @if (item.generation.lastInstallment !== total) {
-            El plan termina en {{ item.endPeriod | period }}; las demás cuotas se generan a medida que avance el
-            horizonte.
-          }
+  @if (loading()) {
+    <p>Cargando Conceptos…</p>
+  } @else if (!error()) {
+    @if (items().length === 0) {
+      @if (hasFilters()) {
+        <p class="empty" role="status">Ningún Concepto coincide con los filtros. Probá con otros o quitalos.</p>
+      } @else {
+        <p class="empty" role="status">
+          Todavía no cargaste ningún Concepto. Empezá con «Nuevo Concepto».
         </p>
       }
-      <p>
-        <a [routerLink]="['/conceptos', item.id, 'editar']">Editar este Concepto</a>
-      </p>
-    </section>
-  }
-
-  @if (loading()) {
-    <p>Cargando…</p>
-  } @else if (!error()) {
-    @if (accounts().length === 0) {
-      <p class="empty">
-        Para crear un Concepto primero necesitás una cuenta. <a routerLink="/cuentas">Cargá una cuenta</a> y volvé.
-      </p>
     } @else {
-      <h2 class="subtitle">Nuevo Concepto</h2>
-      <app-budget-item-form
-        [accounts]="accounts()"
-        [categories]="categories()"
-        [suggestedStartPeriod]="suggestedStartPeriod"
-        (saved)="created.set($event)"
-      />
+      <div class="table-wrapper">
+        <table mat-table [dataSource]="items()" aria-label="Conceptos">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Nombre</th>
+            <td mat-cell *matCellDef="let item">{{ item.name }}</td>
+          </ng-container>
+          <ng-container matColumnDef="kind">
+            <th mat-header-cell *matHeaderCellDef>Tipo</th>
+            <td mat-cell *matCellDef="let item">{{ kindLabels[item.kind] }}</td>
+          </ng-container>
+          <ng-container matColumnDef="account">
+            <th mat-header-cell *matHeaderCellDef>Cuenta</th>
+            <td mat-cell *matCellDef="let item">
+              {{ item.defaultAccountName }}
+              <span class="detail">{{ item.currency === 'USD' ? 'US$' : '$' }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="category">
+            <th mat-header-cell *matHeaderCellDef>Categoría</th>
+            <td mat-cell *matCellDef="let item">{{ item.categoryName ?? '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="periodicity">
+            <th mat-header-cell *matHeaderCellDef>Periodicidad</th>
+            <td mat-cell *matCellDef="let item">{{ periodicityLabels[item.periodicity] }}</td>
+          </ng-container>
+          <ng-container matColumnDef="due">
+            <th mat-header-cell *matHeaderCellDef>Vencimiento</th>
+            <td mat-cell *matCellDef="let item">{{ dueText(item.dueDay, item.dueMonthOffset) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="estimation">
+            <th mat-header-cell *matHeaderCellDef>Estimación</th>
+            <td mat-cell *matCellDef="let item">{{ estimationLabels[item.estimationRule] }}</td>
+          </ng-container>
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef class="number">Monto vigente</th>
+            <td mat-cell *matCellDef="let item" class="number">{{ item.currentAmount | money: item.currency }}</td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Estado</th>
+            <td mat-cell *matCellDef="let item" data-testid="status">
+              <span [class.finished]="item.status === 'FINISHED'">{{ statusText(item) }}</span>
+              @if (item.status === 'FINISHED' && item.endPeriod) {
+                <span class="detail">terminó en {{ item.endPeriod | period }}</span>
+              } @else if (item.status === 'SCHEDULED') {
+                <span class="detail">en {{ item.startPeriod | period }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef><span class="visually-hidden">Acciones</span></th>
+            <td mat-cell *matCellDef="let item">
+              <a mat-button [routerLink]="['/conceptos', item.id, 'editar']" [attr.aria-label]="'Editar ' + item.name">
+                Editar
+              </a>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+        </table>
+      </div>
     }
   }
 </div>

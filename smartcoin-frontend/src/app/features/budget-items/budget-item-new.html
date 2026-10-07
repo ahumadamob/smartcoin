@@ -1,0 +1,65 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">Nuevo Concepto</h1>
+    <p class="intro">
+      Un Concepto es algo que se repite: un sueldo, un impuesto, un servicio. Lo definís una vez y se generan sus
+      partidas en cada período que corresponde.
+    </p>
+  </header>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (created(); as item) {
+    <section #summary class="created" role="status" aria-label="Concepto creado">
+      <p class="created-title">Concepto «{{ item.name }}» creado.</p>
+      <p>
+        @if (item.generation.entryCount === 1) {
+          Se generó 1 partida, en {{ item.generation.firstPeriod | period }}.
+        } @else {
+          Se generaron {{ item.generation.entryCount }} partidas, de {{ item.generation.firstPeriod | period }} a
+          {{ item.generation.lastPeriod | period }}.
+        }
+        Primer vencimiento: {{ item.generation.firstDueDate | date: dateFormat }}.
+      </p>
+      @if (item.installmentsTotal; as total) {
+        <p class="installments">
+          @if (item.generation.firstInstallment === item.generation.lastInstallment) {
+            Es la cuota {{ item.generation.lastInstallment }} de {{ total }}.
+          } @else {
+            Son las cuotas {{ item.generation.firstInstallment }} a {{ item.generation.lastInstallment }} de
+            {{ total }}.
+          }
+          @if (item.generation.lastInstallment !== total) {
+            El plan termina en {{ item.endPeriod | period }}; las demás cuotas se generan a medida que avance el
+            horizonte.
+          }
+        </p>
+      }
+      <p class="links">
+        <a [routerLink]="['/conceptos', item.id, 'editar']">Editar este Concepto</a>
+        <a routerLink="/conceptos">Volver a la lista</a>
+      </p>
+    </section>
+  }
+
+  @if (loading()) {
+    <p>Cargando…</p>
+  } @else if (!error()) {
+    @if (accounts().length === 0) {
+      <p class="empty">
+        Para crear un Concepto primero necesitás una cuenta. <a routerLink="/cuentas">Cargá una cuenta</a> y volvé.
+      </p>
+    } @else {
+      <app-budget-item-form
+        [accounts]="accounts()"
+        [categories]="categories()"
+        [suggestedStartPeriod]="suggestedStartPeriod"
+        (saved)="created.set($event)"
+      />
+    }
+  }
+
+  <a routerLink="/conceptos">Volver a la lista</a>
+</div>
