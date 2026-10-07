@@ -23,6 +23,20 @@
         }
         Primer vencimiento: {{ item.generation.firstDueDate | date: dateFormat }}.
       </p>
+      @if (item.installmentsTotal; as total) {
+        <p class="installments">
+          @if (item.generation.firstInstallment === item.generation.lastInstallment) {
+            Es la cuota {{ item.generation.lastInstallment }} de {{ total }}.
+          } @else {
+            Son las cuotas {{ item.generation.firstInstallment }} a {{ item.generation.lastInstallment }} de
+            {{ total }}.
+          }
+          @if (item.generation.lastInstallment !== total) {
+            El plan termina en {{ item.endPeriod | period }}; las demás cuotas se generan a medida que avance el
+            horizonte.
+          }
+        </p>
+      }
     </section>
   }
 

@@ -152,7 +152,7 @@ describe('BudgetItemForm', () => {
 
   it('avisa qué datos no se pueden cambiar después (S-12)', () => {
     expect(text()).toContain(
-      'El tipo, la periodicidad y los períodos de inicio y de fin no se pueden cambiar después de guardar.',
+      'El tipo, la periodicidad, los períodos de inicio y de fin y las cuotas no se pueden cambiar después de guardar.',
     );
   });
 
@@ -311,6 +311,9 @@ describe('BudgetItemForm', () => {
       dueInPreviousMonth: false,
       startPeriod: SUGGESTED,
       endPeriod: '',
+      inInstallments: false,
+      installmentsTotal: null,
+      firstInstallmentNumber: 1,
       estimationRule: 'LAST_VALUE',
       currentAmount: '',
     });
@@ -357,5 +360,186 @@ describe('BudgetItemForm', () => {
 
     expect(alert()).toContain('No se pudo conectar con el servidor');
     expect(root().querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
+  });
+
+  describe('en cuotas (HU-11)', () => {
+    const toggle = () => {
+      const box = Array.from(root().querySelectorAll('mat-checkbox')).find((c) =>
+        c.textContent?.includes('Es en cuotas'),
+      )!;
+      box.querySelector<HTMLInputElement>('input')!.click();
+      fixture.detectChanges();
+    };
+    const hasField = (label: string) =>
+      Array.from(root().querySelectorAll('mat-form-field')).some((f) =>
+        f.querySelector('label')?.textContent?.includes(label),
+      );
+
+    it('arranca sin cuotas: no muestra el total ni la primera cuota y sí el fin', () => {
+      expect(root().querySelector('mat-checkbox')).toBeTruthy();
+      expect(text()).toContain('Es en cuotas');
+      expect(hasField('Total de cuotas')).toBe(false);
+      expect(hasField('Primera cuota')).toBe(false);
+      expect(hasField('Período de fin')).toBe(true);
+      expect(root().querySelector('.installments-help')).toBeNull();
+    });
+
+    it('al marcar «Es en cuotas» muestra el total y la primera cuota (1 por defecto), oculta el fin y explica por qué', () => {
+      toggle();
+
+      expect(hasField('Total de cuotas')).toBe(true);
+      expect(hasField('Primera cuota')).toBe(true);
+      expect(input('Primera cuota').value).toBe('1');
+      expect(hasField('Período de fin')).toBe(false);
+      expect(root().querySelector('.installments-help')?.textContent).toContain('se calcula');
+      expect(root().querySelector('.installments-help')?.textContent).toContain(
+        'La primera cuota sirve para cargar un plan que ya empezó',
+      );
+    });
+
+    it('al desmarcarla vuelve el fin y se van las cuotas', () => {
+      toggle();
+      toggle();
+
+      expect(hasField('Total de cuotas')).toBe(false);
+      expect(hasField('Período de fin')).toBe(true);
+      expect(form().controls.installmentsTotal.disabled).toBe(true);
+      expect(form().controls.endPeriod.enabled).toBe(true);
+    });
+
+    it('un fin ya escrito se descarta al pasar a cuotas y no se envía', () => {
+      fillRequired();
+      form().patchValue({ endPeriod: '2027-12' });
+      toggle();
+      type('Total de cuotas', '12');
+      submit();
+
+      expect(form().controls.endPeriod.value).toBe('');
+      expect(request().endPeriod).toBeNull();
+    });
+
+    it('envía el total y la primera cuota elegidos', () => {
+      fillRequired();
+      toggle();
+      type('Total de cuotas', '12');
+      type('Primera cuota', '4');
+      submit();
+
+      expect(request()).toMatchObject({ installmentsTotal: 12, firstInstallmentNumber: 4, endPeriod: null });
+    });
+
+    it('con la primera cuota por defecto envía 1', () => {
+      fillRequired();
+      toggle();
+      type('Total de cuotas', '12');
+      submit();
+
+      expect(request()).toMatchObject({ installmentsTotal: 12, firstInstallmentNumber: 1 });
+    });
+
+    it('con la primera cuota vacía no la envía: el backend la completa con 1', () => {
+      fillRequired();
+      toggle();
+      type('Total de cuotas', '12');
+      type('Primera cuota', '');
+      submit();
+
+      expect(request().installmentsTotal).toBe(12);
+      expect(request().firstInstallmentNumber).toBeNull();
+    });
+
+    it('sin cuotas el pedido no lleva datos de cuotas', () => {
+      fillRequired();
+      submit();
+
+      expect(request()).not.toHaveProperty('installmentsTotal');
+      expect(request()).not.toHaveProperty('firstInstallmentNumber');
+    });
+
+    it('un plan marcado de ida y vuelta se envía como un Concepto común', () => {
+      fillRequired();
+      toggle();
+      type('Total de cuotas', '12');
+      toggle();
+      form().patchValue({ endPeriod: '2027-03' });
+      submit();
+
+      expect(request()).not.toHaveProperty('installmentsTotal');
+      expect(request().endPeriod).toBe('2027-03');
+    });
+
+    it('con cuotas, el total es obligatorio', () => {
+      fillRequired();
+      toggle();
+      submit();
+
+      expect(text()).toContain('Ingresá el total de cuotas.');
+      expect(api.createBudgetItem).not.toHaveBeenCalled();
+    });
+
+    it.each(['0', '-3', '1.5'])('el total «%s» no vale', (total) => {
+      fillRequired();
+      toggle();
+      type('Total de cuotas', total);
+      submit();
+
+      expect(text()).toContain('Tiene que ser un número entero, de 1 en adelante.');
+      expect(api.createBudgetItem).not.toHaveBeenCalled();
+    });
+
+    it.each(['0', '-1', '2.5'])('la primera cuota «%s» no vale', (first) => {
+      fillRequired();
+      toggle();
+      type('Total de cuotas', '12');
+      type('Primera cuota', first);
+      submit();
+
+      expect(text()).toContain('Tiene que ser un número entero, de 1 en adelante.');
+      expect(api.createBudgetItem).not.toHaveBeenCalled();
+    });
+
+    it('la primera cuota mayor que el total no se valida acá: la decide el backend y se muestra su error', () => {
+      api.createBudgetItem.mockReturnValue(
+        problem(400, {
+          code: 'VALIDATION_ERROR',
+          detail: 'La primera cuota no puede ser mayor que el total de cuotas.',
+          errors: [
+            { field: 'firstInstallmentNumber', message: 'La primera cuota no puede ser mayor que el total de cuotas.' },
+          ],
+        }),
+      );
+      fillRequired();
+      toggle();
+      type('Total de cuotas', '12');
+      type('Primera cuota', '13');
+      submit();
+
+      expect(api.createBudgetItem).toHaveBeenCalledOnce();
+      expect(alert()).toBe('La primera cuota no puede ser mayor que el total de cuotas.');
+      expect(saved).not.toHaveBeenCalled();
+      // Conserva lo cargado, incluido que es en cuotas.
+      expect(form().controls.inInstallments.value).toBe(true);
+      expect(input('Primera cuota').value).toBe('13');
+    });
+
+    it('al guardar deja el formulario listo para otro Concepto, sin cuotas', () => {
+      fillRequired();
+      toggle();
+      type('Total de cuotas', '12');
+      type('Primera cuota', '4');
+      submit();
+
+      expect(saved).toHaveBeenCalledOnce();
+      expect(form().getRawValue()).toMatchObject({
+        inInstallments: false,
+        installmentsTotal: null,
+        firstInstallmentNumber: 1,
+        endPeriod: '',
+      });
+      expect(hasField('Total de cuotas')).toBe(false);
+      expect(hasField('Período de fin')).toBe(true);
+      expect(form().controls.endPeriod.enabled).toBe(true);
+      expect(root().querySelector('mat-error')).toBeNull();
+    });
   });
 });

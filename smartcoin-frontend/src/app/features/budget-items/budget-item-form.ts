@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormControl,
@@ -57,9 +58,10 @@ function wholeNumber(control: AbstractControl): ValidationErrors | null {
 }
 
 /**
- * Alta de un Concepto recurrente (HU-10). Solo valida el formato; las reglas (rango del período de inicio, fin
- * anterior al inicio, cuenta o categoría inexistentes) las decide el backend y acá se muestra su error. El monto se
- * convierte de coma decimal a número antes de enviarlo.
+ * Alta de un Concepto recurrente (HU-10) o en cuotas (HU-11). Solo valida el formato; las reglas (rango del período
+ * de inicio, fin anterior al inicio, cuenta o categoría inexistentes, primera cuota mayor que el total) las decide el
+ * backend y acá se muestra su error. El monto se convierte de coma decimal a número antes de enviarlo. En un plan de
+ * cuotas el período de fin no se ingresa: se calcula.
  */
 @Component({
   selector: 'app-budget-item-form',
@@ -113,6 +115,10 @@ export class BudgetItemForm {
     ]),
     dueInPreviousMonth: new FormControl(false, { nonNullable: true }),
     startPeriod: new FormControl('', { nonNullable: true, validators: [Validators.required, periodFormat] }),
+    inInstallments: new FormControl(false, { nonNullable: true }),
+    installmentsTotal: new FormControl<number | null>(null, [Validators.required, Validators.min(1), wholeNumber]),
+    // Vacía vale 1: el backend la completa.
+    firstInstallmentNumber: new FormControl<number | null>(1, [Validators.min(1), wholeNumber]),
     endPeriod: new FormControl('', { nonNullable: true, validators: periodFormat }),
     estimationRule: new FormControl<BudgetItemRequest.EstimationRuleEnum | null>('LAST_VALUE', Validators.required),
     currentAmount: new FormControl('', { nonNullable: true, validators: [Validators.required, amountFormat] }),
@@ -120,10 +126,33 @@ export class BudgetItemForm {
   protected readonly error = signal<string | null>(null);
   protected readonly submitting = signal(false);
 
+  protected readonly inInstallments = toSignal(this.form.controls.inInstallments.valueChanges, {
+    initialValue: false,
+  });
+
   private readonly directive = viewChild.required(FormGroupDirective);
 
   constructor() {
     effect(() => this.form.controls.startPeriod.reset(this.suggestedStartPeriod()));
+    this.applyInstallments(false);
+    this.form.controls.inInstallments.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((on) => this.applyInstallments(on));
+  }
+
+  /** Con cuotas, el total y la primera cuota cuentan y el fin no; sin cuotas, al revés. Un campo deshabilitado no valida. */
+  private applyInstallments(on: boolean): void {
+    const { installmentsTotal, firstInstallmentNumber, endPeriod } = this.form.controls;
+    if (on) {
+      installmentsTotal.enable();
+      firstInstallmentNumber.enable();
+      endPeriod.reset('');
+      endPeriod.disable();
+    } else {
+      installmentsTotal.disable();
+      firstInstallmentNumber.disable();
+      endPeriod.enable();
+    }
   }
 
   private defaults() {
@@ -137,6 +166,9 @@ export class BudgetItemForm {
       dueInPreviousMonth: false,
       startPeriod: this.suggestedStartPeriod(),
       endPeriod: '',
+      inInstallments: false,
+      installmentsTotal: null,
+      firstInstallmentNumber: 1,
       estimationRule: 'LAST_VALUE' as const,
       currentAmount: '',
     };
@@ -157,9 +189,12 @@ export class BudgetItemForm {
       dueDay: value.dueDay!,
       dueMonthOffset: value.dueInPreviousMonth ? -1 : 0,
       startPeriod: value.startPeriod,
-      endPeriod: value.endPeriod === '' ? null : value.endPeriod,
+      endPeriod: value.inInstallments || value.endPeriod === '' ? null : value.endPeriod,
       estimationRule: value.estimationRule!,
       currentAmount: parseAmount(value.currentAmount)!,
+      ...(value.inInstallments
+        ? { installmentsTotal: value.installmentsTotal!, firstInstallmentNumber: value.firstInstallmentNumber }
+        : {}),
     };
     this.error.set(null);
     this.submitting.set(true);

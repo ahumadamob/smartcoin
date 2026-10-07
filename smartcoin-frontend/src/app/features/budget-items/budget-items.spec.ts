@@ -155,4 +155,69 @@ describe('BudgetItems', () => {
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('No se pudo conectar con el servidor');
     expect(root().querySelector('app-budget-item-form')).toBeNull();
   });
+
+  describe('Concepto en cuotas (HU-11)', () => {
+    const installments = (
+      total: number,
+      first: number,
+      lastInstallment: number,
+      generation: Partial<BudgetItemResponse['generation']> = {},
+    ): BudgetItemResponse => ({
+      ...item({
+        entryCount: lastInstallment - first + 1,
+        firstPeriod: '2026-10',
+        lastPeriod: '2027-06',
+        firstDueDate: '2026-10-10',
+        firstInstallment: first,
+        lastInstallment,
+        ...generation,
+      }),
+      name: 'Heladera',
+      installmentsTotal: total,
+      firstInstallmentNumber: first,
+      endPeriod: '2027-06',
+    });
+
+    it('indica las cuotas generadas cuando el plan se generó completo', async () => {
+      await setup([ACCOUNT]);
+      save(installments(12, 4, 12));
+
+      expect(status()).toBe(
+        'Concepto «Heladera» creado. Se generaron 9 partidas, de octubre 2026 a junio 2027. ' +
+          'Primer vencimiento: 10/10/2026. Son las cuotas 4 a 12 de 12.',
+      );
+    });
+
+    it('con una sola cuota lo dice en singular', async () => {
+      await setup([ACCOUNT]);
+      save(
+        installments(12, 12, 12, { entryCount: 1, lastPeriod: '2026-10', firstInstallment: 12, lastInstallment: 12 }),
+      );
+
+      expect(status()).toContain('Se generó 1 partida, en octubre 2026.');
+      expect(status()).toContain('Es la cuota 12 de 12.');
+      expect(status()).not.toContain('El plan termina');
+    });
+
+    it('si el plan termina después del horizonte, avisa hasta qué cuota se generó y cuándo termina', async () => {
+      await setup([ACCOUNT]);
+      save({
+        ...installments(60, 1, 25, { entryCount: 25, lastPeriod: '2028-10' }),
+        endPeriod: '2031-09',
+      });
+
+      expect(status()).toContain('Son las cuotas 1 a 25 de 60.');
+      expect(status()).toContain(
+        'El plan termina en septiembre 2031; las demás cuotas se generan a medida que avance el horizonte.',
+      );
+    });
+
+    it('un Concepto sin cuotas no muestra nada de cuotas', async () => {
+      await setup([ACCOUNT]);
+      save(item({ entryCount: 25, firstPeriod: '2026-11', lastPeriod: '2028-11', firstDueDate: '2026-10-25' }));
+
+      expect(status()).not.toContain('cuota');
+      expect(root().querySelector('.installments')).toBeNull();
+    });
+  });
 });

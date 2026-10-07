@@ -30,8 +30,8 @@ function currentPeriod(): string {
 }
 
 /**
- * Conceptos (HU-10): alta de un Concepto recurrente. Después de guardar muestra el resumen de las partidas que generó
- * el backend. La lista de Conceptos es HU-14 y las partidas se ven en la vista del mes (HU-15).
+ * Conceptos (HU-10, HU-11): alta de un Concepto recurrente o en cuotas. Después de guardar muestra el resumen de las
+ * partidas que generó el backend. La lista de Conceptos es HU-14 y las partidas se ven en la vista del mes (HU-15).
  */
 @Component({
   selector: 'app-budget-items',
