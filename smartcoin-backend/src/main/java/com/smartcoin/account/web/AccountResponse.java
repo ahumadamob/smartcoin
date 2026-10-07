@@ -55,7 +55,7 @@ public record AccountResponse(
 					example = "La moneda no se puede cambiar: la cuenta ya está usada en Conceptos, partidas, movimientos, transferencias o cierres.")
 			String reason) {
 
-		static FieldState from(FieldEditability field) {
+		public static FieldState from(FieldEditability field) {
 			return new FieldState(field.editable(), field.reason());
 		}
 	}

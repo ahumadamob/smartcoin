@@ -6,7 +6,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,6 +31,8 @@ import com.smartcoin.budgetitem.domain.EstimationRule;
 import com.smartcoin.budgetitem.domain.Periodicity;
 import com.smartcoin.budgetitem.service.BudgetItemService;
 import com.smartcoin.budgetitem.service.BudgetItemService.Created;
+import com.smartcoin.budgetitem.service.BudgetItemService.Detail;
+import com.smartcoin.budgetitem.service.BudgetItemService.EntryCounts;
 import com.smartcoin.category.domain.Category;
 import com.smartcoin.entry.domain.BudgetEntry;
 import com.smartcoin.period.domain.BudgetPeriod;
@@ -62,7 +66,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-/** HU-10: códigos HTTP, formato de errores y forma de la respuesta de POST /api/budget-items. Servicio simulado. */
+/**
+ * HU-10 y HU-13: códigos HTTP, formato de errores y forma de la respuesta de POST, GET y PUT /api/budget-items.
+ * Servicio simulado.
+ */
 @WebMvcTest(BudgetItemController.class)
 @Import({ SecurityConfig.class, GlobalExceptionHandler.class, CurrentUser.class })
 @TestPropertySource(properties = "app.security.jwt-secret=" + BudgetItemControllerTest.SECRET)
@@ -447,6 +454,144 @@ class BudgetItemControllerTest {
 		mvc.perform(post("/api/budget-items").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+		verifyNoInteractions(items);
+	}
+
+	// --- HU-13: GET y PUT /api/budget-items/{id} ---
+
+	private static Detail detail() {
+		return new Detail(created().item(), new EntryCounts(23, 2));
+	}
+
+	private ResultActions update(String body) throws Exception {
+		return mvc.perform(put("/api/budget-items/31").header("Authorization", bearer())
+				.contentType(MediaType.APPLICATION_JSON).content(body));
+	}
+
+	@Test
+	void getRespondsWithTheItemWhatCannotBeEditedAndTheEntryCounts() throws Exception {
+		when(items.get(USER_ID, 31)).thenReturn(detail());
+
+		mvc.perform(get("/api/budget-items/31").header("Authorization", bearer()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(31))
+				.andExpect(jsonPath("$.name").value("Sueldo A"))
+				.andExpect(jsonPath("$.currency").value("ARS"))
+				.andExpect(jsonPath("$.defaultAccountId").value(12))
+				.andExpect(jsonPath("$.categoryId").value(3))
+				.andExpect(jsonPath("$.dueDay").value(25))
+				.andExpect(jsonPath("$.dueMonthOffset").value(-1))
+				.andExpect(jsonPath("$.endPeriod").value("2027-01"))
+				.andExpect(jsonPath("$.currentAmount").value(1200000.50))
+				.andExpect(jsonPath("$.entryCounts.pendingNotManual").value(23))
+				.andExpect(jsonPath("$.entryCounts.pendingManual").value(2))
+				.andExpect(jsonPath("$.editability.kind.editable").value(false))
+				.andExpect(jsonPath("$.editability.kind.reason").value(org.hamcrest.Matchers.containsString("dá de baja")))
+				.andExpect(jsonPath("$.editability.periodicity.editable").value(false))
+				.andExpect(jsonPath("$.editability.startPeriod.editable").value(false))
+				.andExpect(jsonPath("$.editability.endPeriod.editable").value(false))
+				.andExpect(jsonPath("$.editability.installments.editable").value(false))
+				.andExpect(jsonPath("$.generation").doesNotExist())
+				.andExpect(jsonPath("$.userId").doesNotExist());
+	}
+
+	@Test
+	void getOfAnItemThatIsNotTheUsersRespondsNotFound() throws Exception {
+		when(items.get(USER_ID, 99)).thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "El Concepto no existe."));
+
+		mvc.perform(get("/api/budget-items/99").header("Authorization", bearer()))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("NOT_FOUND"))
+				.andExpect(jsonPath("$.detail").value("El Concepto no existe."));
+	}
+
+	@Test
+	void updateRespondsOkWithTheEditedItem() throws Exception {
+		when(items.update(eq(USER_ID), eq(31L), any())).thenReturn(detail());
+
+		update(VALID_BODY)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(31))
+				.andExpect(jsonPath("$.entryCounts.pendingNotManual").value(23));
+	}
+
+	@Test
+	void theUpdateBodyReachesTheServiceWithTheUserOfTheTokenNotOneFromTheBody() throws Exception {
+		when(items.update(eq(USER_ID), eq(31L), any())).thenReturn(detail());
+
+		update(body("userId", "999")).andExpect(status().isOk());
+
+		ArgumentCaptor<BudgetItemValues> values = ArgumentCaptor.forClass(BudgetItemValues.class);
+		verify(items).update(eq(USER_ID), eq(31L), values.capture());
+		assertThat(values.getValue()).isEqualTo(new BudgetItemValues("Sueldo A", EntryKind.INCOME, 12L, 3L,
+				Periodicity.MONTHLY, 25, -1, YearMonth.of(2026, 11), YearMonth.of(2027, 1), EstimationRule.LAST_VALUE,
+				new BigDecimal("1200000.50")));
+	}
+
+	@Test
+	void updateWithABadBodyRespondsValidationErrorPerFieldWithoutCallingTheService() throws Exception {
+		update(body("dueDay", "32").replace("\"name\": \"Sueldo A\"", "\"name\": \"\""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors.length()").value(2));
+		verifyNoInteractions(items);
+	}
+
+	@Test
+	void updateWithAnAccountOrCategoryThatDoesNotExistRespondsValidationErrorOnItsField() throws Exception {
+		when(items.update(eq(USER_ID), eq(31L), any()))
+				.thenThrow(BusinessException.invalidField("defaultAccountId", "La cuenta por defecto no existe."));
+
+		update(VALID_BODY)
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors[0].field").value("defaultAccountId"))
+				.andExpect(jsonPath("$.errors[0].message").value("La cuenta por defecto no existe."));
+	}
+
+	@Test
+	void updateOfAnItemThatIsNotTheUsersRespondsNotFound() throws Exception {
+		when(items.update(eq(USER_ID), eq(31L), any()))
+				.thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "El Concepto no existe."));
+
+		update(VALID_BODY)
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("NOT_FOUND"));
+	}
+
+	@Test
+	void changingALockedFieldRespondsConflictWithTheErrorFormat() throws Exception {
+		when(items.update(eq(USER_ID), eq(31L), any())).thenThrow(new BusinessException(ErrorCode.FIELD_NOT_EDITABLE,
+				"El tipo no se puede cambiar: para cambiarlo, dá de baja el Concepto y creá otro."));
+
+		update(body("kind", "\"EXPENSE\""))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.type").value("about:blank"))
+				.andExpect(jsonPath("$.title").value("Dato no editable"))
+				.andExpect(jsonPath("$.status").value(409))
+				.andExpect(jsonPath("$.code").value("FIELD_NOT_EDITABLE"))
+				.andExpect(jsonPath("$.detail").value(
+						"El tipo no se puede cambiar: para cambiarlo, dá de baja el Concepto y creá otro."))
+				.andExpect(jsonPath("$.errors").doesNotExist());
+	}
+
+	@Test
+	void anAccountOfAnotherCurrencyRespondsConflictCurrencyMismatch() throws Exception {
+		when(items.update(eq(USER_ID), eq(31L), any())).thenThrow(new BusinessException(ErrorCode.CURRENCY_MISMATCH,
+				"La cuenta por defecto tiene que ser de la misma moneda que la actual (ARS)."));
+
+		update(body("defaultAccountId", "44"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("CURRENCY_MISMATCH"))
+				.andExpect(jsonPath("$.title").value("Moneda distinta"));
+	}
+
+	@Test
+	void getAndUpdateWithoutTokenAreUnauthorized() throws Exception {
+		mvc.perform(get("/api/budget-items/31")).andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+		mvc.perform(put("/api/budget-items/31").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
+				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 		verifyNoInteractions(items);
 	}
 }

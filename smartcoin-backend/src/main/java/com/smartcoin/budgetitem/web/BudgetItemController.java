@@ -16,7 +16,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,5 +62,47 @@ public class BudgetItemController {
 	public ResponseEntity<BudgetItemResponse> create(@Valid @RequestBody BudgetItemRequest request) {
 		BudgetItemResponse created = BudgetItemResponse.from(items.create(currentUser.id(), request.toValues()));
 		return ResponseEntity.created(URI.create("/api/budget-items/" + created.id())).body(created);
+	}
+
+	@GetMapping("/{id}")
+	@Operation(operationId = "getBudgetItem", summary = "Ver un Concepto",
+			description = "Un Concepto del usuario, con qué datos no se pueden editar y por qué, y cuántas de sus "
+					+ "partidas pendientes de períodos abiertos alcanza un cambio de monto vigente: las no editadas "
+					+ "(que reemplaza) y las editadas (que no cambian). Los conteos los calcula el backend. Si no "
+					+ "existe o es de otro usuario, responde 404.")
+	@ApiResponse(responseCode = "200", description = "El Concepto.")
+	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "NOT_FOUND: el Concepto no existe o es de otro usuario.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	public BudgetItemDetailResponse get(@PathVariable long id) {
+		return BudgetItemDetailResponse.from(items.get(currentUser.id(), id));
+	}
+
+	@PutMapping("/{id}")
+	@Operation(operationId = "updateBudgetItem", summary = "Editar un Concepto",
+			description = "Reemplaza todos los campos y propaga el cambio a las partidas (RN-15), todo en una sola "
+					+ "transacción. Nombre, categoría y regla de estimación no tocan partidas. El día de vencimiento y "
+					+ "el desfase recalculan el vencimiento de las partidas pendientes de períodos abiertos. La cuenta "
+					+ "por defecto, solo por otra de la misma moneda, cambia la de las pendientes sin movimientos de "
+					+ "períodos abiertos. El monto vigente reemplaza el presupuestado de las pendientes no editadas "
+					+ "de períodos abiertos. Nunca se tocan partidas consolidadas ni de períodos cerrados. Tipo, "
+					+ "periodicidad, período de inicio, período de fin y cuotas no se editan; enviar el mismo valor "
+					+ "que ya tienen no es un cambio (en un Concepto en cuotas, el fin se puede omitir). Al editar se "
+					+ "asegura el horizonte (RN-07): las partidas que genere salen con los datos nuevos.")
+	@ApiResponse(responseCode = "200", description = "Concepto actualizado.")
+	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: faltan datos, tienen formato inválido, o la "
+			+ "cuenta por defecto o la categoría no existen para el usuario. Trae `errors` por campo.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "NOT_FOUND: el Concepto no existe o es de otro usuario.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "409", description = "FIELD_NOT_EDITABLE: se cambió el tipo, la periodicidad, el "
+			+ "período de inicio, el de fin o las cuotas. CURRENCY_MISMATCH: la cuenta por defecto nueva es de otra "
+			+ "moneda.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	public BudgetItemDetailResponse update(@PathVariable long id, @Valid @RequestBody BudgetItemRequest request) {
+		return BudgetItemDetailResponse.from(items.update(currentUser.id(), id, request.toValues()));
 	}
 }

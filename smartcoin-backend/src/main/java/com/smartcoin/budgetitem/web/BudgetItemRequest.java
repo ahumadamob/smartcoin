@@ -19,7 +19,7 @@ import com.smartcoin.shared.domain.EntryKind;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Datos para crear un Concepto (RN-10), recurrente o en cuotas (RN-14). Con "
+@Schema(description = "Datos para crear (RN-10) o editar (RN-15) un Concepto, recurrente o en cuotas (RN-14). Con "
 		+ "`installmentsTotal` es un plan de cuotas: el período de fin no se informa, se calcula como el inicio más "
 		+ "(total − primera cuota) pasos de la periodicidad.")
 public record BudgetItemRequest(
