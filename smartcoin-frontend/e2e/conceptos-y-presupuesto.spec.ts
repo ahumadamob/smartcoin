@@ -1,7 +1,10 @@
 import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { API_URL, startPeriod, startSession } from './support';
 
-/** Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente). Cada corrida usa un usuario propio. */
+/**
+ * Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente) y HU-11 (en cuotas). Cada corrida usa
+ * un usuario propio.
+ */
 
 const MONTHS = [
   'enero',
@@ -210,5 +213,150 @@ test.describe('HU-10 · crear un Concepto recurrente', () => {
       expect(problem.code).toBe('VALIDATION_ERROR');
       expect(problem.errors[0].field).toBe(field);
     }
+  });
+});
+
+test.describe('HU-11 · crear un Concepto en cuotas', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = await api.post('/api/accounts', {
+      data: {
+        name: 'Banco Nación',
+        type: 'BANK',
+        currency: 'ARS',
+        openingDate: `${startPeriod()}-01`,
+        initialBalance: 0,
+      },
+    });
+    expect(account.status(), 'alta de la cuenta de prueba').toBe(201);
+    await page.goto('/conceptos');
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const installmentsBox = () => page.getByRole('checkbox', { name: 'Es en cuotas' });
+
+  test('«Es en cuotas» muestra el total y la primera cuota, oculta el fin y lo explica', async () => {
+    await expect(page.getByLabel('Período de fin')).toBeVisible();
+    await expect(page.getByLabel('Total de cuotas')).toHaveCount(0);
+
+    await installmentsBox().check();
+
+    await expect(page.getByLabel('Total de cuotas')).toBeVisible();
+    await expect(page.getByLabel('Primera cuota')).toHaveValue('1');
+    await expect(page.getByLabel('Período de fin')).toHaveCount(0);
+    await expect(page.getByText('El período de fin no se ingresa: se calcula')).toBeVisible();
+    await expect(page.getByText('La primera cuota sirve para cargar un plan que ya empezó')).toBeVisible();
+  });
+
+  test('una primera cuota mayor que el total: muestra el error del backend y conserva lo cargado', async () => {
+    await fillItem(page, { name: 'Heladera', kind: 'Gasto', account: 'Banco Nación · $ (ARS)', dueDay: '10', amount: '85.000' });
+    await page.getByLabel('Total de cuotas').fill('12');
+    await page.getByLabel('Primera cuota').fill('13');
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('La primera cuota no puede ser mayor que el total de cuotas.');
+    await expect(summary(page)).toHaveCount(0);
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Heladera');
+    await expect(page.getByLabel('Total de cuotas')).toHaveValue('12');
+  });
+
+  test('el ejemplo de la Heladera: 12 cuotas, primera 4, genera las cuotas 4 a 12 y el resumen lo dice', async () => {
+    await page.getByLabel('Primera cuota').fill('4');
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(summary(page)).toContainText('Concepto «Heladera» creado.');
+    // Desde el mes actual, nueve meses: la cuota 4 es la de este mes y la 12, la de dentro de ocho.
+    await expect(summary(page)).toContainText(
+      `Se generaron 9 partidas, de ${periodText(month(0))} a ${periodText(month(8))}.`,
+    );
+    await expect(summary(page)).toContainText(`Primer vencimiento: ${dateText(month(0), 10)}.`);
+    await expect(summary(page)).toContainText('Son las cuotas 4 a 12 de 12.');
+    await expect(summary(page)).not.toContainText('El plan termina');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    // El formulario queda listo para otro Concepto, sin cuotas.
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('');
+    await expect(installmentsBox()).not.toBeChecked();
+    await expect(page.getByLabel('Período de fin')).toBeVisible();
+  });
+
+  test('un plan que termina después del horizonte genera solo las cuotas que entran y avisa cuándo termina', async () => {
+    await fillItem(page, { name: 'Auto', kind: 'Gasto', account: 'Banco Nación · $ (ARS)', dueDay: '5', amount: '300.000' });
+    await installmentsBox().check();
+    await page.getByLabel('Total de cuotas').fill('60');
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(summary(page)).toContainText('Concepto «Auto» creado.');
+    await expect(summary(page)).toContainText(
+      `Se generaron 25 partidas, de ${periodText(month(0))} a ${periodText(month(24))}.`,
+    );
+    await expect(summary(page)).toContainText('Son las cuotas 1 a 25 de 60.');
+    await expect(summary(page)).toContainText(
+      `El plan termina en ${periodText(month(59))}; las demás cuotas se generan a medida que avance el horizonte.`,
+    );
+  });
+
+  test('por la API: primera cuota sin total y cuotas con fin informado responden 400 con el campo', async () => {
+    const body = {
+      name: 'Heladera',
+      kind: 'EXPENSE',
+      defaultAccountId: (await (await api.get('/api/accounts')).json()).accounts[0].id,
+      periodicity: 'MONTHLY',
+      dueDay: 10,
+      dueMonthOffset: 0,
+      startPeriod: periodValue(month(0)),
+      estimationRule: 'LAST_VALUE',
+      currentAmount: 85000,
+    };
+    for (const [field, data] of [
+      ['installmentsTotal', { ...body, firstInstallmentNumber: 4 }],
+      ['endPeriod', { ...body, installmentsTotal: 12, endPeriod: periodValue(month(11)) }],
+      ['installmentsTotal', { ...body, installmentsTotal: 361 }],
+    ] as const) {
+      const response = await api.post('/api/budget-items', { data });
+      expect(response.status(), field).toBe(400);
+      const problem = await response.json();
+      expect(problem.code).toBe('VALIDATION_ERROR');
+      expect(problem.errors[0].field).toBe(field);
+    }
+  });
+
+  test('por la API: el plan bimestral avanza de a dos meses y la respuesta trae el fin calculado', async () => {
+    const accountId = (await (await api.get('/api/accounts')).json()).accounts[0].id;
+    const response = await api.post('/api/budget-items', {
+      data: {
+        name: 'Seguro',
+        kind: 'EXPENSE',
+        defaultAccountId: accountId,
+        periodicity: 'BIMONTHLY',
+        dueDay: 15,
+        dueMonthOffset: 0,
+        startPeriod: periodValue(month(0)),
+        estimationRule: 'LAST_VALUE',
+        currentAmount: 20000,
+        installmentsTotal: 6,
+        firstInstallmentNumber: 3,
+      },
+    });
+    expect(response.status()).toBe(201);
+    const created = await response.json();
+    // Cuotas 3 a 6: cuatro partidas, de dos en dos meses.
+    expect(created.endPeriod).toBe(periodValue(month(6)));
+    expect(created.installmentsTotal).toBe(6);
+    expect(created.firstInstallmentNumber).toBe(3);
+    expect(created.generation).toMatchObject({ entryCount: 4, firstInstallment: 3, lastInstallment: 6 });
   });
 });
