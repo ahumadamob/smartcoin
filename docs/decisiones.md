@@ -64,6 +64,10 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **D-26. Los errores de cuotas se informan en el campo que corresponde.** Primera cuota sin total: `installmentsTotal`. Primera cuota mayor que el total: `firstInstallmentNumber`. Cuotas junto con un período de fin: `endPeriod`, aunque coincida con el calculado (el fin de un plan no se ingresa). Los tres, con la forma de D-24. *Confirmada* (HU-11).
 
+**D-27. El estado de un Concepto es `ACTIVE`, `FINISHED` o `SCHEDULED`, y las cuotas son datos aparte.** Con el período actual C (del `Clock`): `FINISHED` si el fin es anterior a C; `SCHEDULED` si el inicio es posterior a C; `ACTIVE` en los demás casos. En un Concepto en cuotas, el fin guardado es el calculado (RN-14). Si está `ACTIVE`, trae `currentInstallment` (primera cuota + pasos transcurridos desde el inicio, según la periodicidad) e `installmentsRemaining` (total menos cuota actual): en la última cuota quedan 0. Finalizado y Por comenzar no los traen. El cálculo es por calendario y no mira las partidas: así sirve con un plan cortado por el horizonte, antes de poder consolidar (HU-23) y con partidas eliminadas (HU-18). Ejemplo: Heladera (12 cuotas, primera 4, inicio 2026-10) es "Cuota 4 de 12, quedan 8" en octubre de 2026 y "Cuota 5 de 12, quedan 7" en noviembre. *Confirmada* (HU-14).
+
+**D-28. La lista de Conceptos y sus filtros.** Sin paginación ni totales de montos (periodicidades y monedas distintas). Orden: los Finalizados al final y, dentro de cada grupo, por nombre sin distinguir mayúsculas. Filtros opcionales `kind`, y `categoryId` o `withoutCategory=true` (juntos, 400 `VALIDATION_ERROR`). Una categoría inexistente o de otro usuario en el filtro responde 404 `NOT_FOUND` (RN-01); D-24 solo rige para referencias del cuerpo. Los filtros se aplican en el servicio sobre los Conceptos del usuario. *Confirmada* (HU-14).
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.

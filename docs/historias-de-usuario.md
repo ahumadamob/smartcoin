@@ -344,8 +344,10 @@ Reglas: RN-15.
 
 **Como** usuario **quiero** ver todos mis Conceptos **para** revisar qué tengo configurado.
 
-1. Lista con nombre, tipo, cuenta y moneda, categoría, periodicidad, vencimiento (día y desfase), regla de estimación, monto vigente y estado: activo, finalizado (su fin es anterior al período actual) o en cuotas (cuántas quedan).
-2. Filtros por tipo y categoría.
+1. Lista con nombre, tipo, cuenta y moneda, categoría, periodicidad, vencimiento (día y desfase), regla de estimación, monto vigente y estado: Activo, Finalizado (su fin es anterior al período actual) o Por comenzar (su inicio es posterior). En un Concepto en cuotas activo, además, la cuota actual y cuántas quedan (D-27).
+2. Filtros por tipo y por categoría, que incluye «Sin categoría» (D-28).
+3. Estado vacío distinto cuando no hay Conceptos y cuando el filtro no devuelve nada.
+4. «Nuevo Concepto» lleva al alta (`/conceptos/nuevo`) y cada fila tiene «Editar» (`/conceptos/:id/editar`).
 
 Reglas: RN-10, RN-14.
 

@@ -30,6 +30,8 @@ Vocabulario obligatorio del proyecto. En la interfaz y en la documentación se u
 | Día de vencimiento | `dueDay` | Día del mes (1 a 31) en que vence cada partida de un Concepto. |
 | Desfase de mes | `dueMonthOffset` | 0 si vence en el mismo mes del período; −1 si vence el mes anterior (el sueldo de diciembre que se cobra en noviembre). |
 | Cuota x de n | `installmentNumber` · `installmentsTotal` | Número de cuota de la partida y total de cuotas del Concepto. |
+| Cuota actual | `currentInstallment` | En un Concepto en cuotas, la última cuota cuyo período es el actual o anterior. Se calcula con el calendario, no mira las partidas. |
+| Cuotas que quedan | `installmentsRemaining` | Cuotas del plan posteriores a la cuota actual: total menos cuota actual. |
 | Primera cuota | `firstInstallmentNumber` | Número de cuota que corresponde al período de inicio del Concepto. Permite cargar planes ya empezados. |
 | Partida editada | `manual` | Partida cuyo monto presupuestado cambió el usuario a mano. La consolidación no la pisa sin preguntar. |
 | Saldo inicial | `initialBalance` | Saldo de la cuenta al comienzo de su fecha de apertura. |
@@ -54,6 +56,7 @@ Vocabulario obligatorio del proyecto. En la interfaz y en la documentación se u
 | Origen de la partida | `EntryOrigin` | `RECURRING` → Recurrente · `ONE_OFF` → Puntual · `CARRIED_OVER` → Saldo postergado · `CLOSING_DIFFERENCE` → Diferencia de cierre |
 | Estado de la partida | `EntryStatus` | `ESTIMATED` → Estimada · `PARTIAL` → Parcial · `CONSOLIDATED` → Consolidada |
 | Estado guardado de la partida | `StoredEntryStatus` | `PENDING` → se muestra como Estimada o Parcial · `CONSOLIDATED` → Consolidada |
+| Estado del Concepto | `BudgetItemStatus` | `ACTIVE` → Activo · `FINISHED` → Finalizado · `SCHEDULED` → Por comenzar |
 | Estado del período | `PeriodStatus` | `OPEN` → Abierto · `CLOSED` → Cerrado |
 | Resolución de cierre | `ClosingResolution` | `CARRY_OVER` → Postergar saldo · `CLOSE_AS_IS` → Cerrar con lo registrado |
 | Partidas editadas al consolidar | `ManualEntriesPolicy` | `KEEP` → Respetar · `OVERWRITE` → Pisar |
