@@ -28,6 +28,7 @@ describe('messageFor', () => {
       'PERIOD_NOT_AVAILABLE',
       'Ese período no está disponible: tiene que estar entre tu primer período abierto y el horizonte.',
     ],
+    ['CURRENCY_MISMATCH', 'La cuenta elegida es de otra moneda. Elegí una cuenta en la misma moneda.'],
     ['FIELD_NOT_EDITABLE', 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.'],
   ])('traduce %s', (code, expected) => {
     expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);

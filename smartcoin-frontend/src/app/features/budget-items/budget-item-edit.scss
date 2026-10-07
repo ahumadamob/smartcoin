@@ -1,0 +1,36 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.title {
+  margin: 0;
+  font: var(--mat-sys-headline-medium);
+}
+
+.subtitle {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+}
+
+.intro {
+  margin: 8px 0 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error {
+  margin: 0;
+  color: var(--mat-sys-error);
+}
+
+.removal {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container);
+}
+
+.removal p {
+  margin: 8px 0 0;
+}

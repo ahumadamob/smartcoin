@@ -102,7 +102,7 @@ describe('BudgetItems', () => {
     save(item({ entryCount: 25, firstPeriod: '2026-11', lastPeriod: '2028-11', firstDueDate: '2026-10-25' }));
 
     expect(status()).toBe(
-      'Concepto «Sueldo A» creado. Se generaron 25 partidas, de noviembre 2026 a noviembre 2028. Primer vencimiento: 25/10/2026.',
+      'Concepto «Sueldo A» creado. Se generaron 25 partidas, de noviembre 2026 a noviembre 2028. Primer vencimiento: 25/10/2026. Editar este Concepto',
     );
     expect(root().querySelector('app-budget-item-form')).toBeTruthy();
   });
@@ -127,12 +127,21 @@ describe('BudgetItems', () => {
     }
   });
 
+  it('el resumen ofrece editar el Concepto recién creado, hasta que exista la lista (HU-14)', async () => {
+    await setup([ACCOUNT]);
+    save(item({ entryCount: 25, firstPeriod: '2026-11', lastPeriod: '2028-11', firstDueDate: '2026-10-25' }));
+
+    const link = root().querySelector<HTMLAnchorElement>('[role="status"] a')!;
+    expect(link.textContent?.trim()).toBe('Editar este Concepto');
+    expect(link.getAttribute('href')).toBe('/conceptos/31/editar');
+  });
+
   it('con una sola partida lo dice en singular', async () => {
     await setup([ACCOUNT]);
     save(item({ entryCount: 1, firstPeriod: '2027-03', lastPeriod: '2027-03', firstDueDate: '2027-02-25' }));
 
     expect(status()).toBe(
-      'Concepto «Sueldo A» creado. Se generó 1 partida, en marzo 2027. Primer vencimiento: 25/02/2027.',
+      'Concepto «Sueldo A» creado. Se generó 1 partida, en marzo 2027. Primer vencimiento: 25/02/2027. Editar este Concepto',
     );
   });
 
@@ -184,7 +193,7 @@ describe('BudgetItems', () => {
 
       expect(status()).toBe(
         'Concepto «Heladera» creado. Se generaron 9 partidas, de octubre 2026 a junio 2027. ' +
-          'Primer vencimiento: 10/10/2026. Son las cuotas 4 a 12 de 12.',
+          'Primer vencimiento: 10/10/2026. Son las cuotas 4 a 12 de 12. Editar este Concepto',
       );
     });
 

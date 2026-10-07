@@ -54,6 +54,11 @@ export const routes: Routes = [
         title: 'Conceptos',
       },
       {
+        path: 'conceptos/:id/editar',
+        loadComponent: () => import('./features/budget-items/budget-item-edit').then((m) => m.BudgetItemEdit),
+        title: 'Editar Concepto',
+      },
+      {
         path: 'cuentas',
         loadComponent: () => import('./features/accounts/accounts').then((m) => m.Accounts),
         title: 'Cuentas',

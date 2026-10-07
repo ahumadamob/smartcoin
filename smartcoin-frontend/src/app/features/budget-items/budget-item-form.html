@@ -15,6 +15,9 @@
           <mat-option [value]="kind">{{ kindLabels[kind] }}</mat-option>
         }
       </mat-select>
+      @if (reasons().kind; as reason) {
+        <mat-hint class="reason">{{ reason }}</mat-hint>
+      }
       @if (form.controls.kind.hasError('required')) {
         <mat-error>Elegí si es un ingreso o un gasto.</mat-error>
       }
@@ -27,6 +30,9 @@
           <mat-option [value]="periodicity">{{ periodicityLabels[periodicity] }}</mat-option>
         }
       </mat-select>
+      @if (reasons().periodicity; as reason) {
+        <mat-hint class="reason">{{ reason }}</mat-hint>
+      }
       @if (form.controls.periodicity.hasError('required')) {
         <mat-error>Elegí la periodicidad.</mat-error>
       }
@@ -40,7 +46,14 @@
         <mat-option [value]="account.id">{{ account.name }} · {{ currencyLabels[account.currency] }}</mat-option>
       }
     </mat-select>
-    <mat-hint>Su moneda es la del Concepto y la de sus partidas.</mat-hint>
+    @if (item(); as item) {
+      <mat-hint>
+        Solo podés cambiarla por otra cuenta en {{ currencyLabels[item.currency] }}. Las partidas pendientes sin
+        movimientos de los períodos abiertos pasan a la cuenta nueva.
+      </mat-hint>
+    } @else {
+      <mat-hint>Su moneda es la del Concepto y la de sus partidas.</mat-hint>
+    }
     @if (form.controls.defaultAccountId.hasError('required')) {
       <mat-error>Elegí la cuenta por defecto.</mat-error>
     }
@@ -60,7 +73,13 @@
   <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Día de vencimiento</mat-label>
     <input matInput type="number" formControlName="dueDay" min="1" max="31" step="1" inputmode="numeric" required />
-    <mat-hint>Del 1 al 31. Si el mes no tiene ese día, vence el último día del mes.</mat-hint>
+    @if (editing()) {
+      <mat-hint>
+        Del 1 al 31. Recalcula el vencimiento de las partidas pendientes de los períodos abiertos.
+      </mat-hint>
+    } @else {
+      <mat-hint>Del 1 al 31. Si el mes no tiene ese día, vence el último día del mes.</mat-hint>
+    }
     @if (form.controls.dueDay.hasError('required')) {
       <mat-error>Ingresá el día de vencimiento.</mat-error>
     } @else if (form.controls.dueDay.invalid) {
@@ -71,6 +90,9 @@
   <mat-checkbox formControlName="dueInPreviousMonth" class="offset">{{ offsetLabel }}</mat-checkbox>
 
   <mat-checkbox formControlName="inInstallments" class="offset">Es en cuotas</mat-checkbox>
+  @if (reasons().installments; as reason) {
+    <p class="notice reason installments-reason">{{ reason }}</p>
+  }
 
   @if (inInstallments()) {
     <div class="pair">
@@ -93,17 +115,23 @@
         }
       </mat-form-field>
     </div>
-    <p class="notice installments-help">
-      El período de fin no se ingresa: se calcula a partir del inicio y de las cuotas que faltan. La primera cuota
-      sirve para cargar un plan que ya empezó: indicá el número de cuota que corresponde al período de inicio.
-    </p>
+    @if (!editing()) {
+      <p class="notice installments-help">
+        El período de fin no se ingresa: se calcula a partir del inicio y de las cuotas que faltan. La primera cuota
+        sirve para cargar un plan que ya empezó: indicá el número de cuota que corresponde al período de inicio.
+      </p>
+    }
   }
 
   <div class="pair">
     <mat-form-field appearance="outline" subscriptSizing="dynamic">
       <mat-label>Período de inicio</mat-label>
       <input matInput type="month" formControlName="startPeriod" placeholder="AAAA-MM" required />
-      <mat-hint>Primer mes con partida.</mat-hint>
+      @if (reasons().startPeriod; as reason) {
+        <mat-hint class="reason">{{ reason }}</mat-hint>
+      } @else {
+        <mat-hint>Primer mes con partida.</mat-hint>
+      }
       @if (form.controls.startPeriod.hasError('required')) {
         <mat-error>Ingresá el período de inicio.</mat-error>
       } @else if (form.controls.startPeriod.hasError('period')) {
@@ -111,11 +139,15 @@
       }
     </mat-form-field>
 
-    @if (!inInstallments()) {
+    @if (!inInstallments() || editing()) {
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Período de fin</mat-label>
         <input matInput type="month" formControlName="endPeriod" placeholder="AAAA-MM" />
-        <mat-hint>Opcional. Vacío, el Concepto no tiene fin.</mat-hint>
+        @if (reasons().endPeriod; as reason) {
+          <mat-hint class="reason">{{ reason }}</mat-hint>
+        } @else {
+          <mat-hint>Opcional. Vacío, el Concepto no tiene fin.</mat-hint>
+        }
         @if (form.controls.endPeriod.hasError('period')) {
           <mat-error>Escribilo como año y mes, por ejemplo 2027-12.</mat-error>
         }
@@ -133,12 +165,21 @@
         </mat-radio-button>
       }
     </mat-radio-group>
+    @if (editing()) {
+      <p class="notice rule-effect">Un cambio de regla se aplica desde la próxima consolidación.</p>
+    }
   </fieldset>
 
   <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Monto vigente</mat-label>
     <input matInput formControlName="currentAmount" inputmode="decimal" autocomplete="off" required />
-    <mat-hint>Con coma decimal. Es el presupuestado de cada partida que se genera.</mat-hint>
+    @if (editing()) {
+      <mat-hint>
+        Con coma decimal. Reemplaza el presupuestado de las partidas pendientes no editadas de los períodos abiertos.
+      </mat-hint>
+    } @else {
+      <mat-hint>Con coma decimal. Es el presupuestado de cada partida que se genera.</mat-hint>
+    }
     @if (form.controls.currentAmount.hasError('required')) {
       <mat-error>Ingresá el monto vigente.</mat-error>
     } @else if (form.controls.currentAmount.hasError('amount')) {
@@ -146,15 +187,19 @@
     }
   </mat-form-field>
 
-  <p class="notice">
-    El tipo, la periodicidad, los períodos de inicio y de fin y las cuotas no se pueden cambiar después de guardar.
-  </p>
+  @if (!editing()) {
+    <p class="notice">
+      El tipo, la periodicidad, los períodos de inicio y de fin y las cuotas no se pueden cambiar después de guardar.
+    </p>
+  }
 
   @if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
   }
 
   <div class="actions">
-    <button mat-flat-button type="submit" [disabled]="submitting()">Crear Concepto</button>
+    <button mat-flat-button type="submit" [disabled]="submitting()">
+      {{ editing() ? 'Guardar cambios' : 'Crear Concepto' }}
+    </button>
   </div>
 </form>

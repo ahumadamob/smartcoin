@@ -1,0 +1,37 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">Editar Concepto</h1>
+    @if (item(); as current) {
+      <p class="intro">
+        «{{ current.name }}». Los cambios se aplican a las partidas pendientes de los períodos abiertos; las partidas
+        consolidadas y las de períodos cerrados nunca cambian.
+      </p>
+    }
+  </header>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+    <a routerLink="/conceptos">Volver a Conceptos</a>
+  }
+
+  @if (loading()) {
+    <p>Cargando…</p>
+  } @else if (item(); as current) {
+    <app-budget-item-form
+      [item]="current"
+      [accounts]="accounts()"
+      [categories]="categories()"
+      (updated)="onUpdated($event)"
+    />
+
+    <section class="removal" aria-labelledby="removal-title">
+      <h2 id="removal-title" class="subtitle">Dar de baja este Concepto</h2>
+      <p>
+        Para que el Concepto deje de generar partidas, eliminá su partida desde el mes elegido con la opción «Este mes y
+        los siguientes». La eliminación de partidas todavía no está disponible: llega más adelante.
+      </p>
+    </section>
+
+    <a routerLink="/conceptos">Volver a Conceptos</a>
+  }
+</div>
