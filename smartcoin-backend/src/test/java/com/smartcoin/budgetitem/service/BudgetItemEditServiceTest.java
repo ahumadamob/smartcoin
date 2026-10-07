@@ -715,6 +715,13 @@ class BudgetItemEditServiceTest {
 	}
 
 	@Test
+	void theDetailCarriesTheCurrencyReadInsideTheTransaction() {
+		// La cuenta por defecto es diferida: el controlador no puede leerla después de la transacción.
+		assertThat(service.get(USER_ID, ITEM_ID).currency()).isEqualTo(Currency.ARS);
+		assertThat(update(b -> b).currency()).isEqualTo(Currency.ARS);
+	}
+
+	@Test
 	void theCountsLeaveOutConsolidatedEntriesAndThoseOfAClosedPeriod() {
 		Detail detail = service.get(USER_ID, ITEM_ID);
 

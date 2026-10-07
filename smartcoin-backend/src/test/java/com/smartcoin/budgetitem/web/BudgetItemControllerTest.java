@@ -460,7 +460,7 @@ class BudgetItemControllerTest {
 	// --- HU-13: GET y PUT /api/budget-items/{id} ---
 
 	private static Detail detail() {
-		return new Detail(created().item(), new EntryCounts(23, 2));
+		return new Detail(created().item(), Currency.ARS, new EntryCounts(23, 2));
 	}
 
 	private ResultActions update(String body) throws Exception {

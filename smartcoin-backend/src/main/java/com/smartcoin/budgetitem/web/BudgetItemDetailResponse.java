@@ -119,7 +119,7 @@ public record BudgetItemDetailResponse(
 	static BudgetItemDetailResponse from(Detail detail) {
 		BudgetItem item = detail.item();
 		return new BudgetItemDetailResponse(item.getId(), item.getName(), item.getKind(),
-				item.getDefaultAccount().getId(), item.getDefaultAccount().getCurrency(),
+				item.getDefaultAccount().getId(), detail.currency(),
 				item.getCategory() == null ? null : item.getCategory().getId(), item.getPeriodicity(),
 				item.getDueDay(), item.getDueMonthOffset(), item.getStartPeriod(), item.getEndPeriod(),
 				item.getInstallmentsTotal(), item.getFirstInstallmentNumber(), item.getEstimationRule(),

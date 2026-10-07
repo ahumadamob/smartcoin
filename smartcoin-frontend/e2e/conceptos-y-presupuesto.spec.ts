@@ -2,8 +2,8 @@ import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { API_URL, startPeriod, startSession } from './support';
 
 /**
- * Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente) y HU-11 (en cuotas). Cada corrida usa
- * un usuario propio.
+ * Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente), HU-11 (en cuotas) y HU-13 (editar
+ * un Concepto). Cada corrida usa un usuario propio.
  */
 
 const MONTHS = [
@@ -358,5 +358,182 @@ test.describe('HU-11 · crear un Concepto en cuotas', () => {
     expect(created.installmentsTotal).toBe(6);
     expect(created.firstInstallmentNumber).toBe(3);
     expect(created.generation).toMatchObject({ entryCount: 4, firstInstallment: 3, lastInstallment: 6 });
+  });
+});
+
+test.describe('HU-13 · editar un Concepto', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let itemId: number;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    for (const [name, currency] of [
+      ['Banco Nación', 'ARS'],
+      ['Caja en dólares', 'USD'],
+    ]) {
+      const account = await api.post('/api/accounts', {
+        data: { name, type: 'BANK', currency, openingDate: `${startPeriod()}-01`, initialBalance: 0 },
+      });
+      expect(account.status(), `alta de la cuenta ${name}`).toBe(201);
+    }
+    await page.goto('/conceptos');
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const getItem = async () => {
+    const response = await api.get(`/api/budget-items/${itemId}`);
+    expect(response.status()).toBe(200);
+    return response.json();
+  };
+  const dialog = () => page.getByRole('dialog');
+  /** Hace clic y espera la respuesta del PUT: el aviso «guardado» del paso anterior puede seguir en pantalla. */
+  const saved = async (click: () => Promise<void>) => {
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'PUT' && /\/api\/budget-items\/\d+$/.test(r.url())),
+      click(),
+    ]);
+    return response;
+  };
+
+  test('se crea un Concepto y desde su resumen se llega a la pantalla de edición', async () => {
+    await fillItem(page, {
+      name: 'Monotributo',
+      kind: 'Gasto',
+      account: 'Banco Nación · $ (ARS)',
+      dueDay: '20',
+      amount: '85.000,50',
+    });
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+    await expect(summary(page)).toContainText('Concepto «Monotributo» creado.');
+
+    await summary(page).getByRole('link', { name: 'Editar este Concepto' }).click();
+
+    await expect(page).toHaveURL(/\/conceptos\/\d+\/editar$/);
+    itemId = Number(/\/conceptos\/(\d+)\/editar$/.exec(page.url())![1]);
+    await expect(page.getByRole('heading', { level: 1, name: 'Editar Concepto' })).toBeVisible();
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Monotributo');
+    await expect(page.getByLabel('Monto vigente')).toHaveValue('85000,50');
+    await expect(page.getByLabel('Día de vencimiento')).toHaveValue('20');
+  });
+
+  test('los datos que no se pueden editar están deshabilitados y muestran el motivo', async () => {
+    for (const label of ['Período de inicio', 'Período de fin']) {
+      await expect(page.getByLabel(label), label).toBeDisabled();
+    }
+    for (const label of ['Tipo', 'Periodicidad']) {
+      await expect(page.getByLabel(label, { exact: true }), label).toHaveAttribute('aria-disabled', 'true');
+    }
+    await expect(page.getByRole('checkbox', { name: 'Es en cuotas' })).toBeDisabled();
+    await expect(page.getByText('El tipo no se puede cambiar: para cambiarlo, dá de baja el Concepto y creá otro.')).toBeVisible();
+    await expect(page.getByText('La periodicidad no se puede cambiar')).toBeVisible();
+    await expect(page.getByText('El período de inicio no se puede cambiar')).toBeVisible();
+    await expect(page.getByText('El período de fin no se puede cambiar')).toBeVisible();
+    await expect(page.getByText('Las cuotas no se pueden cambiar')).toBeVisible();
+    // Lo editable sigue editable.
+    await expect(page.getByLabel('Nombre', { exact: true })).toBeEnabled();
+    await expect(page.getByLabel('Monto vigente')).toBeEnabled();
+  });
+
+  test('la pantalla explica cómo dar de baja el Concepto', async () => {
+    await expect(page.getByRole('heading', { name: 'Dar de baja este Concepto' })).toBeVisible();
+    await expect(page.getByText('eliminá su partida desde el mes elegido')).toBeVisible();
+  });
+
+  test('un cambio de monto vigente pasa por el aviso: cancelarlo no guarda nada', async () => {
+    await page.getByLabel('Nombre', { exact: true }).fill('Monotributo categoría C');
+    await page.getByLabel('Monto vigente').fill('90.000,50');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(dialog()).toContainText('Cambiar el monto vigente');
+    await expect(dialog()).toContainText('de $ 85.000,50 a $ 90.000,50');
+    // Recién creado: las 25 partidas están pendientes y ninguna está editada.
+    await expect(dialog()).toContainText('Se reemplazará el monto presupuestado de 25 partidas pendientes sin editar');
+    await expect(dialog()).toContainText('Las partidas editadas a mano no cambian (hoy no hay ninguna).');
+    await dialog().getByRole('button', { name: 'Cancelar' }).click();
+
+    await expect(dialog()).toHaveCount(0);
+    const item = await getItem();
+    expect(item.name).toBe('Monotributo');
+    expect(item.currentAmount).toBe(85000.5);
+    // Lo escrito se conserva.
+    await expect(page.getByLabel('Monto vigente')).toHaveValue('90.000,50');
+  });
+
+  test('confirmado el aviso, se guardan el nombre y el monto vigente', async () => {
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    const response = await saved(() => dialog().getByRole('button', { name: 'Cambiar monto' }).click());
+
+    expect(response.status()).toBe(200);
+    await expect(page.getByText('Concepto «Monotributo categoría C» guardado.')).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    const item = await getItem();
+    expect(item.name).toBe('Monotributo categoría C');
+    expect(item.currentAmount).toBe(90000.5);
+    expect(item.entryCounts).toEqual({ pendingNotManual: 25, pendingManual: 0 });
+    await expect(page.getByLabel('Monto vigente')).toHaveValue('90000,50');
+  });
+
+  test('cambiar solo el día de vencimiento guarda sin aviso', async () => {
+    await page.getByLabel('Día de vencimiento').fill('31');
+    const response = await saved(() => page.getByRole('button', { name: 'Guardar cambios' }).click());
+
+    expect(response.status()).toBe(200);
+    // Sin cambio de monto no hay aviso: el mensaje «guardado» ya estaba en pantalla por el paso anterior.
+    await expect(dialog()).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect((await getItem()).dueDay).toBe(31);
+  });
+
+  test('una cuenta de otra moneda: muestra el error y no guarda nada', async () => {
+    await chooseOption(page, 'Cuenta por defecto', 'Caja en dólares · US$ (USD)');
+    await page.getByLabel('Nombre', { exact: true }).fill('No debería guardarse');
+    const response = await saved(() => page.getByRole('button', { name: 'Guardar cambios' }).click());
+
+    expect(response.status()).toBe(409);
+    await expect(page.getByRole('alert')).toHaveText(
+      'La cuenta elegida es de otra moneda. Elegí una cuenta en la misma moneda.',
+    );
+    const item = await getItem();
+    expect(item.name).toBe('Monotributo categoría C');
+    expect(item.currency).toBe('ARS');
+    // Lo escrito se conserva para corregirlo.
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('No debería guardarse');
+  });
+
+  test('por la API: cambiar un dato no editable responde 409 FIELD_NOT_EDITABLE y no guarda nada', async () => {
+    const current = await getItem();
+    const { id: _id, currency: _currency, editability: _editability, entryCounts: _counts, ...body } = current;
+    const response = await api.put(`/api/budget-items/${itemId}`, {
+      data: { ...body, name: 'Otro nombre', kind: 'INCOME', startPeriod: periodValue(month(1)) },
+    });
+
+    expect(response.status()).toBe(409);
+    const problem = await response.json();
+    expect(problem.code).toBe('FIELD_NOT_EDITABLE');
+    expect(problem.detail).toContain('el tipo y el período de inicio');
+    expect((await getItem()).name).toBe('Monotributo categoría C');
+  });
+
+  test('un Concepto que no existe muestra el error en la pantalla y responde 404 por la API', async () => {
+    expect((await api.get('/api/budget-items/999999999')).status()).toBe(404);
+    const missing = await api.put('/api/budget-items/999999999', { data: {} });
+    expect([400, 404]).toContain(missing.status());
+
+    await page.goto('/conceptos/999999999/editar');
+
+    await expect(page.getByRole('alert')).toHaveText('El Concepto no existe.');
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveCount(0);
   });
 });

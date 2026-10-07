@@ -53,8 +53,11 @@ public class BudgetItemService {
 	public record EntryCounts(int pendingNotManual, int pendingManual) {
 	}
 
-	/** Un Concepto con el efecto que tendría sobre sus partidas un cambio de monto vigente. */
-	public record Detail(BudgetItem item, EntryCounts counts) {
+	/**
+	 * Un Concepto con el efecto que tendría sobre sus partidas un cambio de monto vigente. La moneda se lee acá,
+	 * dentro de la transacción: la cuenta por defecto se carga diferida y fuera de ella no se puede leer.
+	 */
+	public record Detail(BudgetItem item, Currency currency, EntryCounts counts) {
 	}
 
 	private final BudgetItemRepository items;
@@ -245,7 +248,7 @@ public class BudgetItemService {
 				}
 			}
 		}
-		return new Detail(item, new EntryCounts(notManual, manual));
+		return new Detail(item, item.getDefaultAccount().getCurrency(), new EntryCounts(notManual, manual));
 	}
 
 	private static EntryState stateOf(BudgetEntry entry) {
