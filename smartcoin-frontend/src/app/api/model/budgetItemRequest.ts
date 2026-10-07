@@ -10,7 +10,7 @@
 
 
 /**
- * Datos para crear un Concepto (RN-10), recurrente o en cuotas (RN-14). Con `installmentsTotal` es un plan de cuotas: el período de fin no se informa, se calcula como el inicio más (total − primera cuota) pasos de la periodicidad.
+ * Datos para crear (RN-10) o editar (RN-15) un Concepto, recurrente o en cuotas (RN-14). Con `installmentsTotal` es un plan de cuotas: el período de fin no se informa, se calcula como el inicio más (total − primera cuota) pasos de la periodicidad.
  */
 export interface BudgetItemRequest { 
     /**

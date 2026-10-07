@@ -13,6 +13,9 @@ model/accountEditability.ts
 model/accountListResponse.ts
 model/accountRequest.ts
 model/accountResponse.ts
+model/budgetItemDetail.ts
+model/budgetItemEditability.ts
+model/budgetItemEntryCounts.ts
 model/budgetItemGeneration.ts
 model/budgetItemRequest.ts
 model/budgetItemResponse.ts

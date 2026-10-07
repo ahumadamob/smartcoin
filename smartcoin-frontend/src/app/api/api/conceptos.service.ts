@@ -17,6 +17,8 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { BudgetItemDetail } from '../model/budgetItemDetail';
+// @ts-ignore
 import { BudgetItemRequest } from '../model/budgetItemRequest';
 // @ts-ignore
 import { BudgetItemResponse } from '../model/budgetItemResponse';
@@ -97,6 +99,142 @@ export class ConceptosService extends BaseService {
         let localVarPath = `/api/budget-items`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<BudgetItemResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: budgetItemRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Ver un Concepto
+     * Un Concepto del usuario, con qué datos no se pueden editar y por qué, y cuántas de sus partidas pendientes de períodos abiertos alcanza un cambio de monto vigente: las no editadas (que reemplaza) y las editadas (que no cambian). Los conteos los calcula el backend. Si no existe o es de otro usuario, responde 404.
+     * @endpoint get /api/budget-items/{id}
+     * @param id 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getBudgetItem(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<BudgetItemDetail>;
+    public getBudgetItem(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<BudgetItemDetail>>;
+    public getBudgetItem(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<BudgetItemDetail>>;
+    public getBudgetItem(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling getBudgetItem.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/budget-items/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<BudgetItemDetail>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Editar un Concepto
+     * Reemplaza todos los campos y propaga el cambio a las partidas (RN-15), todo en una sola transacción. Nombre, categoría y regla de estimación no tocan partidas. El día de vencimiento y el desfase recalculan el vencimiento de las partidas pendientes de períodos abiertos. La cuenta por defecto, solo por otra de la misma moneda, cambia la de las pendientes sin movimientos de períodos abiertos. El monto vigente reemplaza el presupuestado de las pendientes no editadas de períodos abiertos. Nunca se tocan partidas consolidadas ni de períodos cerrados. Tipo, periodicidad, período de inicio, período de fin y cuotas no se editan; enviar el mismo valor que ya tienen no es un cambio (en un Concepto en cuotas, el fin se puede omitir). Al editar se asegura el horizonte (RN-07): las partidas que genere salen con los datos nuevos.
+     * @endpoint put /api/budget-items/{id}
+     * @param id 
+     * @param budgetItemRequest 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public updateBudgetItem(id: number, budgetItemRequest: BudgetItemRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<BudgetItemDetail>;
+    public updateBudgetItem(id: number, budgetItemRequest: BudgetItemRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<BudgetItemDetail>>;
+    public updateBudgetItem(id: number, budgetItemRequest: BudgetItemRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<BudgetItemDetail>>;
+    public updateBudgetItem(id: number, budgetItemRequest: BudgetItemRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling updateBudgetItem.');
+        }
+        if (budgetItemRequest === null || budgetItemRequest === undefined) {
+            throw new Error('Required parameter budgetItemRequest was null or undefined when calling updateBudgetItem.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/budget-items/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<BudgetItemDetail>('put', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 body: budgetItemRequest,
