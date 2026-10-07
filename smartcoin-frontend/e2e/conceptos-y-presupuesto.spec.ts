@@ -1,0 +1,214 @@
+import { APIRequestContext, Page, expect, test } from '@playwright/test';
+import { API_URL, startPeriod, startSession } from './support';
+
+/** Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente). Cada corrida usa un usuario propio. */
+
+const MONTHS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+/** El mes actual corrido `offset` meses. */
+function month(offset: number): Date {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() + offset);
+  return date;
+}
+
+const two = (n: number) => String(n).padStart(2, '0');
+/** `YYYY-MM`, como lo espera el campo de período. */
+const periodValue = (date: Date) => `${date.getFullYear()}-${two(date.getMonth() + 1)}`;
+/** "noviembre 2026", como lo muestra la pantalla. */
+const periodText = (date: Date) => `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+/** `dd/MM/yyyy` del día `day` de ese mes. */
+const dateText = (date: Date, day: number) => `${two(day)}/${two(date.getMonth() + 1)}/${date.getFullYear()}`;
+
+async function chooseOption(page: Page, label: string, option: string) {
+  await page.getByLabel(label, { exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
+
+async function fillItem(
+  page: Page,
+  item: { name: string; kind: string; account: string; category?: string; dueDay: string; amount: string },
+) {
+  await page.getByLabel('Nombre', { exact: true }).fill(item.name);
+  await chooseOption(page, 'Tipo', item.kind);
+  await chooseOption(page, 'Cuenta por defecto', item.account);
+  if (item.category) {
+    await chooseOption(page, 'Categoría', item.category);
+  }
+  await page.getByLabel('Día de vencimiento').fill(item.dueDay);
+  await page.getByLabel('Monto vigente').fill(item.amount);
+}
+
+const summary = (page: Page) => page.getByRole('status', { name: 'Concepto creado' });
+
+test.describe('HU-10 · crear un Concepto recurrente', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let accountId: number;
+  let categoryId: number;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    // La cuenta y la categoría se cargan por la API: sus pantallas ya las cubre la épica 2.
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = await api.post('/api/accounts', {
+      data: {
+        name: 'Banco Nación',
+        type: 'BANK',
+        currency: 'ARS',
+        openingDate: `${startPeriod()}-01`,
+        initialBalance: 0,
+      },
+    });
+    expect(account.status(), 'alta de la cuenta de prueba').toBe(201);
+    const category = await api.post('/api/categories', { data: { name: 'Impuestos' } });
+    expect(category.status(), 'alta de la categoría de prueba').toBe(201);
+    accountId = (await account.json()).id;
+    categoryId = (await category.json()).id;
+    await page.goto('/conceptos');
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  test('el formulario sugiere el mes actual y explica el desfase y las reglas de estimación', async () => {
+    await expect(page.getByRole('heading', { level: 1, name: 'Conceptos' })).toBeVisible();
+    await expect(page.getByLabel('Período de inicio')).toHaveValue(periodValue(month(0)));
+    await expect(
+      page.getByRole('checkbox', {
+        name: 'Vence el mes anterior al período, por ejemplo un sueldo que se cobra a fin del mes anterior',
+      }),
+    ).not.toBeChecked();
+    const rules = page.getByRole('radiogroup', { name: 'Regla de estimación' });
+    await expect(rules.getByRole('radio', { name: /Último valor/ })).toBeChecked();
+    await expect(rules).toContainText('las siguientes toman su monto real');
+    await expect(rules).toContainText('el promedio de las últimas 3 consolidadas');
+  });
+
+  test('alta de un Concepto mensual: genera una partida por mes hasta el horizonte', async () => {
+    await fillItem(page, {
+      name: 'Monotributo',
+      kind: 'Gasto',
+      account: 'Banco Nación · $ (ARS)',
+      category: 'Impuestos',
+      dueDay: '20',
+      amount: '85.000,50',
+    });
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(summary(page)).toContainText('Concepto «Monotributo» creado.');
+    // El mes actual y los 24 siguientes.
+    await expect(summary(page)).toContainText(
+      `Se generaron 25 partidas, de ${periodText(month(0))} a ${periodText(month(24))}.`,
+    );
+    await expect(summary(page)).toContainText(`Primer vencimiento: ${dateText(month(0), 20)}.`);
+    // El formulario queda listo para otro Concepto.
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('');
+    await expect(page.getByLabel('Monto vigente')).toHaveValue('');
+  });
+
+  test('alta de un Concepto con desfase: la primera partida vence el mes anterior a su período', async () => {
+    await fillItem(page, { name: 'Sueldo A', kind: 'Ingreso', account: 'Banco Nación · $ (ARS)', dueDay: '25', amount: '1200000' });
+    await page.getByRole('checkbox', { name: /Vence el mes anterior al período/ }).check();
+    await page.getByLabel('Período de inicio').fill(periodValue(month(1)));
+    await page.getByLabel('Período de fin').fill(periodValue(month(3)));
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(summary(page)).toContainText('Concepto «Sueldo A» creado.');
+    await expect(summary(page)).toContainText(
+      `Se generaron 3 partidas, de ${periodText(month(1))} a ${periodText(month(3))}.`,
+    );
+    // El período es el mes que viene; con desfase, vence el 25 de este mes.
+    await expect(summary(page)).toContainText(`Primer vencimiento: ${dateText(month(0), 25)}.`);
+  });
+
+  test('un período de inicio anterior al primer período abierto: muestra el error y no crea nada', async () => {
+    await fillItem(page, { name: 'Alquiler', kind: 'Gasto', account: 'Banco Nación · $ (ARS)', dueDay: '10', amount: '450000' });
+    // El período inicial del usuario es dos meses antes del actual; tres meses antes no existe.
+    await page.getByLabel('Período de inicio').fill(periodValue(month(-3)));
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText(
+      'Ese período no está disponible: tiene que estar entre tu primer período abierto y el horizonte.',
+    );
+    await expect(summary(page)).not.toContainText('Alquiler');
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Alquiler');
+  });
+
+  test('un período de fin anterior al de inicio: muestra el motivo que da el backend', async () => {
+    await page.getByLabel('Período de inicio').fill(periodValue(month(2)));
+    await page.getByLabel('Período de fin').fill(periodValue(month(1)));
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('El período de fin no puede ser anterior al período de inicio.');
+    await expect(summary(page)).not.toContainText('Alquiler');
+  });
+
+  test('corregido el fin, el mismo formulario crea el Concepto con una sola partida', async () => {
+    await page.getByLabel('Período de fin').fill(periodValue(month(2)));
+    await page.getByRole('button', { name: 'Crear Concepto' }).click();
+
+    await expect(summary(page)).toContainText('Concepto «Alquiler» creado.');
+    await expect(summary(page)).toContainText(`Se generó 1 partida, en ${periodText(month(2))}.`);
+    await expect(summary(page)).toContainText(`Primer vencimiento: ${dateText(month(2), 10)}.`);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  // Pendiente de HU-07 y HU-09: sus verificaciones de uso no se podían probar sin Conceptos reales.
+  test('la cuenta y la categoría que usa un Concepto ya no se pueden eliminar', async () => {
+    const account = await api.delete(`/api/accounts/${accountId}`);
+    expect(account.status()).toBe(409);
+    expect((await account.json()).code).toBe('ACCOUNT_IN_USE');
+
+    const category = await api.delete(`/api/categories/${categoryId}`);
+    expect(category.status()).toBe(409);
+    expect((await category.json()).code).toBe('CATEGORY_IN_USE');
+  });
+
+  test('una cuenta o una categoría que no existen para el usuario responden 400 con el campo', async () => {
+    const body = {
+      name: 'Luz',
+      kind: 'EXPENSE',
+      defaultAccountId: accountId,
+      categoryId,
+      periodicity: 'MONTHLY',
+      dueDay: 10,
+      dueMonthOffset: 0,
+      startPeriod: periodValue(month(0)),
+      estimationRule: 'LAST_VALUE',
+      currentAmount: 45000,
+    };
+    for (const [field, data] of [
+      ['defaultAccountId', { ...body, defaultAccountId: 999_999_999 }],
+      ['categoryId', { ...body, categoryId: 999_999_999 }],
+    ] as const) {
+      const response = await api.post('/api/budget-items', { data });
+      expect(response.status(), field).toBe(400);
+      const problem = await response.json();
+      expect(problem.code).toBe('VALIDATION_ERROR');
+      expect(problem.errors[0].field).toBe(field);
+    }
+  });
+});
