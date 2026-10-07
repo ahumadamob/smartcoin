@@ -33,7 +33,7 @@ En `package.json`, con `@openapitools/openapi-generator-cli` como dependencia de
 src/app/
 ├── api/            generado; nunca se edita a mano
 ├── core/           autenticación (servicio, interceptor, guards), layout, manejo de errores, mensajes, locale, título de pestaña
-├── shared/         pipes (`money`, `period`), componentes reutilizables (`page-placeholder` para las pantallas aún vacías)
+├── shared/         pipes (`money`, `period`), `amount` (montos con coma decimal a número), componentes reutilizables (`page-placeholder` para las pantallas aún vacías)
 └── features/
     ├── auth/           login, cambio de contraseña
     ├── budget/         vista del mes, partidas, movimientos, consolidación

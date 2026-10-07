@@ -223,6 +223,29 @@ Reglas: RN-34.
 
 Reglas: RN-10, RN-11, RN-12, RN-13.
 
+**Notas de implementación**
+
+- Depende de los supuestos S-11 (el presupuestado nace igual al monto vigente y corregirlo será HU-13), S-12 (tipo, periodicidad, inicio y fin no se editan: el formulario lo avisa antes de guardar), S-16 (hasta 2 decimales, sin redondeo: un tercer decimal es 400), S-17 (la categoría es opcional y no se compara con el tipo), T-12 y T-13. Agrega S-19, S-20 y S-21, y las decisiones D-24 y T-17.
+- `POST /api/budget-items` (`createBudgetItem`) responde 201 con el Concepto, su `currency` (la de la cuenta por defecto) y `generation`: `entryCount`, `firstPeriod`, `lastPeriod` y `firstDueDate`. No hay todavía `GET`, `PUT` ni listado: son HU-13 y HU-14.
+- Orden de los errores: formato y rangos de campos (400, Bean Validation); fin anterior al inicio (400, campo `endPeriod`); cuenta por defecto o categoría que no existen para el usuario (400, campos `defaultAccountId` y `categoryId`, D-24); período de inicio fuera del rango (409 `PERIOD_NOT_AVAILABLE`, con el rango válido en el `detail`). Los 400 que decide el servicio salen con `errors` por campo, como los de Bean Validation (`BusinessException.invalidField`).
+- El nombre se guarda sin espacios en los extremos y puede repetirse (S-19). El monto vigente puede ser 0 (RN-03).
+- **Cuotas**: el cuerpo no tiene `installmentsTotal` ni `firstInstallmentNumber`. Como en el resto de la API, un campo desconocido se ignora: no hay rechazo. Los agrega HU-11.
+- Reglas puras en `budgetitem/domain`: `DueDateCalculator` (RN-12) y `ScheduleCalculator` (RN-11 y RN-13). El calendario devuelve cada período con su índice k desde el inicio, así HU-11 calcula la cuota `f + k` sin tocarlo. El primer período abierto (RN-08) es `PeriodRange.firstOpen`.
+- `EntryGenerator.generate(Concepto, horizonte)` es el componente reutilizable de RN-13: calcula el calendario, busca los períodos destino en una consulta, guarda las partidas con un `saveAll` (T-17) y actualiza `generated_until`. No abre transacción: corre en la del caso de uso. Hoy solo lo llama el alta; `HorizonService` tiene el TODO para llamarlo por cada Concepto en HU-12.
+- El alta llama a `HorizonService.ensureHorizon` antes de generar (RN-07): si el mes cambió desde el último inicio de sesión, falta el período del nuevo horizonte. Hoy esa operación solo crea períodos; las partidas de los demás Conceptos son HU-12.
+- Las partidas recurrentes se guardan con `name` y `category_id` nulos: muestran los del Concepto.
+- Frontend: `/conceptos` tiene el formulario de alta (`BudgetItemForm`) y, después de guardar, un resumen ("Se generaron 25 partidas, de octubre 2026 a octubre 2028. Primer vencimiento: 25/09/2026."). No hay lista de Conceptos (HU-14) ni se ven las partidas (HU-15). Sin cuentas, la pantalla manda a cargar una. El período de inicio sugerido es el mes actual del navegador; el rango válido lo decide el backend. Los períodos usan `<input type="month">`; donde el navegador no lo soporta se escriben como `AAAA-MM`.
+- Verificado de punta a punta contra la base, a través de la aplicación y con un usuario de prueba: el alta inserta el Concepto y sus partidas sin violar ninguna restricción; y, pendiente de HU-07 y HU-09, eliminar la cuenta o la categoría que usa un Concepto responde `ACCOUNT_IN_USE` y `CATEGORY_IN_USE` (las consultas de existencia sobre `budget_item`).
+- **Pendiente de integración**: las consultas nuevas (`BudgetPeriodRepository.findFirstByUserIdAndStatusOrderByPeriodMonthDesc` y `findByUserIdAndPeriodMonthIn`, y el `saveAll` de partidas) no se pudieron probar contra MySQL con tests (sin Docker ni Testcontainers); los tests del servicio usan repositorios simulados, que **no prueban el SQL**. La aplicación las ejecuta sin error, pero como todavía no hay forma de leer partidas, su contenido no se vio. **Verificar con datos cuando exista la vista del mes (HU-15)**:
+  - Un Concepto mensual creado hoy aparece una vez en cada mes, desde su inicio hasta el horizonte, y no aparece antes del inicio ni después del fin.
+  - Uno bimestral, trimestral, semestral o anual aparece solo en los meses que le tocan.
+  - El vencimiento de cada partida: día 31 en meses de 30, febrero, y con desfase el mes anterior al período (incluido enero → diciembre del año anterior).
+  - Presupuestado igual al monto vigente con sus 2 decimales, moneda de la cuenta por defecto, estado Estimada y sin marca de editada.
+  - Cada partida recurrente muestra el nombre y la categoría de su Concepto (en la fila están nulos).
+  - Las partidas de un usuario no aparecen en los meses de otro (`period_id` del propio usuario).
+  - Con un período cerrado (HU-30 a HU-33): un Concepto con inicio en ese período responde `PERIOD_NOT_AVAILABLE`. Hoy no se puede cerrar un mes, así que la consulta del último período cerrado solo corrió sin resultados.
+  - El valor guardado de `generated_until`: se verá en HU-12, cuando al avanzar el horizonte no se dupliquen partidas.
+
 ### HU-11 · Crear un Concepto en cuotas
 
 **Como** usuario **quiero** cargar un plan de cuotas **para** ver "cuota x de n" y que deje de aparecer al terminar.

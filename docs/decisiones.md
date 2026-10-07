@@ -58,6 +58,8 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **D-23. Un período cerrado no se reabre.** *Confirmada.*
 
+**D-24. Una referencia inválida en el cuerpo responde 400, no 404.** Si un pedido nombra en su cuerpo un recurso que no existe o es de otro usuario (la cuenta por defecto o la categoría de un Concepto), responde `VALIDATION_ERROR` con el error en ese campo. El 404 de RN-01 queda para el recurso de la ruta. En los dos casos, uno ajeno y uno inexistente responden igual. *Confirmada* (HU-10).
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
@@ -96,6 +98,12 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-18. Flujo de caja, proyección de saldos y vista de varios meses (HU-34 a HU-36) son propuestas.** Se confirman antes de implementarlas.
 
+**S-19. El nombre de un Concepto puede repetirse.** El modelo no tiene un índice único en `budget_item` y ninguna regla lo pide; dos Conceptos "Seguro" con distinta cuenta son razonables. Agregado en HU-10.
+
+**S-20. El vencimiento de una partida puede caer en un mes cerrado o anterior al período inicial.** Pasa con desfase −1 cuando el Concepto empieza en el primer período abierto. No se rechaza: el período de la partida está abierto, y RN-09 bloquea movimientos, no vencimientos. Agregado en HU-10.
+
+**S-21. Al crear un Concepto no se compara su período de inicio con la fecha de apertura de la cuenta.** RN-10 no lo pide; la fecha de apertura se controla al registrar cada movimiento (RN-21). Agregado en HU-10.
+
 ## Técnicas
 
 **T-01. Un repositorio con `docs`, `smartcoin-backend` y `smartcoin-frontend`, desarrollado con Claude Code.** *Confirmada.*
@@ -129,6 +137,8 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 **T-15. El proyecto se llama Smartcoin.** Paquete base y grupo Maven `com.smartcoin`; base de datos y usuario MySQL `smartcoin`. Reemplaza los nombres iniciales `ar.presupuesto` y `presupuesto`. *Confirmada.*
 
 **T-16. Las contraseñas tienen un máximo de 72 bytes en UTF-8.** BCrypt solo usa los primeros 72 bytes y Spring Security rechaza las más largas con una excepción, que sería un 500. Se valida junto con el mínimo (RN-51) y responde `VALIDATION_ERROR`. *Supuesto* (agregado en HU-01).
+
+**T-17. Las partidas generadas se guardan con un solo `saveAll`.** Las claves son `IDENTITY`, y con eso Hibernate no agrupa los `INSERT` por JDBC: hay una consulta para todos los períodos destino y un `INSERT` por partida (25 como máximo por Concepto), en la misma transacción. Se prefirió a un `INSERT` por JDBC en lote, que saltea JPA y las fechas de auditoría. *Confirmada* (HU-10).
 
 ## Cambios respecto de lo conversado
 

@@ -14,7 +14,7 @@ Cada regla tiene un ID estable (RN-xx) que citan las historias de usuario y los 
 
 ## 1. Generales
 
-**RN-01. Aislamiento.** Toda lectura y escritura se limita al usuario autenticado, que se toma del token y nunca del cuerpo, la ruta ni la consulta. Un recurso de otro usuario responde 404, igual que uno inexistente. Los listados y totales incluyen solo datos del usuario.
+**RN-01. Aislamiento.** Toda lectura y escritura se limita al usuario autenticado, que se toma del token y nunca del cuerpo, la ruta ni la consulta. Un recurso de otro usuario responde 404, igual que uno inexistente. Cuando el recurso ajeno o inexistente no es el de la ruta sino una referencia dentro del cuerpo (por ejemplo, la cuenta por defecto de un Concepto), responde 400 `VALIDATION_ERROR` con el error en ese campo (D-24); tampoco así se distingue uno ajeno de uno inexistente. Los listados y totales incluyen solo datos del usuario.
 
 **RN-02. Hoy.** "Hoy" es la fecha actual en la zona `America/Argentina/Mendoza`.
 
@@ -36,7 +36,7 @@ Cada regla tiene un ID estable (RN-xx) que citan las historias de usuario y los 
 
 ## 3. Conceptos
 
-**RN-10. Creación de un Concepto.** Datos obligatorios: nombre, tipo, cuenta por defecto, periodicidad, día de vencimiento (1 a 31), desfase de mes (0 o −1), período de inicio, regla de estimación y monto vigente. Opcionales: categoría, período de fin (≥ inicio) y cuotas (RN-14; con cuotas el fin no se informa). El período de inicio debe estar entre el primer período abierto y el horizonte. Al crearlo se generan sus partidas (RN-13).
+**RN-10. Creación de un Concepto.** Datos obligatorios: nombre, tipo, cuenta por defecto, periodicidad, día de vencimiento (1 a 31), desfase de mes (0 o −1), período de inicio, regla de estimación y monto vigente. Opcionales: categoría, período de fin (≥ inicio) y cuotas (RN-14; con cuotas el fin no se informa). El período de inicio debe estar entre el primer período abierto y el horizonte (si no, 409 `PERIOD_NOT_AVAILABLE`); el de fin puede superar el horizonte. La cuenta por defecto y la categoría van en el cuerpo: si no existen o son de otro usuario, responde 400 `VALIDATION_ERROR` con el error en su campo (D-24), igual que un fin anterior al inicio. El nombre puede repetirse. Al crearlo se asegura el horizonte (RN-07) y se generan sus partidas (RN-13).
 
 **RN-11. Periodicidad.** El paso en meses es: Mensual 1, Bimestral 2, Trimestral 3, Semestral 6, Anual 12. Un Concepto tiene partida en los períodos `inicio + k × paso` (k = 0, 1, 2…) que no superen el período de fin.
 
@@ -63,7 +63,7 @@ Cada regla tiene un ID estable (RN-xx) que citan las historias de usuario y los 
 - no editada, pendiente;
 - número de cuota, si el Concepto es en cuotas (RN-14).
 
-Después, `generated_until = min(horizonte, fin)`. Consecuencias:
+Después, `generated_until = min(horizonte, fin)`. Con desfase −1, el vencimiento de la primera partida puede caer en un mes cerrado o anterior al período inicial: se permite, porque lo que un período cerrado bloquea son los movimientos con fecha en él (RN-09), no los vencimientos (S-20). Consecuencias:
 
 - Nunca hay dos partidas del mismo Concepto en un período.
 - Un período ya procesado no se vuelve a procesar, así que una partida eliminada no reaparece.
@@ -328,7 +328,7 @@ Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un 
 
 | Código | HTTP | Cuándo |
 |---|---|---|
-| `VALIDATION_ERROR` | 400 | Formato inválido, campos faltantes o fuera de rango, combinaciones imposibles. |
+| `VALIDATION_ERROR` | 400 | Formato inválido, campos faltantes o fuera de rango, combinaciones imposibles, o una referencia del cuerpo a un recurso que no existe para el usuario. |
 | `INVALID_CURRENT_PASSWORD` | 400 | La contraseña actual no coincide al cambiarla. |
 | `UNAUTHORIZED` | 401 | Credenciales inválidas; token ausente, vencido o revocado; clave de administración inválida o no configurada. |
 | `PASSWORD_CHANGE_REQUIRED` | 403 | El usuario debe cambiar la contraseña antes de seguir. |

@@ -111,7 +111,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | Clase | Regla |
 |---|---|
 | `DueDateCalculator` | RN-12 |
-| `ScheduleCalculator` | RN-11, RN-13, RN-14: qué períodos y qué número de cuota corresponden |
+| `ScheduleCalculator` | RN-11, RN-13, RN-14: qué períodos corresponden y el índice k de cada uno, del que sale el número de cuota |
 | `EstimationCalculator` | RN-26: base, estimación y destino |
 | `MovementDateValidator` | RN-21: ventana, apertura, fecha futura |
 | `BalanceCalculator` | RN-35 |
@@ -123,8 +123,9 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 - **Aislamiento**: los repositorios buscan por `id` y `userId` (`findByIdAndUserId`). Si no encuentra, `NOT_FOUND` (404).
 - **Seguridad**: emisión del JWT con `NimbusJwtEncoder` y validación con el Resource Server, HS256 con `APP_JWT_SECRET`. Claims: `sub` (id del usuario), `cv` (versión de credenciales), `iat`, `exp`. En cada pedido, un filtro carga el usuario y aplica RN-50 (habilitado, versión, cambio obligatorio).
 - **Clave de administración**: se compara con `MessageDigest.isEqual` sobre los bytes, nunca con `equals`.
+- **Generación de partidas** (RN-13): siempre con `EntryGenerator.generate(Concepto, horizonte)`, dentro de la transacción del caso de uso y después de `HorizonService.ensureHorizon`, que crea los períodos destino.
 - **Transacciones**: consolidar, pago rápido, eliminar con alcance y cerrar el mes son una sola transacción cada uno.
-- **Errores**: las reglas lanzan `BusinessException(code, detail)`; un `@RestControllerAdvice` las convierte a `ProblemDetail` con `code` y el HTTP de la tabla de códigos de `reglas-de-negocio.md`. Los errores de Bean Validation salen como `VALIDATION_ERROR` con `errors` por campo. Los mensajes `detail` van en español.
+- **Errores**: las reglas lanzan `BusinessException(code, detail)`; un `@RestControllerAdvice` las convierte a `ProblemDetail` con `code` y el HTTP de la tabla de códigos de `reglas-de-negocio.md`. Los errores de Bean Validation salen como `VALIDATION_ERROR` con `errors` por campo. Un dato del cuerpo que solo se puede validar con datos (fin anterior al inicio, referencia a una cuenta o categoría que no existe para el usuario, D-24) se lanza con `BusinessException.invalidField(campo, detail)` y sale igual. Los mensajes `detail` van en español.
 - **API**:
   - Prefijo `/api`, JSON en `camelCase`.
   - Fechas ISO (`2026-11-25`), períodos `YYYY-MM`, montos como número con 2 decimales, enums con los valores del glosario.
