@@ -2,6 +2,7 @@ package com.smartcoin.budgetitem.repository;
 
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Optional;
 
 import com.smartcoin.budgetitem.domain.BudgetItem;
 
@@ -10,6 +11,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface BudgetItemRepository extends JpaRepository<BudgetItem, Long> {
+
+	/** HU-13 (RN-01): un Concepto del usuario; vacío si no existe o es de otro usuario. */
+	Optional<BudgetItem> findByIdAndUserId(Long id, Long userId);
 
 	/** HU-07 (RN-33): ¿algún Concepto del usuario tiene esta cuenta por defecto? */
 	@Query("select count(i) > 0 from BudgetItem i where i.userId = :userId and i.defaultAccount.id = :accountId")

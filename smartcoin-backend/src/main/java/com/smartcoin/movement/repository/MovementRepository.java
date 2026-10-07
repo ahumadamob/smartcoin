@@ -1,6 +1,7 @@
 package com.smartcoin.movement.repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 import com.smartcoin.account.domain.AccountTotal;
@@ -33,4 +34,8 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
 			group by m.account.id""")
 	List<AccountTotal> sumByAccountUpTo(@Param("userId") Long userId, @Param("date") LocalDate date,
 			@Param("kind") EntryKind kind);
+
+	/** HU-13 (RN-15): de estas partidas del usuario, los ids de las que tienen al menos un movimiento. */
+	@Query("select distinct m.entry.id from Movement m where m.userId = :userId and m.entry.id in :entryIds")
+	List<Long> findEntryIdsWithMovements(@Param("userId") Long userId, @Param("entryIds") Collection<Long> entryIds);
 }

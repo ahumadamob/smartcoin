@@ -1,24 +1,35 @@
 package com.smartcoin.budgetitem.service;
 
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.smartcoin.account.domain.Account;
 import com.smartcoin.account.repository.AccountRepository;
 import com.smartcoin.budgetitem.domain.BudgetItem;
+import com.smartcoin.budgetitem.domain.BudgetItemEditEffects;
+import com.smartcoin.budgetitem.domain.BudgetItemEditEffects.EditedField;
+import com.smartcoin.budgetitem.domain.BudgetItemEditEffects.EntryState;
+import com.smartcoin.budgetitem.domain.BudgetItemEditability;
 import com.smartcoin.budgetitem.domain.BudgetItemValues;
+import com.smartcoin.budgetitem.domain.DueDateCalculator;
 import com.smartcoin.budgetitem.domain.InstallmentPlan;
 import com.smartcoin.budgetitem.repository.BudgetItemRepository;
 import com.smartcoin.category.domain.Category;
 import com.smartcoin.category.repository.CategoryRepository;
 import com.smartcoin.entry.domain.BudgetEntry;
+import com.smartcoin.entry.repository.BudgetEntryRepository;
+import com.smartcoin.movement.repository.MovementRepository;
 import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.PeriodRange;
 import com.smartcoin.period.domain.PeriodStatus;
 import com.smartcoin.period.repository.BudgetPeriodRepository;
 import com.smartcoin.shared.config.AppProperties;
+import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.error.BusinessException;
 import com.smartcoin.shared.error.ErrorCode;
 import com.smartcoin.user.domain.User;
@@ -27,7 +38,7 @@ import com.smartcoin.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Conceptos (HU-10, RN-10). Toda consulta lleva el {@code userId} del usuario actual. */
+/** Conceptos (HU-10, HU-13, RN-10, RN-15). Toda consulta lleva el {@code userId} del usuario actual. */
 @Service
 public class BudgetItemService {
 
@@ -35,7 +46,20 @@ public class BudgetItemService {
 	public record Created(BudgetItem item, List<BudgetEntry> entries) {
 	}
 
+	/**
+	 * Cuántas partidas del Concepto, pendientes y de períodos abiertos, puede tocar un cambio de su monto vigente
+	 * ({@code pendingNotManual}) y cuántas son editadas y por eso no cambian ({@code pendingManual}). RN-15.
+	 */
+	public record EntryCounts(int pendingNotManual, int pendingManual) {
+	}
+
+	/** Un Concepto con el efecto que tendría sobre sus partidas un cambio de monto vigente. */
+	public record Detail(BudgetItem item, EntryCounts counts) {
+	}
+
 	private final BudgetItemRepository items;
+	private final BudgetEntryRepository entries;
+	private final MovementRepository movements;
 	private final AccountRepository accounts;
 	private final CategoryRepository categories;
 	private final BudgetPeriodRepository periods;
@@ -45,10 +69,13 @@ public class BudgetItemService {
 	private final AppProperties properties;
 	private final Clock clock;
 
-	public BudgetItemService(BudgetItemRepository items, AccountRepository accounts, CategoryRepository categories,
-			BudgetPeriodRepository periods, UserRepository users, HorizonService horizon, EntryGenerator generator,
-			AppProperties properties, Clock clock) {
+	public BudgetItemService(BudgetItemRepository items, BudgetEntryRepository entries, MovementRepository movements,
+			AccountRepository accounts, CategoryRepository categories, BudgetPeriodRepository periods,
+			UserRepository users, HorizonService horizon, EntryGenerator generator, AppProperties properties,
+			Clock clock) {
 		this.items = items;
+		this.entries = entries;
+		this.movements = movements;
 		this.accounts = accounts;
 		this.categories = categories;
 		this.periods = periods;
@@ -114,6 +141,120 @@ public class BudgetItemService {
 		item.setCurrentAmount(values.currentAmount().setScale(2, RoundingMode.UNNECESSARY));
 		BudgetItem saved = items.save(item);
 		return new Created(saved, generator.generate(saved, last));
+	}
+
+	@Transactional(readOnly = true)
+	public Detail get(long userId, long id) {
+		return detail(userId, find(userId, id));
+	}
+
+	/**
+	 * Edita un Concepto (RN-15) y propaga el cambio a sus partidas, todo en la misma transacción. Primero lo que está
+	 * mal en el pedido (400: cuenta o categoría que no existen, D-24); después lo que el Concepto no permite (409: un
+	 * dato no editable, una cuenta de otra moneda). Con un pedido rechazado no cambia nada.
+	 *
+	 * <p>El Concepto se modifica antes de asegurar el horizonte (RN-07): las partidas que esa operación genera salen
+	 * ya con los datos nuevos. Las existentes se recalculan antes, así no se tocan dos veces. Las consolidadas y las de
+	 * períodos cerrados nunca se tocan (RN-09).
+	 */
+	@Transactional
+	public Detail update(long userId, long id, BudgetItemValues values) {
+		BudgetItem item = find(userId, id);
+		BudgetItemValues current = BudgetItemValues.of(item);
+
+		// Van en el cuerpo, no en la ruta: una cuenta o categoría inexistente o ajena es un dato inválido (D-24).
+		Account account = accounts.findByIdAndUserId(values.defaultAccountId(), userId)
+				.orElseThrow(() -> BusinessException.invalidField("defaultAccountId", "La cuenta por defecto no existe."));
+		Category category = values.categoryId() == null ? null
+				: categories.findByIdAndUserId(values.categoryId(), userId)
+						.orElseThrow(() -> BusinessException.invalidField("categoryId", "La categoría no existe."));
+
+		BudgetItemEditability.verifyChange(current, values);
+		Currency currency = item.getDefaultAccount().getCurrency();
+		if (account.getCurrency() != currency) {
+			throw new BusinessException(ErrorCode.CURRENCY_MISMATCH, "La cuenta por defecto tiene que ser de la misma "
+					+ "moneda que la actual (" + currency + "): las partidas no cambian de moneda.");
+		}
+
+		BigDecimal amount = values.currentAmount().setScale(2, RoundingMode.UNNECESSARY);
+		boolean dueDateChanged = current.dueDay() != values.dueDay()
+				|| current.dueMonthOffset() != values.dueMonthOffset();
+		boolean accountChanged = !current.defaultAccountId().equals(account.getId());
+		boolean amountChanged = current.currentAmount().compareTo(amount) != 0;
+
+		item.setName(values.name().strip());
+		item.setCategory(category);
+		item.setEstimationRule(values.estimationRule());
+		item.setDueDay(values.dueDay());
+		item.setDueMonthOffset(values.dueMonthOffset());
+		item.setDefaultAccount(account);
+		item.setCurrentAmount(amount);
+
+		if (dueDateChanged || accountChanged || amountChanged) {
+			propagate(userId, item, dueDateChanged, accountChanged, amountChanged);
+		}
+
+		// RN-07: también al editar. Es idempotente; si el horizonte avanzó, genera con los datos que acaban de cambiar.
+		User user = users.findById(userId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED, "Credenciales inválidas o ausentes."));
+		horizon.ensureHorizon(user);
+		return detail(userId, item);
+	}
+
+	/** Aplica a las partidas del Concepto los cambios que le alcanzan según RN-15. Nunca toca otras. */
+	private void propagate(long userId, BudgetItem item, boolean dueDateChanged, boolean accountChanged,
+			boolean amountChanged) {
+		List<BudgetEntry> all = entries.findByUserIdAndBudgetItemId(userId, item.getId());
+		Set<Long> withMovements = accountChanged ? entryIdsWithMovements(userId, all) : Set.of();
+		for (BudgetEntry entry : all) {
+			EntryState state = stateOf(entry);
+			if (dueDateChanged && BudgetItemEditEffects.affects(EditedField.DUE_DATE, state, false)) {
+				entry.setDueDate(DueDateCalculator.dueDate(entry.getPeriod().getPeriodMonth(), item.getDueDay(),
+						item.getDueMonthOffset()));
+			}
+			if (accountChanged && BudgetItemEditEffects.affects(EditedField.ACCOUNT, state,
+					withMovements.contains(entry.getId()))) {
+				entry.setAccount(item.getDefaultAccount());
+			}
+			if (amountChanged && BudgetItemEditEffects.affects(EditedField.CURRENT_AMOUNT, state, false)) {
+				entry.setBudgetedAmount(item.getCurrentAmount());
+			}
+		}
+	}
+
+	/** Ids de las partidas pendientes de períodos abiertos que tienen movimientos: las únicas que importan a la cuenta. */
+	private Set<Long> entryIdsWithMovements(long userId, List<BudgetEntry> all) {
+		List<Long> candidates = all.stream().filter(e -> BudgetItemEditEffects.isOpenPending(stateOf(e)))
+				.map(BudgetEntry::getId).toList();
+		return candidates.isEmpty() ? Set.of()
+				: movements.findEntryIdsWithMovements(userId, candidates).stream().collect(Collectors.toSet());
+	}
+
+	private Detail detail(long userId, BudgetItem item) {
+		List<BudgetEntry> all = entries.findByUserIdAndBudgetItemId(userId, item.getId());
+		int notManual = 0;
+		int manual = 0;
+		for (BudgetEntry entry : all) {
+			EntryState state = stateOf(entry);
+			if (BudgetItemEditEffects.isOpenPending(state)) {
+				if (state.manual()) {
+					manual++;
+				}
+				else {
+					notManual++;
+				}
+			}
+		}
+		return new Detail(item, new EntryCounts(notManual, manual));
+	}
+
+	private static EntryState stateOf(BudgetEntry entry) {
+		return new EntryState(entry.getPeriod().getStatus() == PeriodStatus.OPEN, entry.getStatus(), entry.isManual());
+	}
+
+	private BudgetItem find(long userId, long id) {
+		return items.findByIdAndUserId(id, userId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "El Concepto no existe."));
 	}
 
 	/**

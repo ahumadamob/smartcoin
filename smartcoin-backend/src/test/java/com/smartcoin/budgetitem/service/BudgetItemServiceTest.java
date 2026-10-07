@@ -41,6 +41,7 @@ import com.smartcoin.entry.domain.BudgetEntry;
 import com.smartcoin.entry.domain.EntryOrigin;
 import com.smartcoin.entry.domain.StoredEntryStatus;
 import com.smartcoin.entry.repository.BudgetEntryRepository;
+import com.smartcoin.movement.repository.MovementRepository;
 import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.PeriodStatus;
 import com.smartcoin.period.repository.BudgetPeriodRepository;
@@ -90,6 +91,8 @@ class BudgetItemServiceTest {
 	@Mock
 	BudgetEntryRepository entries;
 	@Mock
+	MovementRepository movements;
+	@Mock
 	UserRepository users;
 	@Mock
 	HorizonService horizon;
@@ -104,7 +107,7 @@ class BudgetItemServiceTest {
 		AppProperties properties = new AppProperties(ZONE, new AppProperties.Budget(24, 10),
 				new AppProperties.Security("0123456789abcdef0123456789abcdef", Duration.ofHours(8), "", 10));
 		Clock clock = Clock.fixed(Instant.parse("2026-10-07T15:00:00Z"), ZONE);
-		service = new BudgetItemService(items, accounts, categories, periods, users, horizon,
+		service = new BudgetItemService(items, entries, movements, accounts, categories, periods, users, horizon,
 				new EntryGenerator(periods, entries), properties, clock);
 
 		user = new User();
