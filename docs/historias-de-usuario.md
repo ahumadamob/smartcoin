@@ -229,7 +229,7 @@ Reglas: RN-10, RN-11, RN-12, RN-13.
 - `POST /api/budget-items` (`createBudgetItem`) responde 201 con el Concepto, su `currency` (la de la cuenta por defecto) y `generation`: `entryCount`, `firstPeriod`, `lastPeriod` y `firstDueDate`. No hay todavía `GET`, `PUT` ni listado: son HU-13 y HU-14.
 - Orden de los errores: formato y rangos de campos (400, Bean Validation); fin anterior al inicio (400, campo `endPeriod`); cuenta por defecto o categoría que no existen para el usuario (400, campos `defaultAccountId` y `categoryId`, D-24); período de inicio fuera del rango (409 `PERIOD_NOT_AVAILABLE`, con el rango válido en el `detail`). Los 400 que decide el servicio salen con `errors` por campo, como los de Bean Validation (`BusinessException.invalidField`).
 - El nombre se guarda sin espacios en los extremos y puede repetirse (S-19). El monto vigente puede ser 0 (RN-03).
-- **Cuotas**: el cuerpo no tiene `installmentsTotal` ni `firstInstallmentNumber`. Como en el resto de la API, un campo desconocido se ignora: no hay rechazo. Los agrega HU-11.
+- **Cuotas**: HU-10 no tiene `installmentsTotal` ni `firstInstallmentNumber`; los agrega HU-11.
 - Reglas puras en `budgetitem/domain`: `DueDateCalculator` (RN-12) y `ScheduleCalculator` (RN-11 y RN-13). El calendario devuelve cada período con su índice k desde el inicio, así HU-11 calcula la cuota `f + k` sin tocarlo. El primer período abierto (RN-08) es `PeriodRange.firstOpen`.
 - `EntryGenerator.generate(Concepto, horizonte)` es el componente reutilizable de RN-13: calcula el calendario, busca los períodos destino en una consulta, guarda las partidas con un `saveAll` (T-17) y actualiza `generated_until`. No abre transacción: corre en la del caso de uso. Hoy solo lo llama el alta; `HorizonService` tiene el TODO para llamarlo por cada Concepto en HU-12.
 - El alta llama a `HorizonService.ensureHorizon` antes de generar (RN-07): si el mes cambió desde el último inicio de sesión, falta el período del nuevo horizonte. Hoy esa operación solo crea períodos; las partidas de los demás Conceptos son HU-12.
@@ -245,6 +245,10 @@ Reglas: RN-10, RN-11, RN-12, RN-13.
   - Las partidas de un usuario no aparecen en los meses de otro (`period_id` del propio usuario).
   - Con un período cerrado (HU-30 a HU-33): un Concepto con inicio en ese período responde `PERIOD_NOT_AVAILABLE`. Hoy no se puede cerrar un mes, así que la consulta del último período cerrado solo corrió sin resultados.
   - El valor guardado de `generated_until`: se verá en HU-12, cuando al avanzar el horizonte no se dupliquen partidas.
+  - Cuotas (HU-11): un plan mensual de 12 cuotas con primera cuota 4 y inicio en el mes actual tiene 9 partidas, con las cuotas 4 a 12 en orden, y ninguna después de la última.
+  - Cuotas: cada partida de un Concepto en cuotas muestra "cuota x de n" con el número que le toca; en uno bimestral, trimestral, semestral o anual, la cuota avanza de a una por partida, no por mes.
+  - Cuotas: un plan que termina después del horizonte muestra las cuotas 1 a 25 de n (si empieza en el mes actual) y ninguna partida más allá del horizonte; el fin que muestra el Concepto es el calculado.
+  - Cuotas: una partida de un Concepto sin cuotas no muestra "cuota x de n".
 
 ### HU-11 · Crear un Concepto en cuotas
 
@@ -256,6 +260,21 @@ Reglas: RN-10, RN-11, RN-12, RN-13.
 4. Aunque el horizonte avance, no se generan partidas después de la última cuota.
 
 Reglas: RN-13, RN-14.
+
+**Notas de implementación**
+
+- Depende de S-12 (las cuotas no se editan: el formulario lo avisa antes de guardar) y de los de HU-10: S-19 (se puede cargar dos veces la misma "Heladera"), S-20 (con desfase −1 el vencimiento de la primera cuota puede caer en un mes cerrado) y S-21, más D-18 (las partidas se generan hasta la última cuota), D-24 y T-17 (un `saveAll`, con 25 inserts como máximo por Concepto, también con cuotas). Agrega D-25 (máximo de 360 cuotas), D-26 (errores por campo) y S-22 (un plan cortado por el horizonte queda incompleto hasta HU-12).
+- `POST /api/budget-items` acepta `installmentsTotal` y `firstInstallmentNumber`, opcionales. La respuesta suma `installmentsTotal`, `firstInstallmentNumber` (nulos si no es en cuotas), `endPeriod` (el calculado) y, dentro de `generation`, `firstInstallment` y `lastInstallment`: el número de cuota de la primera y de la última partida generada. Si `lastInstallment` es igual a `installmentsTotal`, el plan se generó completo.
+- Errores (400 `VALIDATION_ERROR`, D-26): formato en Bean Validation (`installmentsTotal` entre 1 y 360, `firstInstallmentNumber` ≥ 1); después, en el servicio y antes del chequeo de fin anterior al inicio: primera cuota sin total (campo `installmentsTotal`), primera cuota mayor que el total (`firstInstallmentNumber`), cuotas con fin informado (`endPeriod`). Con el total y sin la primera cuota, queda en 1.
+- Regla pura `InstallmentPlan` en `budgetitem/domain` (RN-14): `installmentNumber(k)` = f + k y `endPeriod(inicio, periodicidad)` = inicio + (n − f) × paso. `ScheduleCalculator` no cambió: ya devolvía el índice k de cada período. `EntryGenerator` pone `installment_number` desde ese índice, así que un `generated_until` avanzado continúa la numeración sin repetir ni saltear. Sin cuotas, todo queda como en HU-10.
+- Con cuotas, `end_period` se guarda calculado y `generated_until` queda en el fin o en el horizonte, el que llegue primero. Por eso, cuando el horizonte avance, HU-12 no generará nada después de la última cuota.
+- Frontend: la casilla "Es en cuotas" del formulario muestra el total y la primera cuota (1 por defecto, o vacía, que el backend completa con 1), oculta el período de fin y explica que el fin se calcula y para qué sirve la primera cuota. Solo valida el formato (enteros ≥ 1). El resumen agrega "Son las cuotas 4 a 12 de 12." (o "Es la cuota 12 de 12."); si el plan termina después del horizonte, agrega cuándo termina y que las demás se generan a medida que avance el horizonte.
+- **Criterios que se completan en otra historia**:
+  - Criterio 2, "cada partida muestra cuota x de n": se ve en la vista del mes (HU-15). Hoy el backend guarda `installment_number` y la respuesta de partidas va a traer el total de cuotas del Concepto; todavía no hay dónde mostrarlo.
+  - Criterio 4, "aunque el horizonte avance no se generan partidas después de la última cuota": se verifica con datos en HU-12. Hoy está garantizado por el fin calculado y por `generated_until`, con tests del generador, pero el horizonte todavía no avanza.
+  - La lista de verificación con datos reales para HU-15 (en las notas de HU-10) suma los puntos de cuotas.
+- **Observación fuera de esta historia**: el cuerpo acepta números decimales en los campos enteros y los trunca (`"installmentsTotal": 12.5` se guarda como 12, como ya pasa con `dueDay`). Es la configuración por defecto de Jackson. Si se quiere rechazarlos hay que desactivar `ACCEPT_FLOAT_AS_INT` para toda la API, así que queda para decidir aparte.
+- Verificado de punta a punta con un usuario de prueba, a través de la aplicación y en el navegador: la Heladera (12 cuotas, primera 4) genera 9 partidas, de octubre 2026 a junio 2027, y el resumen dice "Son las cuotas 4 a 12 de 12."; con la primera cuota en 13 se ve el error del backend y se conserva lo cargado; un plan de 60 cuotas genera 25 y avisa cuándo termina. Como con HU-10, las partidas y su `installment_number` no se pueden leer todavía: eso se verifica en HU-15.
 
 ### HU-12 · Mantener el horizonte de 24 meses
 

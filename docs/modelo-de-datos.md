@@ -96,7 +96,7 @@ Restricciones: `UNIQUE (user_id, name)`.
 | `due_month_offset` | SMALLINT | no | 0 o −1. |
 | `start_period` | CHAR(7) | no | Primer período con partida. No editable. |
 | `end_period` | CHAR(7) | sí | Último período posible. Null = sin fin. En cuotas se calcula; en una baja se fija. |
-| `installments_total` | SMALLINT | sí | Total de cuotas (≥ 1). Null = no es en cuotas. No editable. |
+| `installments_total` | SMALLINT | sí | Total de cuotas (≥ 1; la API admite hasta 360, D-25). Null = no es en cuotas. No editable. |
 | `first_installment_number` | SMALLINT | sí | Cuota que corresponde a `start_period`, entre 1 y `installments_total`. No editable. |
 | `estimation_rule` | VARCHAR(20) | no | `LAST_VALUE`, `AVERAGE_LAST_3` |
 | `current_amount` | DECIMAL(19,2) | no | Monto vigente, ≥ 0. |

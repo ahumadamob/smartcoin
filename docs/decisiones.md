@@ -60,6 +60,10 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **D-24. Una referencia inválida en el cuerpo responde 400, no 404.** Si un pedido nombra en su cuerpo un recurso que no existe o es de otro usuario (la cuenta por defecto o la categoría de un Concepto), responde `VALIDATION_ERROR` con el error en ese campo. El 404 de RN-01 queda para el recurso de la ruta. En los dos casos, uno ajeno y uno inexistente responden igual. *Confirmada* (HU-10).
 
+**D-25. Un plan tiene como máximo 360 cuotas.** El tope de `SMALLINT` (32.767) no alcanza como límite: un plan anual con muchas cuotas terminaría después del año 9999 y su fin no entraría en `end_period CHAR(7)`. 360 cubre un crédito hipotecario a 30 años en cuotas mensuales, y el fin de un plan anual de 360 cuotas cae cerca del año 2385. Más cuotas responden 400 `VALIDATION_ERROR` en `installmentsTotal`. El tope lo valida la API; la base solo exige `installments_total >= 1`. *Confirmada* (HU-11).
+
+**D-26. Los errores de cuotas se informan en el campo que corresponde.** Primera cuota sin total: `installmentsTotal`. Primera cuota mayor que el total: `firstInstallmentNumber`. Cuotas junto con un período de fin: `endPeriod`, aunque coincida con el calculado (el fin de un plan no se ingresa). Los tres, con la forma de D-24. *Confirmada* (HU-11).
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
@@ -103,6 +107,8 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 **S-20. El vencimiento de una partida puede caer en un mes cerrado o anterior al período inicial.** Pasa con desfase −1 cuando el Concepto empieza en el primer período abierto. No se rechaza: el período de la partida está abierto, y RN-09 bloquea movimientos, no vencimientos. Agregado en HU-10.
 
 **S-21. Al crear un Concepto no se compara su período de inicio con la fecha de apertura de la cuenta.** RN-10 no lo pide; la fecha de apertura se controla al registrar cada movimiento (RN-21). Agregado en HU-10.
+
+**S-22. Un plan de cuotas que termina después del horizonte queda incompleto hasta HU-12.** El alta genera solo las cuotas que entran (RN-13) y el resumen lo avisa: indica hasta qué cuota se generó y cuándo termina el plan. Mientras no exista HU-12, que genera las que faltan al avanzar el horizonte, nada las crea. Con la numeración no hay riesgo: sale del índice desde el inicio (RN-14), no de cuántas partidas existen. *Confirmada* (HU-11).
 
 ## Técnicas
 

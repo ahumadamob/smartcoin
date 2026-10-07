@@ -69,7 +69,7 @@ Después, `generated_until = min(horizonte, fin)`. Con desfase −1, el vencimie
 - Un período ya procesado no se vuelve a procesar, así que una partida eliminada no reaparece.
 - Solo se generan partidas en períodos abiertos, porque el inicio es como mínimo el primer período abierto.
 
-**RN-14. Cuotas.** Un Concepto en cuotas tiene un total n (≥ 1) y una primera cuota f (entre 1 y n; por defecto 1). La k-ésima partida (k = 0, 1, 2…) es la cuota f + k. El período de fin se calcula: `inicio + (n − f) × paso`. El monto de cada cuota es el monto vigente y se ajusta como en cualquier Concepto (RN-26).
+**RN-14. Cuotas.** Un Concepto en cuotas tiene un total n (≥ 1) y una primera cuota f (entre 1 y n; por defecto 1). La k-ésima partida (k = 0, 1, 2…) es la cuota f + k. El período de fin se calcula: `inicio + (n − f) × paso`. El monto de cada cuota es el monto vigente y se ajusta como en cualquier Concepto (RN-26). El total tiene un máximo de 360 (D-25). Si se informa la primera cuota sin el total, si es mayor que el total, o si se informa un período de fin junto con las cuotas, responde 400 `VALIDATION_ERROR` con el error en el campo que corresponde (D-26). Si el plan termina después del horizonte, se generan solo las cuotas que entran (RN-13); las demás se generan al avanzar el horizonte (HU-12) con el número que les toca, porque sale del índice desde el inicio y no de cuántas partidas existen.
 
 > Ejemplo: "Heladera", 12 cuotas mensuales, primera cuota 4, inicio 2026-10. Genera las cuotas 4 a 12 en los períodos 2026-10 a 2027-06, y fin = 2027-06.
 
