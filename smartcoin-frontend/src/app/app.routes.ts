@@ -4,6 +4,8 @@ import { authGuard, guestGuard, mandatoryPasswordChange } from './core/auth/auth
 const changePassword = () =>
   import('./features/auth/change-password/change-password').then((m) => m.ChangePassword);
 
+const budgetMonth = () => import('./features/budget/budget-month').then((m) => m.BudgetMonth);
+
 const placeholder = () => import('./shared/page-placeholder').then((m) => m.PagePlaceholder);
 
 // Pantallas vacías: cada historia reemplaza su `loadComponent` por la pantalla real.
@@ -38,15 +40,13 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'presupuesto' },
       {
         path: 'presupuesto',
-        loadComponent: placeholder,
+        loadComponent: budgetMonth,
         title: 'Presupuesto',
-        data: { heading: 'Presupuesto del mes' },
       },
       {
         path: 'presupuesto/:period',
-        loadComponent: placeholder,
+        loadComponent: budgetMonth,
         title: 'Presupuesto',
-        data: { heading: 'Presupuesto del mes' },
       },
       {
         path: 'conceptos',

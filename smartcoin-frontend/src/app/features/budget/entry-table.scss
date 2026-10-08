@@ -1,0 +1,75 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heading {
+  margin: 0;
+  font: var(--mat-sys-title-large);
+}
+
+.empty {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--mat-sys-body-medium);
+}
+
+th,
+td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  vertical-align: top;
+}
+
+thead th {
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+tbody th {
+  font: inherit;
+  font-weight: 500;
+}
+
+tfoot th,
+tfoot td {
+  font-weight: 500;
+  background: var(--mat-sys-surface-container);
+}
+
+.number {
+  text-align: right;
+  white-space: nowrap;
+}
+
+// Las marcas son texto con borde: no dependen solo del color.
+.mark {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font: var(--mat-sys-label-small);
+  white-space: nowrap;
+}
+
+.mark-overdue {
+  color: var(--mat-sys-error);
+}
+
+.mark-manual {
+  color: var(--mat-sys-on-surface-variant);
+  border-style: dashed;
+}

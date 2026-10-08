@@ -1,0 +1,99 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">
+      @if (period(); as shown) {
+        Presupuesto de {{ shown | period }}
+      } @else {
+        Presupuesto del mes
+      }
+    </h1>
+    @if (view(); as current) {
+      @if (current.status === 'CLOSED') {
+        <span class="badge" data-testid="closed">Cerrado</span>
+      }
+      @if (isCurrent()) {
+        <span class="badge badge-current" data-testid="current">Mes actual</span>
+      }
+    }
+    <!-- Acciones del período (agregar una partida, HU-16; cerrar el mes, HU-30): van acá, solo si `!readonly()`. -->
+  </header>
+
+  @if (range() && !error()) {
+    <nav class="period-nav" aria-label="Meses">
+      <button mat-stroked-button type="button" [disabled]="!previous()" (click)="go(previous())">
+        ‹ Mes anterior
+      </button>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="month">
+        <mat-label>Mes</mat-label>
+        <mat-select [value]="period()" (selectionChange)="go($event.value)">
+          @for (option of periods(); track option) {
+            <mat-option [value]="option">{{ option | period }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-stroked-button type="button" [disabled]="!next()" (click)="go(next())">Mes siguiente ›</button>
+      <a mat-button routerLink="/presupuesto" [attr.aria-current]="isCurrent() ? 'page' : null">Hoy</a>
+    </nav>
+  }
+
+  @if (error(); as problem) {
+    <div class="problem" role="alert">
+      <p>{{ problem.message }}</p>
+      @if (problem.unavailable) {
+        <a mat-flat-button routerLink="/presupuesto">Ir al mes actual</a>
+      }
+    </div>
+  } @else if (loading()) {
+    <p role="status">Cargando el mes…</p>
+  } @else {
+    @if (view(); as current) {
+      @if (isEmpty()) {
+        <p class="empty" role="status" data-testid="empty-month">
+          Este mes no tiene partidas. Las partidas se generan desde tus
+          <a routerLink="/conceptos">Conceptos</a>.
+        </p>
+      }
+      <app-entry-table
+        heading="Ingresos"
+        side="income"
+        emptyText="No hay ingresos en este mes."
+        [entries]="current.incomes"
+        [totals]="current.totals"
+        [readonly]="readonly()"
+      />
+      <app-entry-table
+        heading="Gastos"
+        side="expense"
+        emptyText="No hay gastos en este mes."
+        [entries]="current.expenses"
+        [totals]="current.totals"
+        [readonly]="readonly()"
+      />
+      @if (current.totals.length > 0) {
+        <section class="result" aria-label="Resultado">
+          <h2 class="heading">Resultado</h2>
+          <table aria-label="Resultado por moneda">
+            <thead>
+              <tr>
+                <th scope="col">Moneda</th>
+                <th scope="col" class="number">Ingresos estimados</th>
+                <th scope="col" class="number">Gastos estimados</th>
+                <th scope="col" class="number">Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (total of current.totals; track total.currency) {
+                <tr data-testid="result">
+                  <th scope="row">{{ total.currency === 'USD' ? 'Dólares' : 'Pesos' }}</th>
+                  <td class="number">{{ total.income.forecastAmount | money: total.currency }}</td>
+                  <td class="number">{{ total.expense.forecastAmount | money: total.currency }}</td>
+                  <td class="number strong">{{ total.result | money: total.currency }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      }
+    }
+  }
+</div>

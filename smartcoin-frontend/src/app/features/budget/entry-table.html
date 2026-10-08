@@ -1,0 +1,66 @@
+<section class="section" [attr.aria-label]="heading()">
+  <h2 class="heading">{{ heading() }}</h2>
+  @if (entries().length === 0) {
+    <p class="empty" role="status">{{ emptyText() }}</p>
+  } @else {
+    <div class="table-wrapper">
+      <table [attr.aria-label]="heading()">
+        <thead>
+          <tr>
+            <th scope="col">Vencimiento</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Categoría</th>
+            <th scope="col">Cuenta</th>
+            <th scope="col">Cuota</th>
+            <th scope="col" class="number">Presupuestado</th>
+            <th scope="col" class="number">Real</th>
+            <th scope="col" class="number">Pendiente</th>
+            <th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entry of entries(); track entry.id) {
+            <tr [class.overdue]="entry.overdue">
+              <td data-testid="due">
+                {{ entry.dueDate | date: dateFormat }}
+                @if (entry.overdue) {
+                  <span class="mark mark-overdue">Vencida</span>
+                }
+              </td>
+              <th scope="row" data-testid="name">{{ entry.name }}</th>
+              <td>{{ entry.categoryName ?? '—' }}</td>
+              <td>{{ entry.accountName }}</td>
+              <td data-testid="installment">
+                @if (entry.installmentNumber && entry.installmentsTotal) {
+                  Cuota {{ entry.installmentNumber }} de {{ entry.installmentsTotal }}
+                } @else {
+                  —
+                }
+              </td>
+              <td class="number" data-testid="budgeted">
+                {{ entry.budgetedAmount | money: entry.currency }}
+                @if (entry.manual) {
+                  <span class="mark mark-manual">Editada</span>
+                }
+              </td>
+              <td class="number">{{ entry.actualAmount | money: entry.currency }}</td>
+              <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
+              <td data-testid="status">{{ statusLabels[entry.status] }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          @for (row of footer(); track row.currency) {
+            <tr data-testid="total">
+              <th scope="row" colspan="5">Total en {{ row.currency === 'USD' ? 'dólares' : 'pesos' }}</th>
+              <td class="number">{{ row.totals.budgetedAmount | money: row.currency }}</td>
+              <td class="number">{{ row.totals.actualAmount | money: row.currency }}</td>
+              <td class="number">{{ row.totals.pendingAmount | money: row.currency }}</td>
+              <td></td>
+            </tr>
+          }
+        </tfoot>
+      </table>
+    </div>
+  }
+</section>
