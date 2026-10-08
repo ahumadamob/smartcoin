@@ -22,4 +22,7 @@ public interface BudgetPeriodRepository extends JpaRepository<BudgetPeriod, Long
 
 	/** HU-10 (RN-13): los períodos destino de una generación, en una sola consulta. */
 	List<BudgetPeriod> findByUserIdAndPeriodMonthIn(Long userId, Collection<YearMonth> periodMonths);
+
+	/** HU-15 (RN-06): un período del usuario; vacío si no existe para él. */
+	Optional<BudgetPeriod> findByUserIdAndPeriodMonth(Long userId, YearMonth periodMonth);
 }

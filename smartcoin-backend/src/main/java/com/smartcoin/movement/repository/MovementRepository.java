@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.List;
 
 import com.smartcoin.account.domain.AccountTotal;
+import com.smartcoin.entry.domain.EntryTotal;
 import com.smartcoin.movement.domain.Movement;
 import com.smartcoin.shared.domain.EntryKind;
 
@@ -38,4 +39,15 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
 	/** HU-13 (RN-15): de estas partidas del usuario, los ids de las que tienen al menos un movimiento. */
 	@Query("select distinct m.entry.id from Movement m where m.userId = :userId and m.entry.id in :entryIds")
 	List<Long> findEntryIdsWithMovements(@Param("userId") Long userId, @Param("entryIds") Collection<Long> entryIds);
+
+	/**
+	 * HU-15 (RN-17): suma de los movimientos de cada partida de un período del usuario, en una sola consulta. Cuenta
+	 * el período de la partida, no la fecha del movimiento. Las partidas sin movimientos no figuran.
+	 */
+	@Query("""
+			select new com.smartcoin.entry.domain.EntryTotal(m.entry.id, sum(m.amount))
+			from Movement m
+			where m.userId = :userId and m.entry.period.id = :periodId
+			group by m.entry.id""")
+	List<EntryTotal> sumByEntryOfPeriod(@Param("userId") Long userId, @Param("periodId") Long periodId);
 }

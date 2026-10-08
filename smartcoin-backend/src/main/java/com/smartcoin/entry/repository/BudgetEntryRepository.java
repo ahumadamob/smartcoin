@@ -28,4 +28,19 @@ public interface BudgetEntryRepository extends JpaRepository<BudgetEntry, Long> 
 			order by p.periodMonth""")
 	List<BudgetEntry> findByUserIdAndBudgetItemId(@Param("userId") Long userId,
 			@Param("budgetItemId") Long budgetItemId);
+
+	/**
+	 * HU-15 (RN-44): las partidas de un período del usuario con su cuenta, su categoría, su Concepto y la categoría
+	 * del Concepto en la misma consulta, para que la vista del mes no haga una consulta por fila. Sin orden: lo
+	 * decide el servicio.
+	 */
+	@Query("""
+			select e from BudgetEntry e
+			join fetch e.account
+			left join fetch e.category
+			left join fetch e.budgetItem i
+			left join fetch i.category
+			where e.userId = :userId and e.period.id = :periodId""")
+	List<BudgetEntry> findByUserIdAndPeriodIdWithDetails(@Param("userId") Long userId,
+			@Param("periodId") Long periodId);
 }
