@@ -25,8 +25,10 @@ Vocabulario obligatorio del proyecto. En la interfaz y en la documentación se u
 | Monto consolidado | `consolidatedAmount` | Monto real fijado al consolidar. |
 | Pendiente | `pendingAmount` | Lo que falta: presupuestado menos real, nunca negativo. En una partida consolidada es 0. |
 | Estimado | `forecastAmount` | Cuánto se espera que termine siendo la partida: real más pendiente. En una consolidada, el monto consolidado. |
+| Resultado | `result` | En la vista del mes, estimado de ingresos menos estimado de gastos de una moneda. Puede ser negativo. |
 | Monto vigente | `currentAmount` | Monto del Concepto que se usa al generar partidas nuevas. Se actualiza al consolidar. |
 | Vencimiento | `dueDate` | Fecha prevista de cobro o pago de una partida. |
+| Vencida | `overdue` | Partida pendiente cuyo vencimiento es anterior a hoy. Es solo un indicador (RN-20). |
 | Día de vencimiento | `dueDay` | Día del mes (1 a 31) en que vence cada partida de un Concepto. |
 | Desfase de mes | `dueMonthOffset` | 0 si vence en el mismo mes del período; −1 si vence el mes anterior (el sueldo de diciembre que se cobra en noviembre). |
 | Cuota x de n | `installmentNumber` · `installmentsTotal` | Número de cuota de la partida y total de cuotas del Concepto. |

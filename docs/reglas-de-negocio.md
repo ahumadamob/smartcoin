@@ -118,7 +118,7 @@ Aclaraciones (HU-13): «período abierto» es todo período no cerrado, incluido
 - Si la partida tiene movimientos, su cuenta solo puede cambiarse por otra de la misma moneda.
 - Ninguna se copia a otros períodos.
 
-**RN-20. Partida vencida.** Una partida pendiente con vencimiento anterior a hoy está vencida. Es solo un indicador visual.
+**RN-20. Partida vencida.** Una partida pendiente con vencimiento anterior a hoy está vencida. Es solo un indicador visual. «Pendiente» es el estado, no el monto: una partida pagada por completo pero sin consolidar sigue vencida hasta que se consolida (D-29). Una consolidada nunca está vencida.
 
 ## 5. Movimientos
 
@@ -283,6 +283,13 @@ El cierre efectivo vuelve a hacer todas las validaciones.
 ## 10. Vistas
 
 **RN-44. Vista del mes.** Muestra las partidas del período separadas en ingresos y gastos, ordenadas por vencimiento y nombre. Para cada partida: nombre, categoría, cuenta, vencimiento, cuota x de n, presupuestado, real, pendiente, estimado, estado, si está editada y si está vencida. Totales por moneda, para ingresos y para gastos: presupuestado, real, pendiente y estimado. Resultado por moneda = estimado de ingresos − estimado de gastos. Las transferencias no aparecen.
+
+Aclaraciones (HU-15, D-29):
+
+- Una partida se lista en su período aunque su vencimiento caiga en otro mes (S-20).
+- Si dos partidas tienen el mismo vencimiento, se ordenan por nombre sin distinguir mayúsculas, y si también coincide, por orden de creación. Dentro de cada sección las monedas van mezcladas; solo los totales se separan.
+- Hay un total por cada moneda que tiene al menos una partida en el período, en el orden ARS, USD. Si una moneda solo tiene ingresos o solo gastos, el otro lado vale 0 y el resultado se calcula igual; puede ser negativo. Un período sin partidas no tiene totales ni resultado.
+- La vista informa el período inicial, el actual y el horizonte. El horizonte que informa es el último período que existe para el usuario: si el mes cambió con la sesión abierta, el período nuevo aparece recién al asegurar el horizonte (RN-07), y hasta entonces responde 404 como cualquier otro que no existe (RN-06). La vista no crea períodos.
 
 **RN-45. Flujo de caja.** Para un rango de fechas y una moneda, lista en orden cronológico:
 

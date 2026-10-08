@@ -68,6 +68,14 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **D-28. La lista de Conceptos y sus filtros.** Sin paginación ni totales de montos (periodicidades y monedas distintas). Orden: los Finalizados al final y, dentro de cada grupo, por nombre sin distinguir mayúsculas. Filtros opcionales `kind`, y `categoryId` o `withoutCategory=true` (juntos, 400 `VALIDATION_ERROR`). Una categoría inexistente o de otro usuario en el filtro responde 404 `NOT_FOUND` (RN-01); D-24 solo rige para referencias del cuerpo. Los filtros se aplican en el servicio sobre los Conceptos del usuario. *Confirmada* (HU-14).
 
+**D-29. La vista del mes.** *Confirmada* (HU-15).
+
+- **Endpoints**: `GET /api/periods/{period}` y `GET /api/periods/current`, que devuelve la misma vista para el período actual según el `Clock` (T-13); así el frontend no decide cuál es el mes actual. La respuesta trae el período inicial, el actual y el horizonte, con los que la pantalla arma los límites de la navegación. `GET /api/periods?from=&to=` con totales por moneda no se implementa en HU-15: lo necesita la vista de varios meses (HU-36).
+- **Rango según lo que existe**: un período sin fila responde 404, y el horizonte informado es el último período existente del usuario, no `actual + 24` calculado. Solo difieren si el mes cambia con la sesión abierta, hasta el próximo inicio de sesión (RN-07). Una lectura no crea períodos.
+- **Orden**: vencimiento, nombre sin distinguir mayúsculas (como D-28) y, como los nombres pueden repetirse (S-19), orden de creación. Las monedas se mezclan dentro de cada sección.
+- **Totales**: solo las monedas con partidas en el período. Con un solo lado, el otro vale 0: el pie de la sección sin partidas de esa moneda no muestra su fila, y el bloque de resultado muestra todas las monedas del período. Un mes vacío no muestra totales ni resultado, para no inventar una moneda.
+- **Vencida** (RN-20): se decide por el estado pendiente, sin mirar el monto. Una partida con pendiente 0 sin consolidar figura vencida; la marca empuja a consolidar.
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
