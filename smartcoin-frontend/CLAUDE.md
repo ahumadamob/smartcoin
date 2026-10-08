@@ -51,7 +51,7 @@ src/app/
 |---|---|---|
 | Login | `/login` | HU-03 |
 | Cambio de contraseña | `/cambiar-contrasena` (obligatorio, fuera del layout) o dentro del layout (voluntario) | HU-04, HU-05 |
-| Presupuesto del mes | `/presupuesto/:period` (sin período, el actual) | HU-15 a HU-26 |
+| Presupuesto del mes | `/presupuesto/:period` (sin período, el actual, que decide el backend). Las dos URL son una sola ruta (`budgetMonthMatcher`), para no recrear la pantalla al cambiar de mes | HU-15 a HU-26 |
 | Conceptos (lista) | `/conceptos` | HU-14 |
 | Nuevo Concepto | `/conceptos/nuevo` | HU-10, HU-11 |
 | Editar un Concepto | `/conceptos/:id/editar` | HU-13 |
@@ -77,7 +77,8 @@ El login y el cambio de contraseña obligatorio van fuera del layout; el resto, 
 - **Errores**: un único archivo de mensajes traduce cada `code` de Problem Details a un texto en español. Si un código no está, se muestra el `detail` del backend. `VALIDATION_ERROR` muestra el primer error por campo o, si no hay, el `detail`, porque ahí está la causa (por ejemplo, "la contraseña nueva debe ser distinta de la actual").
 - **Confirmaciones explícitas**: eliminar con alcance, consolidar con partidas editadas en el destino, pago rápido y cerrar el mes usan diálogos que muestran exactamente qué va a pasar (con la vista previa o la simulación del backend cuando existe).
 - **Textos**: interfaz en español con el vocabulario del glosario (Concepto, Partida, Movimiento, Consolidar, Cerrar el mes). En el código, los nombres en inglés del glosario.
-- **Accesibilidad básica**: todo campo con etiqueta, navegación con teclado y foco visible.
+- **Accesibilidad básica**: todo campo con etiqueta, navegación con teclado y foco visible. Las marcas de estado (Vencida, Editada, Cerrado) son texto, no solo color.
+- **Vista del mes**: las acciones del período van en la cabecera de `BudgetMonth` y las de cada partida en la última columna de `EntryTable`; las dos dependen de `readonly` (período cerrado).
 
 ## Tests de punta a punta
 

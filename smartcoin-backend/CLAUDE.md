@@ -115,6 +115,9 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | `BudgetItemEditEffects` | RN-15: a qué partidas alcanza cada cambio (vencimiento, cuenta, monto vigente) |
 | `ScheduleCalculator` | RN-11, RN-13, RN-14: qué períodos corresponden y el índice k de cada uno, del que sale el número de cuota |
 | `EstimationCalculator` | RN-26: base, estimación y destino |
+| `EntryAmounts` | RN-16, RN-17: real, pendiente, estimado y estado mostrado de una partida |
+| `OverdueRule` | RN-20: partida vencida |
+| `MonthTotals` | RN-44: totales por moneda de ingresos y de gastos, y resultado |
 | `MovementDateValidator` | RN-21: ventana, apertura, fecha futura |
 | `BalanceCalculator` | RN-35 |
 | `ClosingPlanner` | RN-38 a RN-40: a partir de los datos del período, el plan de cierre (consolidaciones, partidas nuevas, cierres de cuenta) |
@@ -145,7 +148,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 |---|---|
 | Reglas puras (`domain`) | JUnit + AssertJ, sin Spring ni base. Tests parametrizados para las tablas de ejemplos. |
 | Servicios | JUnit + Mockito, con repositorios simulados y un `Clock` fijo. |
-| Controladores y seguridad | `@WebMvcTest` con MockMvc y servicios simulados (`@Import` de `SecurityConfig` y `GlobalExceptionHandler`, y `app.security.jwt-secret` por `@TestPropertySource`; en Boot 4 `@WebMvcTest` no carga clases `@Configuration`): 401, 403 por cambio obligatorio, clave de administración, formato de errores. |
+| Controladores y seguridad | `@WebMvcTest` con MockMvc y servicios simulados (`@Import` de `SecurityConfig` y `GlobalExceptionHandler`, y `app.security.jwt-secret` por `@TestPropertySource`; en Boot 4 `@WebMvcTest` no carga clases `@Configuration`, así que un controlador con un período en la ruta importa también `WebConfig`, que tiene su convertidor): 401, 403 por cambio obligatorio, clave de administración, formato de errores. |
 
 ### Aislamiento entre usuarios (HU-06, RN-01)
 

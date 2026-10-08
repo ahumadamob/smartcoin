@@ -236,26 +236,43 @@ Reglas: RN-10, RN-11, RN-12, RN-13.
 - Las partidas recurrentes se guardan con `name` y `category_id` nulos: muestran los del Concepto.
 - Frontend: el formulario de alta (`BudgetItemForm`) está en `/conceptos/nuevo` desde HU-14 (antes estaba en `/conceptos`) y, después de guardar, un resumen ("Se generaron 25 partidas, de octubre 2026 a octubre 2028. Primer vencimiento: 25/09/2026."). La lista de Conceptos es HU-14; las partidas se ven en HU-15. Sin cuentas, la pantalla manda a cargar una. El período de inicio sugerido es el mes actual del navegador; el rango válido lo decide el backend. Los períodos usan `<input type="month">`; donde el navegador no lo soporta se escriben como `AAAA-MM`.
 - Verificado de punta a punta contra la base, a través de la aplicación y con un usuario de prueba: el alta inserta el Concepto y sus partidas sin violar ninguna restricción; y, pendiente de HU-07 y HU-09, eliminar la cuenta o la categoría que usa un Concepto responde `ACCOUNT_IN_USE` y `CATEGORY_IN_USE` (las consultas de existencia sobre `budget_item`).
-- **Pendiente de integración**: las consultas nuevas (`BudgetPeriodRepository.findFirstByUserIdAndStatusOrderByPeriodMonthDesc` y `findByUserIdAndPeriodMonthIn`, y el `saveAll` de partidas) no se pudieron probar contra MySQL con tests (sin Docker ni Testcontainers); los tests del servicio usan repositorios simulados, que **no prueban el SQL**. La aplicación las ejecuta sin error, pero como todavía no hay forma de leer partidas, su contenido no se vio. **Verificar con datos cuando exista la vista del mes (HU-15)**:
+- **Pendiente de integración**: las consultas nuevas (`BudgetPeriodRepository.findFirstByUserIdAndStatusOrderByPeriodMonthDesc` y `findByUserIdAndPeriodMonthIn`, y el `saveAll` de partidas) no se pudieron probar contra MySQL con tests (sin Docker ni Testcontainers); los tests del servicio usan repositorios simulados, que **no prueban el SQL**. La aplicación las ejecuta sin error, pero como todavía no hay forma de leer partidas, su contenido no se vio. **Verificar con datos cuando exista la vista del mes (HU-15)** (hecho en HU-15 con dos usuarios de prueba, a través de la aplicación; cada punto dice qué se vio y qué sigue pendiente):
   - Un Concepto mensual creado hoy aparece una vez en cada mes, desde su inicio hasta el horizonte, y no aparece antes del inicio ni después del fin.
+    - *Verificado con datos en HU-15:* 25 partidas del mes actual al horizonte y ninguna antes; con inicio y fin, solo los 5 meses entre los dos; con inicio en el período inicial, también en los meses pasados sin cerrar (27 partidas).
   - Uno bimestral, trimestral, semestral o anual aparece solo en los meses que le tocan.
+    - *Verificado con datos en HU-15:* los cuatro, con inicio en distintos meses, mes por mes hasta el horizonte.
   - El vencimiento de cada partida: día 31 en meses de 30, febrero, y con desfase el mes anterior al período (incluido enero → diciembre del año anterior).
+    - *Verificado con datos en HU-15:* día 31 → 30/11, 28/02/2027 y 29/02/2028; día 29 → 28/02/2027 y 29/02/2028; desfase −1 con día 25 → enero de 2027 y de 2028 vencen el 25/12 del año anterior; desfase −1 con día 30 → marzo vence el 28/02/2027 y el 29/02/2028. La partida del mes actual con desfase vence el mes pasado y figura vencida (S-20).
   - Presupuestado igual al monto vigente con sus 2 decimales, moneda de la cuenta por defecto, estado Estimada y sin marca de editada.
+    - *Verificado con datos en HU-15:* en las 260 partidas del usuario de prueba, con montos como `85000.50` y `1200000.00` en el JSON, real 0 y pendiente igual al presupuestado.
   - Cada partida recurrente muestra el nombre y la categoría de su Concepto (en la fila están nulos).
+    - *Verificado con datos en HU-15:* con categoría y sin categoría.
   - Las partidas de un usuario no aparecen en los meses de otro (`period_id` del propio usuario).
+    - *Verificado con datos en HU-15:* un segundo usuario de prueba, con los mismos 27 meses, los ve vacíos y sin totales.
   - Con un período cerrado (HU-30 a HU-33): un Concepto con inicio en ese período responde `PERIOD_NOT_AVAILABLE`. Hoy no se puede cerrar un mes, así que la consulta del último período cerrado solo corrió sin resultados.
+    - *Sigue pendiente:* se verifica en HU-33.
   - Avance del horizonte (HU-12): el primer mes que cambie, el período nuevo aparece con una partida por cada Concepto que le toca, con el monto vigente de ese momento y sin duplicados; `generated_until` queda en el horizonte nuevo (o en el fin del Concepto).
+    - *Sigue pendiente:* se verifica en el primer cambio de mes, ahora mirando la vista del mes.
   - Cuotas (HU-11): un plan mensual de 12 cuotas con primera cuota 4 y inicio en el mes actual tiene 9 partidas, con las cuotas 4 a 12 en orden, y ninguna después de la última.
+    - *Verificado con datos en HU-15:* por la API y en el e2e (la Heladera muestra «Cuota 12 de 12» en su último mes y no aparece en el siguiente).
   - Cuotas: cada partida de un Concepto en cuotas muestra "cuota x de n" con el número que le toca; en uno bimestral, trimestral, semestral o anual, la cuota avanza de a una por partida, no por mes.
+    - *Verificado con datos en HU-15:* bimestral con primera cuota 3 (cuotas 3 a 6 cada dos meses), trimestral (1 a 9 hasta el horizonte), anual con primera cuota 3 (3, 4 y 5) y un plan de una sola cuota. No se probó un plan semestral: usa el mismo cálculo.
   - Cuotas: un plan que termina después del horizonte muestra las cuotas 1 a 25 de n (si empieza en el mes actual) y ninguna partida más allá del horizonte; el fin que muestra el Concepto es el calculado.
-    - *Verificado con datos en HU-14 (e2e, un plan de 60 cuotas que empieza este mes):* el fin que muestra la lista es el calculado, `inicio + 59 meses`, y la cuota actual es la 1 de 60. Queda para HU-15 lo de las partidas (las cuotas 1 a 25 y ninguna más allá del horizonte).
+    - *Verificado con datos en HU-14 (e2e, un plan de 60 cuotas que empieza este mes):* el fin que muestra la lista es el calculado, `inicio + 59 meses`, y la cuota actual es la 1 de 60.
+    - *Verificado con datos en HU-15:* las partidas son las cuotas 1 a 25 de 60, una por mes hasta el horizonte.
   - Cuotas: una partida de un Concepto sin cuotas no muestra "cuota x de n".
+    - *Verificado con datos en HU-15:* no trae número ni total, y la pantalla muestra «—».
   - Edición (HU-13): un cambio de monto vigente se refleja en el presupuestado de cada partida pendiente no editada de los meses abiertos (también en las parciales, cuando haya movimientos) y no en el de las editadas, consolidadas ni de períodos cerrados.
-    - *Verificado con datos en HU-14 (e2e):* después de editar y confirmar el aviso, el monto vigente del Concepto en la lista es el nuevo. Queda para HU-15 su efecto en las partidas.
+    - *Verificado con datos en HU-14 (e2e):* después de editar y confirmar el aviso, el monto vigente del Concepto en la lista es el nuevo.
+    - *Verificado con datos en HU-15:* el presupuestado y el pendiente de las 27 partidas del Concepto pasan al monto nuevo, también en los meses pasados sin cerrar (S-24), y las partidas de los demás Conceptos no cambian. *Sigue pendiente* lo que hoy no se puede producir: que no cambien las editadas (HU-17), las consolidadas (HU-23) ni las de períodos cerrados (HU-33), y que sí cambien las parciales (HU-19).
   - Edición (HU-13): un cambio de día de vencimiento o de desfase se refleja en el vencimiento de cada partida pendiente de los meses abiertos, editada o no (día 31 en un mes de 30 y en febrero; desfase −1 en enero).
+    - *Verificado con datos en HU-15:* día 29 → 31 (30/11, 28/02/2027, 29/02/2028); desfase 0 → −1 (cada partida vence el mes anterior, también las de meses pasados; enero vence el 25/12 del año anterior) y de vuelta a 0. *Sigue pendiente* el caso de una partida editada (HU-17).
   - Edición (HU-13): un cambio de cuenta por defecto se refleja en la cuenta de las partidas pendientes sin movimientos; una parcial conserva la anterior.
+    - *Verificado con datos en HU-15:* las 25 partidas pasan a la cuenta nueva; una cuenta de otra moneda responde `CURRENCY_MISMATCH` y no cambia ninguna. *Sigue pendiente* que una parcial conserve la anterior (HU-19).
   - Edición (HU-13): el nombre y la categoría nuevos aparecen en todas las partidas del Concepto.
+    - *Verificado con datos en HU-15:* también al quitar la categoría. Las ediciones no crean ni duplican partidas.
   - Edición (HU-13): si el horizonte avanzó, la partida que genera la edición sale con el vencimiento, la cuenta y el monto nuevos.
+    - *Sigue pendiente:* se verifica en el primer cambio de mes.
 
 ### HU-11 · Crear un Concepto en cuotas
 
@@ -277,7 +294,7 @@ Reglas: RN-13, RN-14.
 - Con cuotas, `end_period` se guarda calculado y `generated_until` queda en el fin o en el horizonte, el que llegue primero. Por eso, cuando el horizonte avance, HU-12 no generará nada después de la última cuota.
 - Frontend: la casilla "Es en cuotas" del formulario muestra el total y la primera cuota (1 por defecto, o vacía, que el backend completa con 1), oculta el período de fin y explica que el fin se calcula y para qué sirve la primera cuota. Solo valida el formato (enteros ≥ 1). El resumen agrega "Son las cuotas 4 a 12 de 12." (o "Es la cuota 12 de 12."); si el plan termina después del horizonte, agrega cuándo termina y que las demás se generan a medida que avance el horizonte.
 - **Criterios que se completan en otra historia**:
-  - Criterio 2, "cada partida muestra cuota x de n": se ve en la vista del mes (HU-15). Hoy el backend guarda `installment_number` y la respuesta de partidas va a traer el total de cuotas del Concepto; todavía no hay dónde mostrarlo.
+  - Criterio 2, "cada partida muestra cuota x de n": se ve en la vista del mes (HU-15). *Completado y verificado con datos en HU-15.*
   - Criterio 4, "aunque el horizonte avance no se generan partidas después de la última cuota": HU-12 lo garantiza con tests (un plan cortado por el horizonte continúa con su número y no pasa de la última cuota). La verificación con datos reales queda en la lista pendiente de HU-12.
   - La lista de verificación con datos reales para HU-15 (en las notas de HU-10) suma los puntos de cuotas.
 - **Observación fuera de esta historia**: el cuerpo acepta números decimales en los campos enteros y los trunca (`"installmentsTotal": 12.5` se guarda como 12, como ya pasa con `dueDay`). Es la configuración por defecto de Jackson. Si se quiere rechazarlos hay que desactivar `ACCEPT_FLOAT_AS_INT` para toda la API, así que queda para decidir aparte.
@@ -310,7 +327,7 @@ Reglas: RN-06, RN-07, RN-13.
 - **Criterios que se completan en otra historia**:
   - Criterio 3, "una partida eliminada con Solo este mes no vuelve a aparecer": de punta a punta en HU-18. Hoy lo cubre el test de un período ya procesado sin partida.
   - Criterio 1, "al editar un Concepto se asegura el horizonte": el disparo llega con HU-13.
-  - El avance del horizonte con datos reales no se puede probar porque no se puede adelantar el reloj de la aplicación. **Verificar la primera vez que cambie el mes, mirando en la vista del mes (HU-15)**: que aparece el período nuevo con sus partidas, una por cada Concepto que le toca, con el monto vigente de ese momento, sin duplicados, y que un plan de cuotas cortado por el horizonte sigue con el número que corresponde. Se suma a la lista de verificación de HU-15 de las notas de HU-10.
+  - *HU-15 no cambia esto: sigue pendiente.* El avance del horizonte con datos reales no se puede probar porque no se puede adelantar el reloj de la aplicación. **Verificar la primera vez que cambie el mes, mirando en la vista del mes (HU-15)**: que aparece el período nuevo con sus partidas, una por cada Concepto que le toca, con el monto vigente de ese momento, sin duplicados, y que un plan de cuotas cortado por el horizonte sigue con el número que corresponde. Se suma a la lista de verificación de HU-15 de las notas de HU-10.
 
 ### HU-13 · Editar un Concepto
 
@@ -337,9 +354,9 @@ Reglas: RN-15.
 - Cómo se llega a la pantalla: desde «Editar» en cada fila de la lista de Conceptos (HU-14) y desde el enlace «Editar este Concepto» del resumen que aparece al crear un Concepto. Desde la edición, «Volver a la lista» lleva a `/conceptos`.
 - **Criterios que se completan en otra historia**:
   - Criterio 5, dar de baja eliminando la partida desde el mes elegido: la pantalla lo explica, pero la eliminación llega con HU-18.
-  - El efecto de los cambios sobre las partidas no se puede ver hasta la vista del mes (HU-15). Los puntos a verificar se sumaron a la lista de HU-10.
+  - El efecto de los cambios sobre las partidas no se puede ver hasta la vista del mes (HU-15). Los puntos a verificar se sumaron a la lista de HU-10. *Verificados con datos en HU-15*, salvo lo que depende de partidas editadas, movimientos, consolidación o cierre.
   - Los filtros de «con movimientos», «consolidada» y «período cerrado» solo se probaron con repositorios simulados: se verifican con datos en HU-19 (movimientos), HU-23 (consolidar) y HU-33 (período cerrado).
-- **Pendiente de integración**: las dos consultas nuevas (`findByUserIdAndBudgetItemId` y `findEntryIdsWithMovements`) no se pueden probar contra MySQL con tests (sin Docker ni Testcontainers). La primera la ejecutó sin error la corrida de punta a punta (editar el monto o el día guarda 25 partidas); la segunda solo corre al cambiar la cuenta de un Concepto con partidas pendientes, y todavía no existen movimientos para probarla con datos.
+- **Pendiente de integración**: las dos consultas nuevas (`findByUserIdAndBudgetItemId` y `findEntryIdsWithMovements`) no se pueden probar contra MySQL con tests (sin Docker ni Testcontainers). La primera la ejecutó sin error la corrida de punta a punta (editar el monto o el día guarda 25 partidas); la segunda solo corre al cambiar la cuenta de un Concepto con partidas pendientes, y todavía no existen movimientos para probarla con datos. En HU-15 corrió sin error contra la base (cambio de cuenta con 25 partidas pendientes) y no devolvió ninguna, que es lo correcto sin movimientos; con movimientos se verifica en HU-19.
 - Verificado de punta a punta con un usuario de prueba, a través de la aplicación y en el navegador: editar el nombre y el monto vigente pasando por el aviso (cancelarlo no guarda nada, confirmarlo guarda), cambiar solo el día sin aviso, y una cuenta en dólares sobre un Concepto en pesos muestra el mensaje y no guarda. Los datos bloqueados se ven deshabilitados con su motivo. Por la API: un dato no editable responde 409 sin guardar nada y un id ajeno o inexistente, 404.
 
 ### HU-14 · Listar Conceptos
@@ -388,6 +405,27 @@ Reglas: RN-10, RN-14.
 
 Reglas: RN-16, RN-17, RN-20, RN-44.
 
+**Notas de implementación**
+
+- Depende de S-20 (una partida se lista en su período aunque venza en otro mes; con desfase −1 puede nacer vencida), S-24 (un mes pasado sin cerrar se ve abierto, con sus partidas pendientes vencidas), S-19 (los nombres se repiten: hace falta un desempate), S-11, S-14, S-17 y S-22, y de T-12 (los montos viajan con 2 decimales y el frontend no hace cuentas) y T-13 («hoy» y el período actual salen del `Clock`). Agrega D-29, con aclaraciones en RN-20 y RN-44, y el glosario suma Vencida (`overdue`) y Resultado (`result`). No agrega supuestos.
+- `GET /api/periods/{period}` (`getPeriod`) y `GET /api/periods/current` (`getCurrentPeriod`) responden `PeriodView`: `period`, `status`, `startPeriod`, `currentPeriod`, `horizon`, `incomes`, `expenses` y `totals`. Formato inválido: 400 `VALIDATION_ERROR`. Período que no existe para el usuario: 404 `NOT_FOUND`. `GET /api/periods?from=&to=` no se implementó: queda para HU-36 (D-29).
+- Cada partida (`PeriodEntry`) trae `id`, `budgetItemId`, `origin`, `kind`, nombre y categoría (los del Concepto en una recurrente), cuenta, `currency`, `dueDate`, `installmentNumber`, `installmentsTotal`, `budgetedAmount`, `actualAmount`, `pendingAmount`, `forecastAmount`, `status`, `manual` y `overdue`.
+- `totals`: por cada moneda con partidas, `income` y `expense` (cada uno con `entryCount`, presupuestado, real, pendiente y estimado) y `result`. `entryCount` le dice a la pantalla si la sección tiene partidas de esa moneda sin que tenga que contarlas.
+- Reglas puras: `EntryAmounts` (RN-16 y RN-17) y `OverdueRule` (RN-20) en `entry/domain`; `MonthTotals` (RN-44) en `period/domain`. La suma de movimientos nula o en 0 es «sin movimientos», porque todo movimiento es mayor que 0 (RN-03).
+- `PeriodViewService` (solo lectura) hace cuatro consultas, ninguna por fila: el período por usuario y mes, los meses que existen para el usuario (de ahí salen el período inicial y el horizonte informados), las partidas con cuenta, categoría, Concepto y categoría del Concepto (`findByUserIdAndPeriodIdWithDetails`, con `join fetch`), y las sumas de movimientos de todo el período agrupadas por partida (`sumByEntryOfPeriod`). Arma las filas dentro de la transacción (`open-in-view: false`). El orden se aplica en Java.
+- Frontend: `BudgetMonth` en `features/budget/`, con `EntryTable` (una sección) y `period-nav` (funciones puras de navegación). `/presupuesto` pide `/current` y `/presupuesto/:period` pide ese mes; son **una sola ruta** (`budgetMonthMatcher`): con dos, Angular recreaba la pantalla al pasar de una a otra y «Mes siguiente» perdía el foco del teclado en el primer cambio de mes (apareció al probar en el navegador). El selector de mes es un `mat-select` con los meses del rango en palabras. Una URL que no es un mes no llama a la API. Mientras carga otro mes, la navegación se conserva.
+- Marcas: «Vencida» junto al vencimiento y «Editada» junto al presupuestado, como texto con borde; el estado, en palabras; «Cerrado» y «Mes actual», junto al título. Un resultado negativo se ve con signo. Al pie de cada sección hay un total por moneda con partidas en esa sección; el bloque Resultado muestra, por cada moneda del período, ingresos estimados, gastos estimados y resultado.
+- **Dónde van las acciones** (llegan desde HU-16): las del período (agregar una partida, cerrar el mes), en la cabecera junto al título; las de cada partida, en una última columna «Acciones» de `EntryTable`. Las dos dependen de `readonly`, que hoy es «el período está cerrado». Hoy no se dibuja nada vacío.
+- Tests: `EntryAmountsTest`, `OverdueRuleTest` y `MonthTotalsTest` (parametrizados, con el ejemplo del criterio 6 y sus nueve números); `PeriodViewServiceTest` (orden, nombre y categoría del Concepto o propios, rango, período fuera de rango, datos de otro usuario); `PeriodControllerTest`; unitarios de la navegación, las marcas y los totales; y de punta a punta en `e2e/conceptos-y-presupuesto.spec.ts`. Los tres tests de aislamiento de HU-06 pasan sin cambios.
+- **Pendiente de integración**: las tres consultas nuevas no se pueden probar contra MySQL con tests (sin Docker ni Testcontainers). Las ejecutaron sin error la corrida de punta a punta y la verificación con datos, con partidas de todo tipo; `sumByEntryOfPeriod` todavía no devolvió filas porque no existen movimientos: su contenido se verifica en HU-19.
+- **Criterios que se completan en otra historia**:
+  - Criterio 5, período cerrado: la pantalla muestra «Cerrado» y no tendría acciones (test unitario con una respuesta `CLOSED`), pero no se puede cerrar un mes hasta HU-33.
+  - Criterio 6: el ejemplo necesita partidas consolidadas y parciales. Está cubierto por los tests de las reglas, del servicio y de la pantalla; con datos reales solo se vieron partidas Estimadas. Parcial, Consolidada, real y pendiente distintos del presupuestado se verifican en HU-19 y HU-23.
+  - La marca «Editada» se ve recién con HU-17.
+  - Las partidas puntuales, de saldo postergado y de diferencia de cierre (nombre y categoría propios) solo se probaron con repositorios simulados: llegan con HU-16 y HU-32.
+- Verificado en el navegador con un usuario de prueba: el mes actual con ingresos y gastos en pesos y dólares, totales y resultado separados por moneda, partidas vencidas marcadas, «Mes anterior», «Mes siguiente», selector y «Hoy»; «Mes siguiente» y «Hoy» también con el teclado, con foco visible y sin perderlo al cambiar de mes; y un período fuera de rango (`/presupuesto/2030-01`), que muestra el mensaje y «Ir al mes actual».
+- Verificación con datos de las listas de HU-10 a HU-13: 40 comprobaciones por la API con dos usuarios de prueba, todas coinciden con lo esperado. El detalle está en cada punto de la lista de HU-10.
+
 **Endpoints de la épica**
 
 | Método y ruta | Uso |
@@ -395,8 +433,9 @@ Reglas: RN-16, RN-17, RN-20, RN-44.
 | `GET /api/budget-items` | Lista de Conceptos. |
 | `POST /api/budget-items` | Crear (genera partidas). |
 | `GET /api/budget-items/{id}` · `PUT /api/budget-items/{id}` | Ver y editar. |
-| `GET /api/periods?from=YYYY-MM&to=YYYY-MM` | Períodos con estado y totales por moneda. |
 | `GET /api/periods/{period}` | Vista del mes: partidas con valores derivados y totales. |
+| `GET /api/periods/current` | La misma vista, para el período actual (D-29). |
+| `GET /api/periods?from=YYYY-MM&to=YYYY-MM` | Períodos con estado y totales por moneda. Pasa a HU-36 (D-29). |
 
 ---
 
