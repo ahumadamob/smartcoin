@@ -3,7 +3,7 @@ import { API_URL, startPeriod, startSession } from './support';
 
 /**
  * Épica 3 · Conceptos y presupuesto del mes. HU-10 (crear un Concepto recurrente), HU-11 (en cuotas), HU-13 (editar
- * un Concepto) y HU-14 (listar Conceptos). Cada corrida usa un usuario propio.
+ * un Concepto), HU-14 (listar Conceptos) y HU-15 (ver el presupuesto de un mes). Cada corrida usa un usuario propio.
  */
 
 const MONTHS = [
@@ -767,5 +767,269 @@ test.describe('HU-14 · listar Conceptos', () => {
     await expect(page.getByRole('alert')).toHaveText('La categoría no existe.');
     await expect(table()).toHaveCount(0);
     await page.unroute(/\/api\/budget-items(\?.*)?$/);
+  });
+});
+
+test.describe('HU-15 · ver el presupuesto de un mes', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+
+  // Los Conceptos se cargan por la API: sus formularios ya los cubren HU-10 y HU-11. Todos empiezan este mes.
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const create = async (path: string, data: object) => {
+      const response = await api.post(path, { data });
+      expect(response.status(), `alta en ${path}: ${JSON.stringify(data)}`).toBe(201);
+      return (await response.json()).id as number;
+    };
+    const account = (name: string, currency: string) =>
+      create('/api/accounts', { name, type: 'BANK', currency, openingDate: `${startPeriod()}-01`, initialBalance: 0 });
+    const pesos = await account('Banco Nación', 'ARS');
+    const dollars = await account('Caja en dólares', 'USD');
+    const home = await create('/api/categories', { name: 'Hogar' });
+    const item = {
+      periodicity: 'MONTHLY',
+      dueMonthOffset: 0,
+      startPeriod: periodValue(month(0)),
+      estimationRule: 'LAST_VALUE',
+    };
+    // Un ingreso mensual.
+    await create('/api/budget-items', {
+      ...item, name: 'Sueldo', kind: 'INCOME', defaultAccountId: pesos, dueDay: 5, currentAmount: 1200000,
+    });
+    // Un gasto con desfase: vence el último día del mes anterior a su período.
+    await create('/api/budget-items', {
+      ...item, name: 'Alquiler', kind: 'EXPENSE', defaultAccountId: pesos, categoryId: home, dueDay: 31,
+      dueMonthOffset: -1, currentAmount: 450000,
+    });
+    // Un gasto bimestral.
+    await create('/api/budget-items', {
+      ...item, name: 'Seguro', kind: 'EXPENSE', defaultAccountId: pesos, periodicity: 'BIMONTHLY', dueDay: 15,
+      currentAmount: 20000.5,
+    });
+    // La Heladera: 12 cuotas, primera 4.
+    await create('/api/budget-items', {
+      ...item, name: 'Heladera', kind: 'EXPENSE', defaultAccountId: pesos, categoryId: home, dueDay: 10,
+      currentAmount: 85000, installmentsTotal: 12, firstInstallmentNumber: 4,
+    });
+    // Un Concepto en dólares.
+    await create('/api/budget-items', {
+      ...item, name: 'Alquiler cobrado', kind: 'INCOME', defaultAccountId: dollars, dueDay: 28, currentAmount: 1000,
+    });
+    await page.goto('/presupuesto');
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const heading = (offset: number) =>
+    page.getByRole('heading', { level: 1, name: `Presupuesto de ${periodText(month(offset))}`, exact: true });
+  const section = (name: string) => page.getByRole('region', { name, exact: true });
+  const names = (name: string) => section(name).getByTestId('name');
+  const row = (sectionName: string, entry: string) =>
+    section(sectionName).locator('tbody tr').filter({ has: page.getByRole('rowheader', { name: entry, exact: true }) });
+  const totals = (name: string) => section(name).getByTestId('total');
+  const results = () => section('Resultado').getByTestId('result');
+  const cells = (locator: ReturnType<typeof row>) => locator.locator('th, td');
+  /** El último día del mes corrido `offset` meses, como `dd/MM/yyyy`. */
+  const lastDay = (offset: number) => {
+    const date = month(offset + 1);
+    date.setDate(0);
+    return dateText(date, date.getDate());
+  };
+
+  test('abre en el mes actual, con las partidas en orden de vencimiento y sus datos', async () => {
+    await expect(heading(0)).toBeVisible();
+    await expect(page).toHaveURL(/\/presupuesto$/);
+    await expect(page.getByTestId('current')).toHaveText('Mes actual');
+    await expect(page.getByTestId('closed')).toHaveCount(0);
+
+    await expect(names('Ingresos')).toHaveText(['Sueldo', 'Alquiler cobrado']);
+    // El Alquiler, con desfase, vence el mes anterior: va primero.
+    await expect(names('Gastos')).toHaveText(['Alquiler', 'Heladera', 'Seguro']);
+
+    await expect(cells(row('Gastos', 'Heladera'))).toHaveText([
+      dateText(month(0), 10),
+      'Heladera',
+      'Hogar',
+      'Banco Nación',
+      'Cuota 4 de 12',
+      '$ 85.000,00',
+      '$ 0,00',
+      '$ 85.000,00',
+      'Estimada',
+    ]);
+    await expect(cells(row('Ingresos', 'Alquiler cobrado'))).toHaveText([
+      new RegExp(`^\\s*${dateText(month(0), 28)}`),
+      'Alquiler cobrado',
+      '—',
+      'Caja en dólares',
+      '—',
+      'US$ 1.000,00',
+      'US$ 0,00',
+      'US$ 1.000,00',
+      'Estimada',
+    ]);
+    await expect(row('Gastos', 'Seguro').getByTestId('budgeted')).toHaveText('$ 20.000,50');
+    await expect(row('Gastos', 'Seguro').getByTestId('installment')).toHaveText('—');
+  });
+
+  test('la partida con desfase vence el último día del mes anterior y está marcada como vencida', async () => {
+    const due = row('Gastos', 'Alquiler').getByTestId('due');
+
+    await expect(due).toContainText(lastDay(-1));
+    await expect(due.getByText('Vencida', { exact: true })).toBeVisible();
+    // Recién creadas: ninguna partida está editada.
+    await expect(page.getByText('Editada', { exact: true })).toHaveCount(0);
+  });
+
+  test('los totales y el resultado van separados por moneda', async () => {
+    await expect(totals('Ingresos')).toHaveCount(2);
+    await expect(cells(totals('Ingresos').nth(0))).toHaveText([
+      'Total en pesos', '$ 1.200.000,00', '$ 0,00', '$ 1.200.000,00', '',
+    ]);
+    await expect(cells(totals('Ingresos').nth(1))).toHaveText([
+      'Total en dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00', '',
+    ]);
+    // No hay gastos en dólares: Gastos solo tiene el total en pesos.
+    await expect(totals('Gastos')).toHaveCount(1);
+    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 555.000,50', '$ 0,00', '$ 555.000,50', '']);
+
+    await expect(results()).toHaveCount(2);
+    await expect(cells(results().nth(0))).toHaveText(['Pesos', '$ 1.200.000,00', '$ 555.000,50', '$ 644.999,50']);
+    await expect(cells(results().nth(1))).toHaveText(['Dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00']);
+  });
+
+  test('«Mes siguiente»: el bimestral no aparece, la Heladera es la cuota 5 y nada está vencido', async () => {
+    await page.getByRole('button', { name: 'Mes siguiente' }).click();
+
+    await expect(heading(1)).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/presupuesto/${periodValue(month(1))}$`));
+    await expect(page.getByTestId('current')).toHaveCount(0);
+    await expect(names('Gastos')).toHaveText(['Alquiler', 'Heladera']);
+    await expect(row('Gastos', 'Heladera').getByTestId('installment')).toHaveText('Cuota 5 de 12');
+    await expect(row('Gastos', 'Alquiler').getByTestId('due')).toHaveText(lastDay(0));
+    await expect(page.getByText('Vencida', { exact: true })).toHaveCount(0);
+    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 535.000,00', '$ 0,00', '$ 535.000,00', '']);
+  });
+
+  test('dos meses después el bimestral vuelve a aparecer', async () => {
+    await page.getByRole('button', { name: 'Mes siguiente' }).click();
+
+    await expect(heading(2)).toBeVisible();
+    await expect(names('Gastos')).toHaveText(['Alquiler', 'Heladera', 'Seguro']);
+    await expect(row('Gastos', 'Seguro').getByTestId('due')).toHaveText(dateText(month(2), 15));
+    await expect(row('Gastos', 'Heladera').getByTestId('installment')).toHaveText('Cuota 6 de 12');
+  });
+
+  test('el selector de mes lleva a la última cuota de la Heladera, y al mes siguiente ya no está', async () => {
+    await chooseOption(page, 'Mes', periodText(month(8)));
+
+    await expect(heading(8)).toBeVisible();
+    await expect(row('Gastos', 'Heladera').getByTestId('installment')).toHaveText('Cuota 12 de 12');
+
+    await page.getByRole('button', { name: 'Mes siguiente' }).click();
+
+    await expect(heading(9)).toBeVisible();
+    await expect(names('Gastos')).toHaveText(['Alquiler']);
+    await expect(names('Ingresos')).toHaveText(['Sueldo', 'Alquiler cobrado']);
+  });
+
+  test('«Hoy» vuelve al mes actual y «Mes anterior» retrocede hasta el período inicial, que está vacío', async () => {
+    await page.getByRole('link', { name: 'Hoy' }).click();
+    await expect(heading(0)).toBeVisible();
+    await expect(page).toHaveURL(/\/presupuesto$/);
+
+    await page.getByRole('button', { name: 'Mes anterior' }).click();
+    await expect(heading(-1)).toBeVisible();
+    await page.getByRole('button', { name: 'Mes anterior' }).click();
+    await expect(heading(-2)).toBeVisible();
+
+    // El período inicial del usuario de prueba: no hay nada antes y los Conceptos empiezan después.
+    await expect(page.getByRole('button', { name: 'Mes anterior' })).toBeDisabled();
+    await expect(page.getByTestId('empty-month')).toContainText('Este mes no tiene partidas.');
+    await expect(section('Ingresos')).toContainText('No hay ingresos en este mes.');
+    await expect(section('Gastos')).toContainText('No hay gastos en este mes.');
+    await expect(section('Resultado')).toHaveCount(0);
+  });
+
+  test('en el horizonte están las partidas generadas y no se puede seguir', async () => {
+    await page.goto(`/presupuesto/${periodValue(month(24))}`);
+
+    await expect(heading(24)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled();
+    await expect(names('Ingresos')).toHaveText(['Sueldo', 'Alquiler cobrado']);
+    // 24 meses después le toca al bimestral.
+    await expect(names('Gastos')).toHaveText(['Alquiler', 'Seguro']);
+  });
+
+  test('se recorre con el teclado: el botón conserva el foco al cambiar de mes', async () => {
+    await page.goto(`/presupuesto/${periodValue(month(1))}`);
+    await expect(heading(1)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Mes siguiente' }).focus();
+    await page.keyboard.press('Enter');
+
+    await expect(heading(2)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mes siguiente' })).toBeFocused();
+  });
+
+  test('un período fuera de rango muestra el mensaje y ofrece ir al mes actual', async () => {
+    for (const offset of [25, -3]) {
+      await page.goto(`/presupuesto/${periodValue(month(offset))}`);
+
+      await expect(page.getByRole('alert')).toContainText('Ese mes no existe en tu presupuesto');
+      await expect(page.getByRole('region', { name: 'Ingresos' })).toHaveCount(0);
+      await expect(page.getByRole('navigation', { name: 'Meses' })).toHaveCount(0);
+    }
+
+    await page.getByRole('link', { name: 'Ir al mes actual' }).click();
+
+    await expect(heading(0)).toBeVisible();
+    await expect(names('Gastos')).toHaveText(['Alquiler', 'Heladera', 'Seguro']);
+  });
+
+  test('por la API: formato inválido es 400, fuera de rango es 404 y otro usuario no ve estas partidas', async ({
+    playwright,
+  }) => {
+    const invalid = await api.get('/api/periods/2026-13');
+    expect(invalid.status()).toBe(400);
+    expect((await invalid.json()).code).toBe('VALIDATION_ERROR');
+
+    const outside = await api.get(`/api/periods/${periodValue(month(25))}`);
+    expect(outside.status()).toBe(404);
+    expect((await outside.json()).code).toBe('NOT_FOUND');
+
+    const view = await (await api.get('/api/periods/current')).json();
+    expect(view).toMatchObject({
+      period: periodValue(month(0)),
+      status: 'OPEN',
+      startPeriod: startPeriod(),
+      currentPeriod: periodValue(month(0)),
+      horizon: periodValue(month(24)),
+    });
+
+    // Otro usuario recién creado tiene los mismos meses, vacíos.
+    const otherPage = await page.context().browser()!.newPage();
+    const other = await startSession(otherPage, playwright);
+    await otherPage.close();
+    const otherApi = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${other.token}` },
+    });
+    const otherView = await (await otherApi.get(`/api/periods/${periodValue(month(0))}`)).json();
+    expect(otherView.incomes).toEqual([]);
+    expect(otherView.expenses).toEqual([]);
+    expect(otherView.totals).toEqual([]);
+    await otherApi.dispose();
   });
 });

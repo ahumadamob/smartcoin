@@ -1,12 +1,26 @@
 import { expect, test } from '@playwright/test';
 
 // Estas pruebas solo recorren el menú: alcanza con una sesión guardada que el guard acepte. Lo único que piden el
-// layout (el usuario actual, para el menú de usuario) y las pantallas de cuentas, categorías y Conceptos (sus listas) se responde acá, porque el
-// token es falso. Cada pantalla que llame a la API desde su historia suma su respuesta simulada.
+// layout (el usuario actual, para el menú de usuario) y las pantallas de cuentas, categorías y Conceptos (sus listas)
+// y del presupuesto (el mes actual) se responde acá, porque el token es falso. Cada pantalla que llame a la API desde su historia suma su respuesta simulada.
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/accounts', (route) => route.fulfill({ json: { accounts: [], subtotals: [] } }));
   await page.route('**/api/categories', (route) => route.fulfill({ json: [] }));
   await page.route(/\/api\/budget-items(\?.*)?$/, (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/periods/current', (route) =>
+    route.fulfill({
+      json: {
+        period: '2026-10',
+        status: 'OPEN',
+        startPeriod: '2026-08',
+        currentPeriod: '2026-10',
+        horizon: '2028-10',
+        incomes: [],
+        expenses: [],
+        totals: [],
+      },
+    }),
+  );
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({
       json: {
@@ -45,7 +59,7 @@ test('el menú navega entre las pantallas', async ({ page }) => {
     ['Flujo de caja', 'Flujo de caja', /\/flujo-de-caja$/],
     ['Proyección', 'Proyección', /\/proyeccion$/],
     ['Varios meses', 'Varios meses', /\/planificacion$/],
-    ['Presupuesto', 'Presupuesto del mes', /\/presupuesto$/],
+    ['Presupuesto', 'Presupuesto de octubre 2026', /\/presupuesto$/],
   ];
   for (const [link, heading, url] of screens) {
     await menu.getByRole('link', { name: link }).click();
