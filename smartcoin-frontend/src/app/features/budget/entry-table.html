@@ -21,7 +21,7 @@
         <tbody>
           @for (entry of entries(); track entry.id) {
             <tr [class.overdue]="entry.overdue">
-              <td data-testid="due">
+              <td class="nowrap" data-testid="due">
                 {{ entry.dueDate | date: dateFormat }}
                 @if (entry.overdue) {
                   <span class="mark mark-overdue">Vencida</span>
@@ -30,7 +30,7 @@
               <th scope="row" data-testid="name">{{ entry.name }}</th>
               <td>{{ entry.categoryName ?? '—' }}</td>
               <td>{{ entry.accountName }}</td>
-              <td data-testid="installment">
+              <td class="nowrap" data-testid="installment">
                 @if (entry.installmentNumber && entry.installmentsTotal) {
                   Cuota {{ entry.installmentNumber }} de {{ entry.installmentsTotal }}
                 } @else {
@@ -45,7 +45,7 @@
               </td>
               <td class="number">{{ entry.actualAmount | money: entry.currency }}</td>
               <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
-              <td data-testid="status">{{ statusLabels[entry.status] }}</td>
+              <td class="nowrap" data-testid="status">{{ statusLabels[entry.status] }}</td>
             </tr>
           }
         </tbody>

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard, mandatoryPasswordChange } from './core/auth/auth.guard';
+import { budgetMonthMatcher } from './features/budget/budget-month.matcher';
 
 const changePassword = () =>
   import('./features/auth/change-password/change-password').then((m) => m.ChangePassword);
@@ -38,13 +39,9 @@ export const routes: Routes = [
         data: { mandatory: false },
       },
       { path: '', pathMatch: 'full', redirectTo: 'presupuesto' },
+      // `/presupuesto` (el mes actual) y `/presupuesto/:period`: una sola ruta, para no recrear la pantalla.
       {
-        path: 'presupuesto',
-        loadComponent: budgetMonth,
-        title: 'Presupuesto',
-      },
-      {
-        path: 'presupuesto/:period',
+        matcher: budgetMonthMatcher,
         loadComponent: budgetMonth,
         title: 'Presupuesto',
       },

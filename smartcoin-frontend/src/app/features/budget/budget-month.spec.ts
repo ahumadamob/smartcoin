@@ -6,6 +6,7 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { provideLocale } from '../../core/locale';
 import { BudgetMonth } from './budget-month';
+import { budgetMonthMatcher } from './budget-month.matcher';
 
 const entry = (overrides: Partial<PeriodEntry>): PeriodEntry => ({
   id: 1,
@@ -152,10 +153,7 @@ describe('BudgetMonth', () => {
     };
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([
-          { path: 'presupuesto', component: BudgetMonth },
-          { path: 'presupuesto/:period', component: BudgetMonth },
-        ]),
+        provideRouter([{ matcher: budgetMonthMatcher, component: BudgetMonth }]),
         provideLocale(),
         { provide: PerodosService, useValue: api },
       ],
@@ -260,6 +258,31 @@ describe('BudgetMonth', () => {
       expect(url()).toBe('/presupuesto');
       expect(api.getCurrentPeriod).toHaveBeenCalledTimes(1);
       expect(title()).toBe('Presupuesto de octubre 2026');
+    });
+
+    it('de /presupuesto a un mes y de vuelta con «Hoy» no recrea la pantalla: el foco del teclado se conserva', async () => {
+      await open('/presupuesto');
+      const instance = harness.routeDebugElement!.componentInstance;
+      const next = button('Mes siguiente');
+      next.focus();
+
+      next.click();
+      await refresh();
+
+      expect(url()).toBe('/presupuesto/2026-11');
+      expect(harness.routeDebugElement!.componentInstance).toBe(instance);
+      expect(document.activeElement).toBe(button('Mes siguiente'));
+
+      Array.from(root().querySelectorAll('a')).find((a) => text(a) === 'Hoy')!.click();
+      await refresh();
+      expect(url()).toBe('/presupuesto');
+      expect(harness.routeDebugElement!.componentInstance).toBe(instance);
+    });
+
+    it.each(['/presupuesto/2026-11/extra', '/presupuestos', '/otra'])('%s no es la pantalla del mes', async (path) => {
+      await open('/presupuesto');
+
+      await expect(TestBed.inject(Router).navigateByUrl(path)).rejects.toThrow();
     });
 
     it('mientras carga el mes siguiente conserva la navegación y avisa', async () => {

@@ -973,14 +973,25 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
   });
 
   test('se recorre con el teclado: el botón conserva el foco al cambiar de mes', async () => {
-    await page.goto(`/presupuesto/${periodValue(month(1))}`);
-    await expect(heading(1)).toBeVisible();
+    // Desde /presupuesto, que es donde abre la aplicación: el primer cambio de mes pasa a /presupuesto/:period.
+    await page.goto('/presupuesto');
+    await expect(heading(0)).toBeVisible();
 
     await page.getByRole('button', { name: 'Mes siguiente' }).focus();
     await page.keyboard.press('Enter');
+    await expect(heading(1)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mes siguiente' })).toBeFocused();
 
+    await page.keyboard.press('Enter');
     await expect(heading(2)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mes siguiente' })).toBeFocused();
+
+    // «Hoy» es el siguiente en el orden de tabulación y vuelve al mes actual.
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Hoy' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(heading(0)).toBeVisible();
+    await expect(page).toHaveURL(/\/presupuesto$/);
   });
 
   test('un período fuera de rango muestra el mensaje y ofrece ir al mes actual', async () => {
