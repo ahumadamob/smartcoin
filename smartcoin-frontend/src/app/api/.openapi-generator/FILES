@@ -6,6 +6,7 @@ api/autenticacin.service.ts
 api/categoras.service.ts
 api/conceptos.service.ts
 api/cuentas.service.ts
+api/perodos.service.ts
 configuration.ts
 encoder.ts
 index.ts
@@ -30,6 +31,10 @@ model/fieldEditability.ts
 model/loginRequest.ts
 model/loginResponse.ts
 model/models.ts
+model/periodCurrencyTotals.ts
+model/periodEntry.ts
+model/periodSideTotals.ts
+model/periodView.ts
 model/problemDetail.ts
 model/resetPasswordRequest.ts
 model/userResponse.ts

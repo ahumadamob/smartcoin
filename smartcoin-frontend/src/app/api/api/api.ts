@@ -8,4 +8,6 @@ export * from './conceptos.service';
 import { ConceptosService } from './conceptos.service';
 export * from './cuentas.service';
 import { CuentasService } from './cuentas.service';
-export const APIS = [AdministracinDeUsuariosService, AutenticacinService, CategorasService, ConceptosService, CuentasService];
+export * from './perodos.service';
+import { PerodosService } from './perodos.service';
+export const APIS = [AdministracinDeUsuariosService, AutenticacinService, CategorasService, ConceptosService, CuentasService, PerodosService];
