@@ -162,7 +162,7 @@ test.describe('HU-16 · agregar una partida puntual', () => {
       '$ 0,00',
       '$ 85.000,50',
       'Estimada',
-      'Editar Eliminar',
+      'Registrar pago Editar Eliminar',
     ]);
     // Los totales los calcula el backend: gastos 85.000,50 y resultado 1.200.000,00 − 85.000,50.
     await expect(cells(totals('Gastos'))).toHaveText([
@@ -676,7 +676,8 @@ test.describe('HU-18 · eliminar la partida de un Concepto', () => {
     await expect(page.getByText(`Se eliminó «Luz» de ${periodText(month(1))}.`)).toBeVisible();
     await expect(row('Luz')).toHaveCount(0);
     await expect(row('Gas')).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Editar monto de Gas' })).toBeFocused();
+    // La primera acción de la fila es ahora «Registrar pago» (HU-19).
+    await expect(page.getByRole('button', { name: 'Registrar pago de Gas' })).toBeFocused();
     // Los totales los calcula el backend: Gas 30.000 + Heladera 90.000 = 120.000 presupuestado.
     await expect(section('Gastos').getByTestId('total').locator('td').nth(0)).toHaveText('$ 120.000,00');
   });
