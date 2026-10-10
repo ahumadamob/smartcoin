@@ -1,5 +1,5 @@
 import { PeriodEntry } from '../../api';
-import { canEditAmount, canEditEntry } from './entry-actions';
+import { canDeleteEntry, canEditAmount, canEditEntry } from './entry-actions';
 
 const entry = (overrides: Partial<PeriodEntry>): PeriodEntry =>
   ({ id: 1, budgetItemId: null, status: 'ESTIMATED', ...overrides }) as PeriodEntry;
@@ -18,6 +18,14 @@ describe('acciones de una partida', () => {
         const e = entry({ budgetItemId, status });
         expect(canEditEntry(e) && canEditAmount(e)).toBe(false);
       }
+    }
+  });
+
+  it('«Eliminar» es de las pendientes, con o sin Concepto: Estimadas y Parciales, no Consolidadas (HU-18)', () => {
+    for (const budgetItemId of [null, 31]) {
+      expect(canDeleteEntry(entry({ budgetItemId, status: 'ESTIMATED' }))).toBe(true);
+      expect(canDeleteEntry(entry({ budgetItemId, status: 'PARTIAL' }))).toBe(true);
+      expect(canDeleteEntry(entry({ budgetItemId, status: 'CONSOLIDATED' }))).toBe(false);
     }
   });
 });

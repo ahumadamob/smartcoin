@@ -1,0 +1,79 @@
+<h2 mat-dialog-title>{{ title() }}</h2>
+
+<mat-dialog-content class="content">
+  @if (loading()) {
+    <p role="status">Cargando…</p>
+  } @else if (loadError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  } @else if (preview(); as current) {
+    @if (error(); as message) {
+      <p class="error" role="alert" data-testid="delete-error">{{ message }}</p>
+    }
+
+    @if (!current.recurring) {
+      <p data-testid="delete-summary">
+        Vas a eliminar <strong>«{{ entry.name }}»</strong> de {{ data.period | period }} por
+        <strong>{{ entry.budgetedAmount | money: entry.currency }}</strong
+        >. No se puede deshacer.
+      </p>
+      @if (originWarning(); as note) {
+        <p class="note" data-testid="origin-note">{{ note }}</p>
+      }
+      @if (current.removal; as removal) {
+        @if (removal.blockers.length > 0) {
+          <app-entry-deletion-blockers [blockers]="removal.blockers" />
+        }
+      }
+    } @else {
+      <p id="scope-label" class="lead">
+        <strong>«{{ entry.name }}»</strong> viene de un Concepto. Elegí qué querés eliminar:
+      </p>
+      <mat-radio-group class="options" aria-labelledby="scope-label" [formControl]="scope">
+        <div class="option">
+          <mat-radio-button value="ONLY_THIS" data-testid="scope-only-this" aria-describedby="only-this-text"
+            >Solo este mes</mat-radio-button
+          >
+          <p id="only-this-text" class="option-text" data-testid="only-this-text">{{ onlyThisDescription() }}</p>
+          @if (current.onlyThis; as only) {
+            @if (only.blockers.length > 0) {
+              <app-entry-deletion-blockers [blockers]="only.blockers" />
+            }
+          }
+        </div>
+        <div class="option">
+          <mat-radio-button
+            value="THIS_AND_FUTURE"
+            data-testid="scope-this-and-future"
+            aria-describedby="this-and-future-text"
+            >Este mes y los siguientes</mat-radio-button
+          >
+          <p id="this-and-future-text" class="option-text" data-testid="this-and-future-text">
+            {{ thisAndFutureDescription() }}
+          </p>
+          @if (current.thisAndFuture; as future) {
+            @if (future.blockers.length > 0) {
+              <app-entry-deletion-blockers [blockers]="future.blockers" />
+            }
+          }
+        </div>
+      </mat-radio-group>
+      @if (plan() === null) {
+        <p class="note" role="status" data-testid="choose-hint">Elegí una opción para poder eliminar.</p>
+      }
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" data-testid="cancel-delete" (click)="cancel()">Cancelar</button>
+  <button
+    mat-flat-button
+    type="button"
+    class="confirm"
+    data-testid="confirm-delete"
+    [disabled]="!canConfirm()"
+    (click)="submit()"
+  >
+    {{ confirmText() }}
+  </button>
+</mat-dialog-actions>

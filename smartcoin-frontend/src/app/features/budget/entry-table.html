@@ -1,5 +1,5 @@
 <section class="section" [attr.aria-label]="heading()">
-  <h2 class="heading">{{ heading() }}</h2>
+  <h2 class="heading" tabindex="-1" data-testid="section-heading">{{ heading() }}</h2>
   @if (entries().length === 0) {
     <p class="empty" role="status">{{ emptyText() }}</p>
   } @else {
@@ -71,6 +71,17 @@
                       (click)="editAmount.emit(entry)"
                     >
                       Editar monto
+                    </button>
+                  }
+                  @if (canDelete(entry)) {
+                    <button
+                      mat-button
+                      type="button"
+                      data-testid="delete-entry"
+                      [attr.aria-label]="'Eliminar ' + entry.name"
+                      (click)="remove.emit(entry)"
+                    >
+                      Eliminar
                     </button>
                   }
                 </td>

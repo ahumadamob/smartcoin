@@ -32,6 +32,7 @@ describe('messageFor', () => {
     ['FIELD_NOT_EDITABLE', 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.'],
     ['PERIOD_CLOSED', 'Ese mes ya está cerrado y no admite cambios.'],
     ['ENTRY_NOT_PENDING', 'La partida ya está consolidada: no se puede editar.'],
+    ['ENTRY_HAS_MOVEMENTS', 'La partida tiene movimientos: no se puede eliminar.'],
   ])('traduce %s', (code, expected) => {
     expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);
   });

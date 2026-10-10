@@ -22,6 +22,7 @@ import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
+import { EntryDeleteDialog, EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialog, EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { EntryTable } from './entry-table';
 import { isPeriod, nextPeriod, PeriodRange, periodsInRange, previousPeriod } from './period-nav';
@@ -34,13 +35,24 @@ interface ViewError {
 }
 
 /**
+ * A dónde va el foco cuando la fila que lo tenía ya no existe (HU-18): la fila que ocupa su lugar, si no la anterior
+ * y, si la sección quedó vacía, su encabezado.
+ */
+interface RemovalFocus {
+  /** Ids de las partidas que quedan en la sección, de la más cercana a la más lejana. */
+  candidates: number[];
+  /** `aria-label` de la sección, que es su encabezado. */
+  heading: string;
+}
+
+/**
  * Presupuesto del mes (HU-15), en `/presupuesto` (el período actual, que decide el backend) y `/presupuesto/:period`.
  * Solo muestra: las partidas, su orden, sus valores derivados y los totales vienen calculados (RN-44).
  *
  * Dónde van las acciones: las del período (agregar una partida, HU-16; cerrar el mes, HU-30), en la cabecera, junto
  * al título; las de cada partida, en la última columna de `EntryTable`. Las dos dependen de `readonly`: un período
- * cerrado se ve igual pero sin acciones. Después de guardar, la vista se vuelve a pedir al backend: acá no se
- * recalcula nada.
+ * cerrado se ve igual pero sin acciones. Después de guardar o eliminar, la vista se vuelve a pedir al backend: acá no
+ * se recalcula nada.
  */
 @Component({
   selector: 'app-budget-month',
@@ -149,6 +161,35 @@ export class BudgetMonth implements OnInit {
     this.openEntryForm({ period, suggestedDueDate: entry.dueDate, entry, amountOnly: true });
   }
 
+  /** «Eliminar» una partida: el diálogo explica qué va a pasar y, al confirmar, se vuelve a pedir el mes (HU-18). */
+  protected removeEntry(entry: PeriodEntry): void {
+    const period = this.period();
+    if (period === null || !isPeriod(period) || this.readonly()) {
+      return;
+    }
+    const focus = this.removalFocus(entry);
+    this.dialog
+      .open<EntryDeleteDialog, EntryDeleteDialogData, EntryDeleteDialogResult>(EntryDeleteDialog, {
+        data: { entry, period },
+        width: '560px',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result === undefined) {
+          return;
+        }
+        if ('stale' in result) {
+          // El período se cerró o la partida ya no existe: lo que se ve ya no es lo que hay.
+          this.reload(null);
+          return;
+        }
+        this.snackBar.open(result.message, undefined, { duration: 6000 });
+        this.reload(null, focus);
+      });
+  }
+
   protected go(period: string | null): void {
     if (period !== null) {
       void this.router.navigate(['/presupuesto', period]);
@@ -186,7 +227,7 @@ export class BudgetMonth implements OnInit {
    * Vuelve a pedir el mes que se está viendo, sin vaciar la pantalla: las tablas siguen montadas y el foco no se
    * pierde. Si la partida guardada cambió de lugar, el navegador suelta el foco al moverla: se le devuelve.
    */
-  private reload(focusEntryId: number | null): void {
+  private reload(focusEntryId: number | null, afterRemoval: RemovalFocus | null = null): void {
     const period = this.period();
     if (period === null || !isPeriod(period)) {
       return;
@@ -202,6 +243,9 @@ export class BudgetMonth implements OnInit {
           }
           this.view.set(view);
           this.range.set({ startPeriod: view.startPeriod, currentPeriod: view.currentPeriod, horizon: view.horizon });
+          if (afterRemoval !== null) {
+            afterNextRender(() => this.focusAfterRemoval(afterRemoval), { injector: this.injector });
+          }
           if (focusEntryId !== null) {
             afterNextRender(
               () => {
@@ -219,6 +263,41 @@ export class BudgetMonth implements OnInit {
         },
         error: (e: unknown) => this.snackBar.open(messageFor(e), undefined, { duration: 6000 }),
       });
+  }
+
+  /** Las partidas que quedan en la sección de `entry`, de la que viene después a la más lejana (HU-18). */
+  private removalFocus(entry: PeriodEntry): RemovalFocus | null {
+    const view = this.view();
+    if (view === null) {
+      return null;
+    }
+    const isIncome = view.incomes.some((candidate) => candidate.id === entry.id);
+    const list = (isIncome ? view.incomes : view.expenses).map((candidate) => candidate.id);
+    const index = list.indexOf(entry.id);
+    const following = list.slice(index + 1);
+    const preceding = list.slice(0, Math.max(index, 0)).reverse();
+    return { candidates: [...following, ...preceding], heading: isIncome ? 'Ingresos' : 'Gastos' };
+  }
+
+  /**
+   * La fila eliminada llevaba el foco: si el navegador lo soltó, va a la acción de la fila que ocupa su lugar y,
+   * si no queda ninguna con acciones, al encabezado de la sección (que lo recibe por código).
+   */
+  private focusAfterRemoval(target: RemovalFocus): void {
+    const lost = !document.activeElement || document.activeElement === document.body;
+    if (!lost) {
+      return;
+    }
+    for (const id of target.candidates) {
+      const action = document.querySelector<HTMLElement>(
+        `[data-entry-id="${id}"] [data-testid="actions"] button`,
+      );
+      if (action) {
+        action.focus();
+        return;
+      }
+    }
+    document.querySelector<HTMLElement>(`section[aria-label="${target.heading}"] h2`)?.focus();
   }
 
   private neighbour(step: (period: string, range: PeriodRange) => string | null): string | null {

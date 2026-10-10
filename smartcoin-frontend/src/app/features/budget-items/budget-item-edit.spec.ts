@@ -92,7 +92,11 @@ describe('BudgetItemEdit', () => {
     expect(removal.querySelector('h2')?.textContent).toBe('Dar de baja este Concepto');
     expect(removal.textContent).toContain('eliminá su partida desde el mes elegido');
     expect(removal.textContent).toContain('Este mes y los siguientes');
-    expect(removal.textContent).toContain('todavía no está disponible');
+    expect(removal.textContent).not.toContain('todavía no está disponible');
+    expect(removal.textContent).toContain('el Concepto termina el mes anterior');
+    expect(removal.textContent).toContain('también se elimina');
+    expect(removal.textContent).toContain('consolidadas o con movimientos no se eliminan');
+    expect(removal.querySelector('a')?.getAttribute('href')).toBe('/presupuesto');
   });
 
   it('aclara que las consolidadas y las de períodos cerrados nunca cambian', async () => {
@@ -104,7 +108,8 @@ describe('BudgetItemEdit', () => {
   it('tiene un enlace para volver a Conceptos', async () => {
     await open('/conceptos/31/editar');
 
-    expect(root().querySelector('a')?.getAttribute('href')).toBe('/conceptos');
+    const back = Array.from(root().querySelectorAll('a')).find((a) => a.textContent?.includes('Volver a la lista'));
+    expect(back?.getAttribute('href')).toBe('/conceptos');
   });
 
   it('un Concepto que no existe o es de otro usuario muestra el error y no el formulario', async () => {

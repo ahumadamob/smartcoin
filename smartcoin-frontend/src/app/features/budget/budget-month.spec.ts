@@ -8,6 +8,7 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { provideLocale } from '../../core/locale';
 import { BudgetMonth } from './budget-month';
+import { EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { budgetMonthMatcher } from './budget-month.matcher';
 
@@ -149,7 +150,7 @@ describe('BudgetMonth', () => {
   let api: { getPeriod: ReturnType<typeof vi.fn>; getCurrentPeriod: ReturnType<typeof vi.fn> };
   /** El diálogo de HU-16 se simula: lo que importa acá es cuándo se abre, con qué, y qué hace la pantalla al cerrarse. */
   let dialog: { open: ReturnType<typeof vi.fn> };
-  let dialogResult: EntryFormDialogResult | undefined;
+  let dialogResult: EntryFormDialogResult | EntryDeleteDialogResult | undefined;
   let snackBar: { open: ReturnType<typeof vi.fn> };
 
   /** Por defecto la API responde el mes pedido, vacío; `/current` responde octubre. */
@@ -717,6 +718,163 @@ describe('BudgetMonth', () => {
       const target = section('Gastos').querySelector('[data-entry-id="20"] [data-testid="edit-entry"]');
       expect(rows('Gastos').map((row) => cells(row)[1])).toEqual(['Beta', 'Alfa']);
       expect(document.activeElement).toBe(target);
+    });
+  });
+  describe('eliminar (HU-18)', () => {
+    const oneOff = (overrides: Partial<PeriodEntry> = {}) =>
+      entry({
+        id: 20,
+        budgetItemId: null,
+        origin: 'ONE_OFF',
+        name: 'Service del auto',
+        dueDate: '2026-11-12',
+        budgetedAmount: 85000,
+        pendingAmount: 85000,
+        forecastAmount: 85000,
+        ...overrides,
+      });
+    const withEntries = (status: 'OPEN' | 'CLOSED', expenses: PeriodEntry[]): PeriodView => ({
+      ...NOVEMBER,
+      status,
+      incomes: [],
+      expenses,
+      totals: [{ currency: 'ARS', income: side(0, 0, 0, 0, 0), expense: side(expenses.length, 0, 0, 0, 0), result: 0 }],
+    });
+    const deleteButtons = () => Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="delete-entry"]'));
+    const rowOf = (id: number) => section('Gastos').querySelector(`[data-entry-id="${id}"]`)!;
+
+    it('«Eliminar» está en toda partida pendiente, con o sin Concepto, y no en las consolidadas', async () => {
+      await open('/presupuesto/2026-11', {
+        '2026-11': of(
+          withEntries('OPEN', [
+            entry({ id: 10, name: 'Luz' }),
+            entry({ id: 11, name: 'Agua', status: 'PARTIAL', actualAmount: 100 }),
+            oneOff({ id: 20 }),
+            oneOff({ id: 21, name: 'Saldo pendiente: Luz', origin: 'CARRIED_OVER' }),
+            entry({ id: 12, name: 'Gas', status: 'CONSOLIDATED' }),
+            oneOff({ id: 22, name: 'Ya consolidada', status: 'CONSOLIDATED' }),
+          ]),
+        ),
+      });
+
+      expect(deleteButtons().map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Eliminar Luz',
+        'Eliminar Agua',
+        'Eliminar Service del auto',
+        'Eliminar Saldo pendiente: Luz',
+      ]);
+      expect(rowOf(12).querySelector('[data-testid="delete-entry"]')).toBeNull();
+      expect(rowOf(22).querySelector('[data-testid="delete-entry"]')).toBeNull();
+    });
+
+    it('un período cerrado no ofrece «Eliminar»', async () => {
+      await open('/presupuesto/2026-08', {
+        '2026-08': of({ ...withEntries('CLOSED', [oneOff()]), period: '2026-08' }),
+      });
+
+      expect(deleteButtons()).toHaveLength(0);
+    });
+
+    it('«Eliminar» abre el diálogo con la partida y el mes que se ve', async () => {
+      const luz = entry({ id: 10, name: 'Luz' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [luz])) });
+
+      deleteButtons()[0].click();
+
+      expect(dialog.open).toHaveBeenCalledTimes(1);
+      const data = dialog.open.mock.calls[0][1].data as EntryDeleteDialogData;
+      expect(data).toEqual({ entry: luz, period: '2026-11' });
+    });
+
+    it('al eliminar avisa lo que se hizo y vuelve a pedir el mes: la fila ya no está y las tablas siguen montadas', async () => {
+      const alfa = oneOff({ id: 20, name: 'Alfa', dueDate: '2026-11-05' });
+      const beta = oneOff({ id: 21, name: 'Beta', dueDate: '2026-11-20' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [alfa, beta])) });
+      const getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [beta])));
+      api.getPeriod = getPeriod;
+      const tableBefore = section('Gastos').querySelector('table');
+      dialogResult = { deleted: true, message: 'Partida «Alfa» eliminada.' };
+
+      deleteButtons()[0].click();
+      await refresh();
+
+      expect(getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(snackBar.open).toHaveBeenCalledWith('Partida «Alfa» eliminada.', undefined, expect.anything());
+      expect(rows('Gastos').map((row) => cells(row)[1])).toEqual(['Beta']);
+      expect(section('Gastos').querySelector('table')).toBe(tableBefore);
+      expect(text(root())).not.toContain('Cargando el mes…');
+    });
+
+    it('el foco pasa a la acción de la fila que ocupa el lugar de la eliminada', async () => {
+      const alfa = oneOff({ id: 20, name: 'Alfa', dueDate: '2026-11-05' });
+      const beta = oneOff({ id: 21, name: 'Beta', dueDate: '2026-11-20' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [alfa, beta])) });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [beta])));
+      deleteButtons()[0].focus();
+      dialogResult = { deleted: true, message: 'ok' };
+
+      deleteButtons()[0].click();
+      await refresh();
+      await refresh();
+
+      const next = rowOf(21).querySelector('[data-testid="actions"] button');
+      expect(document.activeElement).toBe(next);
+    });
+
+    it('si eliminó la última fila de la lista, el foco pasa a la anterior', async () => {
+      const alfa = oneOff({ id: 20, name: 'Alfa', dueDate: '2026-11-05' });
+      const beta = oneOff({ id: 21, name: 'Beta', dueDate: '2026-11-20' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [alfa, beta])) });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [alfa])));
+      deleteButtons()[1].focus();
+      dialogResult = { deleted: true, message: 'ok' };
+
+      deleteButtons()[1].click();
+      await refresh();
+      await refresh();
+
+      expect(document.activeElement).toBe(rowOf(20).querySelector('[data-testid="actions"] button'));
+    });
+
+    it('si la sección queda sin partidas, el foco pasa a su encabezado', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [oneOff({ id: 20 })])) });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [])));
+      deleteButtons()[0].focus();
+      dialogResult = { deleted: true, message: 'ok' };
+
+      deleteButtons()[0].click();
+      await refresh();
+      await refresh();
+
+      expect(rows('Gastos')).toHaveLength(0);
+      expect(document.activeElement).toBe(section('Gastos').querySelector('h2'));
+      expect(text(section('Gastos'))).toContain('No hay gastos en este mes.');
+    });
+
+    it('si el diálogo avisa que la pantalla estaba desactualizada, vuelve a pedir el mes sin avisar nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [oneOff({ id: 20 })])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = { stale: true };
+
+      deleteButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('si se cancela el diálogo no se vuelve a pedir nada ni se mueve el foco', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [oneOff({ id: 20 })])) });
+      const calls = api.getPeriod.mock.calls.length;
+      deleteButtons()[0].focus();
+      dialogResult = undefined;
+
+      deleteButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls);
+      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(deleteButtons()[0]);
     });
   });
 });

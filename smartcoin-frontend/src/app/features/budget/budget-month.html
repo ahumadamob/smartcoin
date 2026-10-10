@@ -67,6 +67,7 @@
         [readonly]="readonly()"
         (edit)="editEntry($event)"
         (editAmount)="editAmount($event)"
+        (remove)="removeEntry($event)"
       />
       <app-entry-table
         heading="Gastos"
@@ -77,6 +78,7 @@
         [readonly]="readonly()"
         (edit)="editEntry($event)"
         (editAmount)="editAmount($event)"
+        (remove)="removeEntry($event)"
       />
       @if (current.totals.length > 0) {
         <section class="result" aria-label="Resultado">

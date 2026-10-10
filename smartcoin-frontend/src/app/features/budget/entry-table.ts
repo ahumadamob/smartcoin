@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { PeriodCurrencyTotals, PeriodEntry, PeriodSideTotals } from '../../api';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
-import { canEditAmount, canEditEntry } from './entry-actions';
+import { canDeleteEntry, canEditAmount, canEditEntry } from './entry-actions';
 
 /** Texto en pantalla del estado de una partida (docs/glosario.md). */
 export const ENTRY_STATUS_LABELS: Record<PeriodEntry.StatusEnum, string> = {
@@ -23,9 +23,10 @@ interface FooterRow {
  * al pie un total por cada moneda que tiene partidas en la sección. No calcula ni ordena nada.
  *
  * Las acciones sobre una partida van en una última columna «Acciones», que se agrega solo si `readonly` es falso (un
- * período cerrado no tiene acciones) y alguna partida de la sección tiene una: no se dibuja una columna vacía. Hoy la
- * única es «Editar», en las partidas sin Concepto (HU-16); eliminar, registrar un movimiento y consolidar llegan con
- * sus historias. La tabla no edita: emite `edit` y quien la usa abre el diálogo.
+ * período cerrado no tiene acciones) y alguna partida de la sección tiene una: no se dibuja una columna vacía. Hoy son
+ * «Editar» (partidas sin Concepto, HU-16), «Editar monto» (recurrentes, HU-17) y «Eliminar» (HU-18); registrar un
+ * movimiento y consolidar llegan con sus historias. La tabla no cambia nada: emite el pedido y quien la usa abre el
+ * diálogo.
  */
 @Component({
   selector: 'app-entry-table',
@@ -49,14 +50,19 @@ export class EntryTable {
   readonly edit = output<PeriodEntry>();
   /** El usuario pidió editar solo el monto de esta partida recurrente (HU-17). */
   readonly editAmount = output<PeriodEntry>();
+  /** El usuario pidió eliminar esta partida (HU-18). */
+  readonly remove = output<PeriodEntry>();
 
   protected readonly dateFormat = DATE_FORMAT;
   protected readonly statusLabels = ENTRY_STATUS_LABELS;
   protected readonly canEdit = canEditEntry;
   protected readonly canEditAmount = canEditAmount;
+  protected readonly canDelete = canDeleteEntry;
 
   /** La columna «Acciones» solo existe si alguna partida de la sección tiene una acción (y el período no está cerrado). */
-  protected readonly showActions = computed(() => !this.readonly() && this.entries().some((entry) => canEditEntry(entry) || canEditAmount(entry)));
+  protected readonly showActions = computed(
+    () => !this.readonly() && this.entries().some((entry) => canEditEntry(entry) || canEditAmount(entry) || canDeleteEntry(entry)),
+  );
 
   /** Solo las monedas con partidas en esta sección (D-29). */
   protected readonly footer = computed<FooterRow[]>(() =>

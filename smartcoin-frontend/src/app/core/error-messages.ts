@@ -17,6 +17,7 @@ const MESSAGES: Record<string, string> = {
   FIELD_NOT_EDITABLE: 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.',
   PERIOD_CLOSED: 'Ese mes ya está cerrado y no admite cambios.',
   ENTRY_NOT_PENDING: 'La partida ya está consolidada: no se puede editar.',
+  ENTRY_HAS_MOVEMENTS: 'La partida tiene movimientos: no se puede eliminar.',
 };
 
 const VALIDATION_ERROR = 'VALIDATION_ERROR';

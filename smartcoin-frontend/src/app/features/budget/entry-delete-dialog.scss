@@ -1,0 +1,49 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+}
+
+.lead,
+.note,
+.option-text,
+.error {
+  margin: 0;
+}
+
+.note {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.error {
+  color: var(--mat-sys-error);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.option {
+  padding: 8px 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+}
+
+.option-text {
+  // Alineado con el texto del botón de opción.
+  padding-left: 40px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.confirm {
+  --mat-button-filled-container-color: var(--mat-sys-error);
+  --mat-button-filled-label-text-color: var(--mat-sys-on-error);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

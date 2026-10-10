@@ -17,3 +17,12 @@ export function canEditEntry(entry: PeriodEntry): boolean {
 export function canEditAmount(entry: PeriodEntry): boolean {
   return entry.budgetItemId !== null && entry.status !== 'CONSOLIDATED';
 }
+
+/**
+ * Si una partida ofrece «Eliminar» (HU-18, RN-30, RN-31): las pendientes, Estimadas o Parciales, con o sin Concepto.
+ * Las Parciales tienen movimientos y el backend las rechaza (RN-32); el diálogo lo explica con la vista previa. Es
+ * solo lo que la pantalla ofrece: quien decide es el backend, que además mira el período (`readonly`, RN-09).
+ */
+export function canDeleteEntry(entry: PeriodEntry): boolean {
+  return entry.status !== 'CONSOLIDATED';
+}
