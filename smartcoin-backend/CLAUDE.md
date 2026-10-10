@@ -117,6 +117,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | `EstimationCalculator` | RN-26: base, estimación y destino |
 | `EntryAmounts` | RN-16, RN-17: real, pendiente, estimado y estado mostrado de una partida |
 | `OverdueRule` | RN-20: partida vencida |
+| `EntryDueDateRange` | RN-19: rango del vencimiento de una partida sin Concepto |
 | `MonthTotals` | RN-44: totales por moneda de ingresos y de gastos, y resultado |
 | `MovementDateValidator` | RN-21: ventana, apertura, fecha futura |
 | `BalanceCalculator` | RN-35 |
@@ -135,6 +136,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
   - Prefijo `/api`, JSON en `camelCase`.
   - Fechas ISO (`2026-11-25`), períodos `YYYY-MM`, montos como número con 2 decimales, enums con los valores del glosario.
   - Alta: 201 con el recurso. Eliminación: 204. Listas sin paginación (el volumen es chico).
+  - `PATCH`: solo cambia lo que se envía; un campo omitido o `null` significa «no cambia». Lo que se puede vaciar se vacía con un campo aparte (`clearCategory`), porque Jackson 3 no distingue un campo ausente de un `null` (D-30).
   - Las respuestas de partidas incluyen los valores derivados (real, pendiente, estimado, estado mostrado, total de cuotas) calculados en el backend.
   - Cada endpoint documentado con anotaciones de springdoc, en español.
 - **Dinero**: `BigDecimal` con escala 2. Comparar con `compareTo`, nunca con `equals`. Redondear solo donde lo indica una regla, con `RoundingMode.HALF_UP`.

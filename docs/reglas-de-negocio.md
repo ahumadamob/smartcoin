@@ -110,6 +110,8 @@ Aclaraciones (HU-13): «período abierto» es todo período no cerrado, incluido
 - En una partida sin Concepto se editan nombre, categoría, cuenta, vencimiento y presupuestado (con los límites de RN-19). No se marca como editada porque no se propaga.
 - Editar nunca cambia otras partidas ni el monto vigente del Concepto.
 
+Aclaraciones (HU-16, D-30): el tipo no se edita (409 `FIELD_NOT_EDITABLE`; enviar el mismo no es un cambio) ni el período. Los datos de una recurrente son los de su Concepto: hasta HU-17, cualquier cambio sobre ella es 409 `FIELD_NOT_EDITABLE`. Un campo omitido no cambia; la categoría se vacía aparte. Un pedido sin cambios, o con los mismos valores, no cambia nada. Un pedido rechazado no cambia nada.
+
 **RN-19. Partidas sin Concepto.**
 
 - Las **puntuales** las crea el usuario en un período abierto, con nombre, tipo, cuenta, vencimiento, presupuestado y categoría opcional.
@@ -117,6 +119,12 @@ Aclaraciones (HU-13): «período abierto» es todo período no cerrado, incluido
 - El vencimiento debe estar entre el primer día del mes anterior al período y el último día del período.
 - Si la partida tiene movimientos, su cuenta solo puede cambiarse por otra de la misma moneda.
 - Ninguna se copia a otros períodos.
+
+Aclaraciones (HU-16, D-30):
+
+- El rango del vencimiento no depende de «hoy» ni de la fecha de apertura de la cuenta (S-21, S-25): un vencimiento anterior a hoy es válido y la partida nace vencida (RN-20). Fuera de rango: 400 `VALIDATION_ERROR` en `dueDate`, que informa el rango. Al editar solo se controla si se envía el vencimiento.
+- Sin movimientos, la cuenta puede cambiar a una de otra moneda; con movimientos, 409 `CURRENCY_MISMATCH`.
+- El período de la ruta del alta que no existe para el usuario responde 404 (RN-06); si está cerrado, 409 `PERIOD_CLOSED`. Una cuenta o categoría que no existe o es de otro usuario, 400 en su campo (D-24).
 
 **RN-20. Partida vencida.** Una partida pendiente con vencimiento anterior a hoy está vencida. Es solo un indicador visual. «Pendiente» es el estado, no el monto: una partida pagada por completo pero sin consolidar sigue vencida hasta que se consolida (D-29). Una consolidada nunca está vencida.
 
