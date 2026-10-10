@@ -33,7 +33,7 @@ Vocabulario obligatorio del proyecto. En la interfaz y en la documentación se u
 | Desfase de mes | `dueMonthOffset` | 0 si vence en el mismo mes del período; −1 si vence el mes anterior (el sueldo de diciembre que se cobra en noviembre). |
 | Cuota x de n | `installmentNumber` · `installmentsTotal` | Número de cuota de la partida y total de cuotas del Concepto. |
 | Cuota actual | `currentInstallment` | En un Concepto en cuotas, la última cuota cuyo período es el actual o anterior. Se calcula con el calendario, no mira las partidas. |
-| Cuotas que quedan | `installmentsRemaining` | Cuotas del plan posteriores a la cuota actual: total menos cuota actual. |
+| Cuotas que quedan | `installmentsRemaining` | Cuotas del plan posteriores a la cuota actual y anteriores o iguales a la última que sigue en el plan: normalmente, total menos cuota actual; si el plan se recortó al eliminar (RN-31), hasta la última que quedó. |
 | Primera cuota | `firstInstallmentNumber` | Número de cuota que corresponde al período de inicio del Concepto. Permite cargar planes ya empezados. |
 | Partida editada | `manual` | Partida cuyo monto presupuestado cambió el usuario a mano. La consolidación no la pisa sin preguntar. |
 | Saldo inicial | `initialBalance` | Saldo de la cuenta al comienzo de su fecha de apertura. |

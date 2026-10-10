@@ -94,4 +94,36 @@ class BudgetItemStatusCalculatorTest {
 		assertThat(june).isEqualTo(new Result(BudgetItemStatus.ACTIVE, 12, 0));
 		assertThat(july.status()).isEqualTo(BudgetItemStatus.FINISHED);
 	}
+
+	@ParameterizedTest(name = "plan {0}/{1} {2} desde {3}, recortado a {4}, hoy {5} → {6} · cuota {7}, quedan {8}")
+	@CsvSource(nullValues = "-", value = {
+			// Heladera (12 cuotas, primera 4, inicio 2026-10, fin original 2027-06) recortada con «Este mes y los
+			// siguientes» desde 2027-01: el fin pasa a 2026-12 y quedan las cuotas 4, 5 y 6.
+			"12, 4, MONTHLY,   2026-10, 2026-12, 2026-10, ACTIVE,   4, 2",
+			"12, 4, MONTHLY,   2026-10, 2026-12, 2026-11, ACTIVE,   5, 1",
+			"12, 4, MONTHLY,   2026-10, 2026-12, 2026-12, ACTIVE,   6, 0",
+			"12, 4, MONTHLY,   2026-10, 2026-12, 2027-01, FINISHED, -, -",
+			// Recortado al mismo mes del inicio: queda la primera cuota y es la última.
+			"12, 4, MONTHLY,   2026-10, 2026-10, 2026-10, ACTIVE,   4, 0",
+			// Bimestral, inicio 2026-04: cuotas en abril (1), junio (2) y agosto (3). Se elimina desde agosto: fin 2026-07,
+			// un mes sin cuota. En julio sigue la de junio, la última.
+			"6,  1, BIMONTHLY, 2026-04, 2026-07, 2026-04, ACTIVE,   1, 1",
+			"6,  1, BIMONTHLY, 2026-04, 2026-07, 2026-07, ACTIVE,   2, 0",
+			"6,  1, BIMONTHLY, 2026-04, 2026-07, 2026-08, FINISHED, -, -",
+			// Trimestral con primera cuota 2, inicio 2026-01, recortado a 2026-09 (cuotas 2, 3 y 4).
+			"8,  2, QUARTERLY, 2026-01, 2026-09, 2026-04, ACTIVE,   3, 1",
+			// Sin recortar (el fin es el calculado) da lo mismo que total − actual.
+			"12, 4, MONTHLY,   2026-10, 2027-06, 2026-10, ACTIVE,   4, 8",
+	})
+	void remainingInstallmentsOfACutPlanStopAtItsLastInstallment(int total, int first, Periodicity periodicity,
+			String start, String end, String current, BudgetItemStatus expected, Integer installment,
+			Integer remaining) {
+		InstallmentPlan plan = new InstallmentPlan(total, first);
+
+		Result result = BudgetItemStatusCalculator.calculate(ym(start), ym(end), periodicity, plan, ym(current));
+
+		assertThat(result.status()).isEqualTo(expected);
+		assertThat(result.currentInstallment()).isEqualTo(installment);
+		assertThat(result.installmentsRemaining()).isEqualTo(remaining);
+	}
 }

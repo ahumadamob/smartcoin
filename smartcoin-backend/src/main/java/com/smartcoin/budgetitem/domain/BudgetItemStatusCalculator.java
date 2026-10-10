@@ -6,6 +6,10 @@ import java.time.temporal.ChronoUnit;
 /**
  * Estado de un Concepto y, si es en cuotas y está activo, su cuota actual y cuántas quedan (D-27, RN-14). Regla pura:
  * se calcula por calendario con el período actual, sin mirar las partidas.
+ *
+ * <p>Las cuotas que quedan llegan hasta la última que sigue en el plan: la del período de fin guardado. Si el plan
+ * se recortó al eliminar «Este mes y los siguientes» (RN-31, HU-18), el fin es anterior al calculado y las cuotas
+ * eliminadas ya no cuentan. El total no cambia: es el del plan original.
  */
 public final class BudgetItemStatusCalculator {
 
@@ -39,6 +43,19 @@ public final class BudgetItemStatusCalculator {
 		}
 		long steps = ChronoUnit.MONTHS.between(start, current) / periodicity.months();
 		int currentInstallment = (int) Math.min(plan.total(), plan.first() + steps);
-		return new Result(BudgetItemStatus.ACTIVE, currentInstallment, plan.total() - currentInstallment);
+		return new Result(BudgetItemStatus.ACTIVE, currentInstallment,
+				lastInstallment(start, end, periodicity, plan) - currentInstallment);
+	}
+
+	/**
+	 * Número de la última cuota que sigue en el plan. Sin recortar, el fin es {@code inicio + (n − f) × paso} y da el
+	 * total; recortado, da la cuota del último período que queda.
+	 */
+	private static int lastInstallment(YearMonth start, YearMonth end, Periodicity periodicity, InstallmentPlan plan) {
+		if (end == null) {
+			return plan.total();
+		}
+		long steps = ChronoUnit.MONTHS.between(start, end) / periodicity.months();
+		return (int) Math.min(plan.total(), plan.first() + steps);
 	}
 }
