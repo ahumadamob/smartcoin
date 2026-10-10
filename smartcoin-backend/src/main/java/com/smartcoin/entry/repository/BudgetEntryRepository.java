@@ -1,6 +1,7 @@
 package com.smartcoin.entry.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.smartcoin.entry.domain.BudgetEntry;
 
@@ -43,4 +44,18 @@ public interface BudgetEntryRepository extends JpaRepository<BudgetEntry, Long> 
 			where e.userId = :userId and e.period.id = :periodId""")
 	List<BudgetEntry> findByUserIdAndPeriodIdWithDetails(@Param("userId") Long userId,
 			@Param("periodId") Long periodId);
+
+	/**
+	 * HU-16 (RN-18): una partida del usuario con su período, cuenta, categoría, Concepto y categoría del Concepto en la
+	 * misma consulta, para armar la respuesta sin consultas por asociación. Vacía si no existe o es de otro usuario.
+	 */
+	@Query("""
+			select e from BudgetEntry e
+			join fetch e.period
+			join fetch e.account
+			left join fetch e.category
+			left join fetch e.budgetItem i
+			left join fetch i.category
+			where e.id = :id and e.userId = :userId""")
+	Optional<BudgetEntry> findByIdAndUserIdWithDetails(@Param("id") Long id, @Param("userId") Long userId);
 }

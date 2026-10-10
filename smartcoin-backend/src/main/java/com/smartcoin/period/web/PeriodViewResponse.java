@@ -128,7 +128,7 @@ public record PeriodViewResponse(
 					description = "Vencida: pendiente y con vencimiento anterior a hoy.")
 			boolean overdue) {
 
-		static PeriodEntry from(EntryRow row) {
+		public static PeriodEntry from(EntryRow row) {
 			return new PeriodEntry(row.id(), row.budgetItemId(), row.origin(), row.kind(), row.name(),
 					row.categoryId(), row.categoryName(), row.accountId(), row.accountName(), row.currency(),
 					row.dueDate(), row.installmentNumber(), row.installmentsTotal(), row.budgetedAmount(),

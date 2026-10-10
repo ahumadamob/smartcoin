@@ -110,7 +110,14 @@ public class PeriodViewService {
 				rows.stream().filter(r -> r.kind() == EntryKind.EXPENSE).toList(), totals);
 	}
 
-	private static EntryRow row(BudgetEntry entry, BigDecimal movementsTotal, LocalDate today) {
+	/**
+	 * La fila de una partida con sus valores derivados. La usa también el alta y la edición de partidas (HU-16), para
+	 * que respondan con la misma forma que la vista del mes. Lee asociaciones: va dentro de la transacción.
+	 *
+	 * @param movementsTotal suma de sus movimientos, o {@code null} si no tiene ninguno
+	 * @param today          hoy, del {@code Clock} (RN-02)
+	 */
+	public static EntryRow row(BudgetEntry entry, BigDecimal movementsTotal, LocalDate today) {
 		BudgetItem item = entry.getBudgetItem();
 		Category category = item == null ? entry.getCategory() : item.getCategory();
 		Account account = entry.getAccount();
