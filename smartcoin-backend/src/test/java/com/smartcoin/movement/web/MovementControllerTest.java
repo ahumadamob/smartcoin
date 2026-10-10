@@ -28,6 +28,7 @@ import com.smartcoin.entry.domain.EntryAmounts;
 import com.smartcoin.entry.domain.EntryOrigin;
 import com.smartcoin.entry.domain.StoredEntryStatus;
 import com.smartcoin.movement.service.MovementService;
+import com.smartcoin.movement.service.MovementService.MovementDates;
 import com.smartcoin.movement.service.MovementService.MovementRow;
 import com.smartcoin.movement.service.MovementService.NewMovement;
 import com.smartcoin.movement.service.MovementService.Registered;
@@ -304,6 +305,58 @@ class MovementControllerTest {
 	@Test
 	void listWithoutATokenIsUnauthorized() throws Exception {
 		mvc.perform(get("/api/entries/900/movements")).andExpect(status().isUnauthorized());
+		verifyNoInteractions(movements);
+	}
+
+	private ResultActions dates(String entryId, String query) throws Exception {
+		return mvc.perform(get("/api/entries/" + entryId + "/movement-dates" + query).header("Authorization", bearer()));
+	}
+
+	@Test
+	void datesRespondTheRangeOfTheEntryForTheUserOfTheToken() throws Exception {
+		when(movements.dates(USER_ID, 900L, null)).thenReturn(
+				new MovementDates(LocalDate.of(2026, 11, 21), LocalDate.of(2026, 11, 30), 10));
+
+		dates("900", "")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.earliestDate").value("2026-11-21"))
+				.andExpect(jsonPath("$.latestDate").value("2026-11-30"))
+				.andExpect(jsonPath("$.earlyDays").value(10));
+	}
+
+	@Test
+	void datesPassTheAccountChosen() throws Exception {
+		when(movements.dates(USER_ID, 900L, 45L)).thenReturn(
+				new MovementDates(LocalDate.of(2026, 11, 25), LocalDate.of(2026, 11, 30), 10));
+
+		dates("900", "?accountId=45")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.earliestDate").value("2026-11-25"));
+		verify(movements).dates(USER_ID, 900L, 45L);
+	}
+
+	@Test
+	void datesOfAnEntryOfAnotherUserAreNotFound() throws Exception {
+		when(movements.dates(USER_ID, 901L, null))
+				.thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "La partida no existe."));
+
+		dates("901", "").andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+	}
+
+	@Test
+	void datesWithAnUnknownAccountAreAFieldError() throws Exception {
+		when(movements.dates(USER_ID, 900L, 999L))
+				.thenThrow(BusinessException.invalidField("accountId", "La cuenta no existe."));
+
+		dates("900", "?accountId=999")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors[0].field").value("accountId"));
+	}
+
+	@Test
+	void datesWithoutTokenAreUnauthorized() throws Exception {
+		mvc.perform(get("/api/entries/900/movement-dates")).andExpect(status().isUnauthorized());
 		verifyNoInteractions(movements);
 	}
 }

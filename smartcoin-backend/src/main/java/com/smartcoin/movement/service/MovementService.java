@@ -63,6 +63,14 @@ public class MovementService {
 	public record Registered(MovementRow movement, EntryRow entry) {
 	}
 
+	/**
+	 * Entre qué fechas admite un movimiento una partida con una cuenta (RN-21): {@code earliestDate} es la más
+	 * temprana (ventana y apertura de la cuenta), {@code latestDate} es hoy. Si {@code earliestDate} es posterior a
+	 * {@code latestDate}, todavía no se admite ninguna. No mira el estado de la partida ni de los meses.
+	 */
+	public record MovementDates(LocalDate earliestDate, LocalDate latestDate, int earlyDays) {
+	}
+
 	private final BudgetEntryRepository entries;
 	private final MovementRepository movements;
 	private final AccountRepository accounts;
@@ -136,6 +144,22 @@ public class MovementService {
 				.map(MovementRow::of).toList();
 	}
 
+	/**
+	 * El rango de fechas que admite la partida con la cuenta {@code accountId}, o con la cuenta prevista de la partida
+	 * si no se indica (HU-20). Usa la misma regla pura que valida el registro. Una cuenta que no existe o es de otro
+	 * usuario es un error de campo, igual que al registrar (D-24).
+	 */
+	@Transactional(readOnly = true)
+	public MovementDates dates(long userId, long entryId, Long accountId) {
+		BudgetEntry entry = findEntry(userId, entryId);
+		Account account = accountId == null ? entry.getAccount()
+				: accounts.findByIdAndUserId(accountId, userId)
+						.orElseThrow(() -> BusinessException.invalidField("accountId", "La cuenta no existe."));
+		int earlyDays = properties.budget().earlyDays();
+		return new MovementDates(MovementDateValidator.earliestDate(entry.getPeriod().getPeriodMonth(),
+				account.getOpeningDate(), earlyDays), LocalDate.now(clock), earlyDays);
+	}
+
 	private BudgetEntry findEntry(long userId, long entryId) {
 		return entries.findByIdAndUserIdWithDetails(entryId, userId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "La partida no existe."));
@@ -171,7 +195,7 @@ public class MovementService {
 		return switch (outcome) {
 			case BEFORE_WINDOW -> "La fecha no puede ser anterior al " + DATE.format(windowStart) + ": una partida "
 					+ "del período " + entryPeriod + " admite movimientos desde " + earlyDays
-					+ " días antes de su inicio.";
+					+ " días antes de su inicio." + openingNote(account, entryPeriod, earlyDays);
 			case BEFORE_ACCOUNT_OPENING -> "La fecha no puede ser anterior a la apertura de la cuenta «"
 					+ account.getName() + "» (" + DATE.format(account.getOpeningDate()) + ").";
 			case FUTURE -> "La fecha no puede ser posterior a hoy (" + DATE.format(today) + ").";
@@ -181,6 +205,19 @@ public class MovementService {
 					+ "con fecha en ese mes.";
 			case VALID -> throw new IllegalStateException("La fecha es válida: no hay error que informar.");
 		};
+	}
+
+	/**
+	 * Si la cuenta se abrió después de que abre la ventana, la fecha más temprana es la apertura: se dice acá para que
+	 * corregir la fecha no lleve a un segundo error.
+	 */
+	private static String openingNote(Account account, YearMonth entryPeriod, int earlyDays) {
+		LocalDate earliest = MovementDateValidator.earliestDate(entryPeriod, account.getOpeningDate(), earlyDays);
+		if (earliest.equals(MovementDateValidator.windowStart(entryPeriod, earlyDays))) {
+			return "";
+		}
+		return " Con la cuenta «" + account.getName() + "», abierta el " + DATE.format(account.getOpeningDate())
+				+ ", la fecha más temprana es el " + DATE.format(earliest) + ".";
 	}
 
 	private MonthState monthState(long userId, BudgetPeriod entryPeriod, YearMonth month) {

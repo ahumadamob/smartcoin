@@ -22,10 +22,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/entries/{entryId}/movements")
+@RequestMapping("/api/entries/{entryId}")
 @Tag(name = "Movimientos", description = "Cobros y pagos reales de una partida (RN-21, RN-23).")
 @SecurityRequirement(name = "bearerAuth")
 public class MovementController {
@@ -40,7 +41,7 @@ public class MovementController {
 		this.currentUser = currentUser;
 	}
 
-	@PostMapping
+	@PostMapping("/movements")
 	@Operation(operationId = "registerMovement", summary = "Registrar un cobro o pago",
 			description = "Agrega un movimiento a una partida pendiente de un período abierto (RN-21). No "
 					+ "consolida ni cambia el presupuestado, aunque el real alcance o supere al presupuestado "
@@ -72,7 +73,7 @@ public class MovementController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(created);
 	}
 
-	@GetMapping
+	@GetMapping("/movements")
 	@Operation(operationId = "listMovements", summary = "Listar los movimientos de una partida",
 			description = "Los movimientos de la partida, por fecha y, a igual fecha, por orden de registro, cada "
 					+ "uno con su cuenta. Sin paginación. Se pueden ver también los de una partida consolidada o de "
@@ -84,5 +85,26 @@ public class MovementController {
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
 	public List<MovementResponse> list(@PathVariable long entryId) {
 		return movements.list(currentUser.id(), entryId).stream().map(MovementResponse::from).toList();
+	}
+
+	@GetMapping("/movement-dates")
+	@Operation(operationId = "getMovementDates", summary = "Fechas que admite un movimiento de la partida",
+			description = "La fecha más temprana y la más tardía con que se puede registrar un movimiento en la "
+					+ "partida (RN-21), y la ventana de anticipación en días. La más temprana es la más tardía "
+					+ "entre el inicio de la ventana (primer día del período menos la ventana) y la apertura de la "
+					+ "cuenta; la más tardía es hoy. Con `accountId` se considera esa cuenta; sin él, la cuenta "
+					+ "prevista de la partida. Si la más temprana es posterior a la más tardía, la partida todavía "
+					+ "no admite movimientos. Informa solo el rango: no mira el estado de la partida ni de los "
+					+ "meses, que decide el registro.")
+	@ApiResponse(responseCode = "200", description = "Rango de fechas.")
+	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: `accountId` no existe para el usuario.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "NOT_FOUND: la partida no existe o es de otro usuario.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	public MovementDatesResponse dates(@PathVariable long entryId,
+			@RequestParam(required = false) Long accountId) {
+		return MovementDatesResponse.from(movements.dates(currentUser.id(), entryId, accountId));
 	}
 }

@@ -152,4 +152,46 @@ class MovementDateValidatorTest {
 	void exposesTheWindowStart(YearMonth period, int earlyDays, LocalDate expected) {
 		assertThat(MovementDateValidator.windowStart(period, earlyDays)).isEqualTo(expected);
 	}
+
+	@ParameterizedTest(name = "período {0}, apertura {1}, ventana {2}: desde {3}")
+	@CsvSource({
+			// Sueldo de diciembre (RN-21, HU-20): la ventana abre el 21/11.
+			"2026-12, 2026-08-01, 10, 2026-11-21",
+			// La ventana cruza el año.
+			"2027-01, 2026-08-01, 10, 2026-12-22",
+			// Cuenta abierta después de que abre la ventana: manda la apertura.
+			"2026-12, 2026-11-25, 10, 2026-11-25",
+			// Apertura el mismo día que abre la ventana, y un día antes.
+			"2026-12, 2026-11-21, 10, 2026-11-21",
+			"2026-12, 2026-11-20, 10, 2026-11-21",
+			// Ventana distinta de 10.
+			"2026-12, 2026-08-01, 3, 2026-11-28",
+			"2026-12, 2026-08-01, 0, 2026-12-01",
+			"2026-12, 2026-08-01, 31, 2026-10-31",
+			// Apertura dentro del propio período y con ventana 0.
+			"2026-12, 2026-12-15, 0, 2026-12-15",
+	})
+	void theEarliestDateIsTheLaterOfTheWindowStartAndTheAccountOpening(YearMonth period, LocalDate opening,
+			int earlyDays, LocalDate expected) {
+		assertThat(MovementDateValidator.earliestDate(period, opening, earlyDays)).isEqualTo(expected);
+	}
+
+	/** El rango informado y el que valida son el mismo: lo anterior a la más temprana se rechaza, ella no. */
+	@ParameterizedTest(name = "período {0}, apertura {1}, ventana {2}")
+	@CsvSource({
+			"2026-12, 2026-08-01, 10",
+			"2027-01, 2026-08-01, 10",
+			"2026-12, 2026-11-25, 10",
+			"2026-12, 2026-08-01, 3",
+			"2026-12, 2026-12-15, 0",
+	})
+	void theEarliestDateIsExactlyTheFirstOneThatValidates(YearMonth period, LocalDate opening, int earlyDays) {
+		LocalDate earliest = MovementDateValidator.earliestDate(period, opening, earlyDays);
+		LocalDate today = earliest.plusMonths(2);
+
+		assertThat(MovementDateValidator.validate(earliest, period, opening, today, earlyDays, MonthState.OPEN))
+				.isEqualTo(Outcome.VALID);
+		assertThat(MovementDateValidator.validate(earliest.minusDays(1), period, opening, today, earlyDays,
+				MonthState.OPEN)).isIn(Outcome.BEFORE_WINDOW, Outcome.BEFORE_ACCOUNT_OPENING);
+	}
 }

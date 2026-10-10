@@ -485,6 +485,37 @@ class MovementServiceTest {
 		}
 
 		@Test
+		void theMessageNamesTheEarliestDateWhenTheReasonIsTheWindow() {
+			decemberIncome(serviceAt("2026-11-30T15:00:00Z", 10));
+
+			assertThatThrownBy(() -> register("2026-11-20", "100.00", 42))
+					.isInstanceOfSatisfying(BusinessException.class, e -> {
+						assertThat(e.code()).isEqualTo(ErrorCode.DATE_OUT_OF_RANGE);
+						assertThat(e.getMessage()).contains("21/11/2026").contains("10 días");
+					});
+		}
+
+		@Test
+		void theMessageNamesTheOpeningOfTheAccountWhenItIsLaterThanTheWindowStart() {
+			decemberIncome(serviceAt("2026-11-30T15:00:00Z", 10));
+			Account recent = account(45, "Cuenta nueva", Currency.ARS, "2026-11-25");
+			when(accounts.findByIdAndUserId(45L, USER_ID)).thenReturn(Optional.of(recent));
+
+			// Fuera de la ventana: el motivo es la ventana, pero la fecha más temprana con esa cuenta es el 25/11.
+			assertThatThrownBy(() -> register("2026-11-20", "100.00", 45))
+					.isInstanceOfSatisfying(BusinessException.class, e -> {
+						assertThat(e.code()).isEqualTo(ErrorCode.DATE_OUT_OF_RANGE);
+						assertThat(e.getMessage()).contains("21/11/2026").contains("Cuenta nueva")
+								.contains("25/11/2026");
+					});
+			// Dentro de la ventana pero antes de la apertura: el motivo es la apertura.
+			assertThatThrownBy(() -> register("2026-11-22", "100.00", 45))
+					.isInstanceOfSatisfying(BusinessException.class,
+							e -> assertThat(e.getMessage()).contains("apertura de la cuenta"));
+			assertThat(register("2026-11-25", "100.00", 45).movement().date()).isEqualTo(LocalDate.of(2026, 11, 25));
+		}
+
+		@Test
 		void theWindowIsTheConfiguredOne() {
 			decemberIncome(serviceAt("2026-11-30T15:00:00Z", 3));
 
@@ -503,6 +534,88 @@ class MovementServiceTest {
 					.isInstanceOfSatisfying(BusinessException.class,
 							e -> assertThat(e.code()).isEqualTo(ErrorCode.PERIOD_CLOSED));
 			assertThat(stored).isEmpty();
+		}
+	}
+
+	@Nested
+	class Dates {
+
+		@Test
+		void withoutAnAccountItUsesTheAccountOfTheEntryAndTodayFromTheClock() {
+			MovementService.MovementDates dates = service.dates(USER_ID, ENTRY_ID, null);
+
+			// Noviembre con ventana de 10: 22/10 (hoy es 20/11); la cuenta se abrió el 01/08.
+			assertThat(dates.earliestDate()).isEqualTo(LocalDate.of(2026, 10, 22));
+			assertThat(dates.latestDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+			assertThat(dates.earlyDays()).isEqualTo(10);
+		}
+
+		@Test
+		void theExampleOfTheStoryDecemberIncomeStartsTheTwentyFirstOfNovember() {
+			service = serviceAt("2026-11-30T15:00:00Z", 10);
+			entry(period(YearMonth.of(2026, 12), 102, PeriodStatus.OPEN), EntryKind.INCOME, pesos, "1200000.00");
+
+			MovementService.MovementDates dates = service.dates(USER_ID, ENTRY_ID, null);
+
+			assertThat(dates.earliestDate()).isEqualTo(LocalDate.of(2026, 11, 21));
+			assertThat(dates.latestDate()).isEqualTo(LocalDate.of(2026, 11, 30));
+		}
+
+		@Test
+		void theWindowReportedIsTheConfiguredOne() {
+			service = serviceAt("2026-11-20T15:00:00Z", 3);
+
+			MovementService.MovementDates dates = service.dates(USER_ID, ENTRY_ID, null);
+
+			assertThat(dates.earliestDate()).isEqualTo(LocalDate.of(2026, 10, 29));
+			assertThat(dates.earlyDays()).isEqualTo(3);
+		}
+
+		@Test
+		void theAccountChosenCanMoveTheEarliestDateToItsOpening() {
+			Account recent = account(45, "Cuenta nueva", Currency.ARS, "2026-11-05");
+			when(accounts.findByIdAndUserId(45L, USER_ID)).thenReturn(Optional.of(recent));
+
+			assertThat(service.dates(USER_ID, ENTRY_ID, 45L).earliestDate()).isEqualTo(LocalDate.of(2026, 11, 5));
+			assertThat(service.dates(USER_ID, ENTRY_ID, 44L).earliestDate()).isEqualTo(LocalDate.of(2026, 10, 22));
+		}
+
+		@Test
+		void anEntryBeyondTheWindowHasAnEarliestDateAfterTodayAndNothingIsStored() {
+			BudgetPeriod march = period(YearMonth.of(2027, 3), 104, PeriodStatus.OPEN);
+			entry(march, EntryKind.INCOME, pesos, "1.00");
+
+			MovementService.MovementDates dates = service.dates(USER_ID, ENTRY_ID, null);
+
+			assertThat(dates.earliestDate()).isEqualTo(LocalDate.of(2027, 2, 19));
+			assertThat(dates.earliestDate()).isAfter(dates.latestDate());
+			assertThat(stored).isEmpty();
+		}
+
+		@Test
+		void itDoesNotLookAtTheStateOfTheEntryOrOfThePeriod() {
+			november.setStatus(PeriodStatus.CLOSED);
+			expensas.setStatus(StoredEntryStatus.CONSOLIDATED);
+
+			assertThat(service.dates(USER_ID, ENTRY_ID, null).earliestDate()).isEqualTo(LocalDate.of(2026, 10, 22));
+		}
+
+		@Test
+		void anEntryOfAnotherUserIsNotFound() {
+			assertThatThrownBy(() -> service.dates(OTHER_USER_ID, ENTRY_ID, null))
+					.isInstanceOfSatisfying(BusinessException.class,
+							e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+			verify(accounts, never()).findByIdAndUserId(anyLong(), anyLong());
+		}
+
+		@Test
+		void anAccountOfAnotherUserOrAMissingOneIsAFieldError() {
+			assertThatThrownBy(() -> service.dates(USER_ID, ENTRY_ID, 999L))
+					.isInstanceOfSatisfying(BusinessException.class, e -> {
+						assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+						assertThat(e.field()).isEqualTo("accountId");
+					});
+			verify(accounts).findByIdAndUserId(999L, USER_ID);
 		}
 	}
 

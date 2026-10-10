@@ -53,6 +53,17 @@ public final class MovementDateValidator {
 	}
 
 	/**
+	 * La fecha más temprana que admite una partida del período con la cuenta dada: la más tardía entre el inicio de la
+	 * ventana (D-17) y la apertura de la cuenta (S-13). Sale de las mismas dos condiciones que {@link #validate}, y
+	 * por eso una fecha las cumple si y solo si no es anterior a ésta. No mira «hoy» ni el estado del mes: si es
+	 * posterior a hoy, la partida todavía no admite ningún movimiento.
+	 */
+	public static LocalDate earliestDate(YearMonth entryPeriod, LocalDate accountOpening, int earlyDays) {
+		LocalDate windowStart = windowStart(entryPeriod, earlyDays);
+		return accountOpening.isAfter(windowStart) ? accountOpening : windowStart;
+	}
+
+	/**
 	 * @param date           fecha del movimiento
 	 * @param entryPeriod    período de la partida
 	 * @param accountOpening fecha de apertura de la cuenta del movimiento, que puede no ser la de la partida (S-02)
