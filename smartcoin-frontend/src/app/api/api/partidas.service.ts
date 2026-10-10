@@ -117,8 +117,8 @@ export class PartidasService extends BaseService {
     }
 
     /**
-     * Editar una partida sin Concepto
-     * Cambia nombre, categoría, cuenta, vencimiento y presupuestado de una partida pendiente de un período abierto. Solo cambia lo que se envía: un campo omitido o &#x60;null&#x60; no cambia, y la categoría se vacía con &#x60;clearCategory&#x60;. No marca la partida como editada y no toca ninguna otra. El tipo no se edita. Con movimientos, la cuenta solo cambia por otra de la misma moneda. Una partida recurrente toma sus datos de su Concepto: cualquier cambio es 409 FIELD_NOT_EDITABLE. Orden en que se evalúa: formato del cuerpo (400), partida inexistente o ajena (404), período cerrado (409), partida consolidada (409), dato no editable (409), vencimiento, cuenta y categoría (400), y moneda con movimientos (409).
+     * Editar una partida
+     * Cambia una partida pendiente de un período abierto. En una partida sin Concepto edita nombre, categoría, cuenta, vencimiento y presupuestado, y no la marca como editada. En una recurrente edita solo el presupuestado (≥ 0) y la marca como editada, para que un cambio del monto vigente del Concepto no la pise; enviar el mismo monto no cambia nada, y cualquier otro dato (incluso junto con el presupuestado) es 409 FIELD_NOT_EDITABLE y no cambia nada. No toca otras partidas ni el Concepto. Solo cambia lo que se envía: un campo omitido o &#x60;null&#x60; no cambia, y la categoría se vacía con &#x60;clearCategory&#x60;. El tipo no se edita. Con movimientos, la cuenta solo cambia por otra de la misma moneda. Orden en que se evalúa: formato del cuerpo (400), partida inexistente o ajena (404), período cerrado (409), partida consolidada (409), dato no editable (409), vencimiento, cuenta y categoría (400), y moneda con movimientos (409).
      * @endpoint patch /api/entries/{id}
      * @param id 
      * @param entryUpdateRequest 

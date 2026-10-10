@@ -73,13 +73,15 @@ public class EntryController {
 	}
 
 	@PatchMapping("/entries/{id}")
-	@Operation(operationId = "updateEntry", summary = "Editar una partida sin Concepto",
-			description = "Cambia nombre, categoría, cuenta, vencimiento y presupuestado de una partida pendiente de "
-					+ "un período abierto. Solo cambia lo que se envía: un campo omitido o `null` no cambia, y la "
-					+ "categoría se vacía con `clearCategory`. No marca la partida como editada y no toca ninguna "
-					+ "otra. El tipo no se edita. Con movimientos, la cuenta solo cambia por otra de la misma "
-					+ "moneda. Una partida recurrente toma sus datos de su Concepto: cualquier cambio es "
-					+ "409 FIELD_NOT_EDITABLE. Orden en que se evalúa: formato del cuerpo (400), partida inexistente "
+	@Operation(operationId = "updateEntry", summary = "Editar una partida",
+			description = "Cambia una partida pendiente de un período abierto. En una partida sin Concepto edita "
+					+ "nombre, categoría, cuenta, vencimiento y presupuestado, y no la marca como editada. En una "
+					+ "recurrente edita solo el presupuestado (≥ 0) y la marca como editada, para que un cambio del "
+					+ "monto vigente del Concepto no la pise; enviar el mismo monto no cambia nada, y cualquier "
+					+ "otro dato (incluso junto con el presupuestado) es 409 FIELD_NOT_EDITABLE y no cambia nada. "
+					+ "No toca otras partidas ni el Concepto. Solo cambia lo que se envía: un campo omitido o `null` "
+					+ "no cambia, y la categoría se vacía con `clearCategory`. El tipo no se edita. Con "
+					+ "movimientos, la cuenta solo cambia por otra de la misma moneda. Orden en que se evalúa: formato del cuerpo (400), partida inexistente "
 					+ "o ajena (404), período cerrado (409), partida consolidada (409), dato no editable (409), "
 					+ "vencimiento, cuenta y categoría (400), y moneda con movimientos (409).")
 	@ApiResponse(responseCode = "200", description = "Partida actualizada, con sus valores derivados.")
@@ -93,7 +95,7 @@ public class EntryController {
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
 	@ApiResponse(responseCode = "409", description = "PERIOD_CLOSED: el período está cerrado (RN-09). "
 			+ "ENTRY_NOT_PENDING: la partida está consolidada. FIELD_NOT_EDITABLE: se cambió el tipo, o algún dato "
-			+ "de una partida recurrente. CURRENCY_MISMATCH: la partida tiene movimientos y la cuenta nueva es de "
+			+ "de una partida recurrente que no sea el presupuestado. CURRENCY_MISMATCH: la partida tiene movimientos y la cuenta nueva es de "
 			+ "otra moneda (RN-19).",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
 	public PeriodEntry update(@PathVariable long id, @Valid @RequestBody EntryUpdateRequest request) {

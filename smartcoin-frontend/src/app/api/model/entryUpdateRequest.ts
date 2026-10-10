@@ -10,7 +10,7 @@
 
 
 /**
- * Cambios de una partida (RN-18). Un campo omitido o `null` significa «no cambia»; enviar el mismo valor que ya tiene tampoco es un cambio. Para vaciar la categoría se usa `clearCategory`, porque `null` no distingue «no enviado» de «vaciar». Una partida recurrente no se edita acá: sus datos son los de su Concepto.
+ * Cambios de una partida (RN-18). Un campo omitido o `null` significa «no cambia»; enviar el mismo valor que ya tiene tampoco es un cambio. Para vaciar la categoría se usa `clearCategory`, porque `null` no distingue «no enviado» de «vaciar». En una partida recurrente solo se edita `budgetedAmount` (queda marcada como editada); sus demás datos son los de su Concepto.
  */
 export interface EntryUpdateRequest { 
     /**
