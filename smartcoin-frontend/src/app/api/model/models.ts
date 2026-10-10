@@ -23,6 +23,7 @@ export * from './fieldEditability';
 export * from './loginRequest';
 export * from './loginResponse';
 export * from './movement';
+export * from './movementDates';
 export * from './movementRegistered';
 export * from './movementRequest';
 export * from './oneOffEntryRequest';

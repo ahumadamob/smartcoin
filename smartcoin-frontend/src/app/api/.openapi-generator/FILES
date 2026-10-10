@@ -38,6 +38,7 @@ model/loginRequest.ts
 model/loginResponse.ts
 model/models.ts
 model/movement.ts
+model/movementDates.ts
 model/movementRegistered.ts
 model/movementRequest.ts
 model/oneOffEntryRequest.ts
