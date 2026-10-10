@@ -30,6 +30,8 @@ describe('messageFor', () => {
     ],
     ['CURRENCY_MISMATCH', 'La cuenta elegida es de otra moneda. Elegí una cuenta en la misma moneda.'],
     ['FIELD_NOT_EDITABLE', 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.'],
+    ['PERIOD_CLOSED', 'Ese mes ya está cerrado y no admite cambios.'],
+    ['ENTRY_NOT_PENDING', 'La partida ya está consolidada: no se puede editar.'],
   ])('traduce %s', (code, expected) => {
     expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);
   });

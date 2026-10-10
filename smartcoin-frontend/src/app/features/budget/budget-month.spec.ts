@@ -1,11 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of, Subject, throwError } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { provideLocale } from '../../core/locale';
 import { BudgetMonth } from './budget-month';
+import { EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { budgetMonthMatcher } from './budget-month.matcher';
 
 const entry = (overrides: Partial<PeriodEntry>): PeriodEntry => ({
@@ -144,6 +147,10 @@ const at = (period: string, overrides: Partial<PeriodView> = {}): PeriodView => 
 describe('BudgetMonth', () => {
   let harness: RouterTestingHarness;
   let api: { getPeriod: ReturnType<typeof vi.fn>; getCurrentPeriod: ReturnType<typeof vi.fn> };
+  /** El diálogo de HU-16 se simula: lo que importa acá es cuándo se abre, con qué, y qué hace la pantalla al cerrarse. */
+  let dialog: { open: ReturnType<typeof vi.fn> };
+  let dialogResult: EntryFormDialogResult | undefined;
+  let snackBar: { open: ReturnType<typeof vi.fn> };
 
   /** Por defecto la API responde el mes pedido, vacío; `/current` responde octubre. */
   async function open(url: string, responses: Record<string, Observable<PeriodView>> = {}) {
@@ -151,11 +158,16 @@ describe('BudgetMonth', () => {
       getPeriod: vi.fn((period: string) => responses[period] ?? of(at(period))),
       getCurrentPeriod: vi.fn(() => responses['current'] ?? of(at('2026-10'))),
     };
+    dialogResult = undefined;
+    dialog = { open: vi.fn(() => ({ afterClosed: () => of(dialogResult) })) };
+    snackBar = { open: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ matcher: budgetMonthMatcher, component: BudgetMonth }]),
         provideLocale(),
         { provide: PerodosService, useValue: api },
+        { provide: MatDialog, useValue: dialog },
+        { provide: MatSnackBar, useValue: snackBar },
       ],
     });
     harness = await RouterTestingHarness.create(url);
@@ -449,6 +461,194 @@ describe('BudgetMonth', () => {
       expect(text(root().querySelector('[data-testid="closed"]'))).toBe('Cerrado');
       expect(rows('Gastos')).toHaveLength(4);
       expect(totals('Gastos')).toHaveLength(1);
+    });
+  });
+
+  describe('acciones (HU-16)', () => {
+    const oneOff = (overrides: Partial<PeriodEntry> = {}) =>
+      entry({
+        id: 20,
+        budgetItemId: null,
+        origin: 'ONE_OFF',
+        name: 'Service del auto',
+        categoryId: 5,
+        categoryName: 'Hogar',
+        dueDate: '2026-11-12',
+        budgetedAmount: 85000,
+        pendingAmount: 85000,
+        forecastAmount: 85000,
+        ...overrides,
+      });
+    const withEntries = (status: 'OPEN' | 'CLOSED', expenses: PeriodEntry[]): PeriodView => ({
+      ...NOVEMBER,
+      status,
+      incomes: [],
+      expenses,
+      totals: [{ currency: 'ARS', income: side(0, 0, 0, 0, 0), expense: side(expenses.length, 0, 0, 0, 0), result: 0 }],
+    });
+    const editButtons = () => Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="edit-entry"]'));
+    const addButton = () => root().querySelector<HTMLButtonElement>('[data-testid="add-entry"]');
+    const header = (label: string) => text(section(label).querySelector('thead'));
+
+    it('un período abierto tiene «Agregar partida» en la cabecera, junto al título', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(NOVEMBER) });
+
+      expect(addButton()).not.toBeNull();
+      expect(text(addButton())).toBe('Agregar partida');
+      expect(root().querySelector('header')!.contains(addButton())).toBe(true);
+    });
+
+    it('un período cerrado no tiene botón ni columna de acciones, aunque tenga partidas puntuales', async () => {
+      await open('/presupuesto/2026-08', {
+        '2026-08': of({ ...withEntries('CLOSED', [oneOff(), oneOff({ id: 21, origin: 'CARRIED_OVER' })]), period: '2026-08' }),
+      });
+
+      expect(text(root().querySelector('[data-testid="closed"]'))).toBe('Cerrado');
+      expect(addButton()).toBeNull();
+      expect(editButtons()).toHaveLength(0);
+      expect(header('Gastos')).not.toContain('Acciones');
+    });
+
+    it('«Editar» solo está en las partidas sin Concepto y pendientes', async () => {
+      await open('/presupuesto/2026-11', {
+        '2026-11': of(
+          withEntries('OPEN', [
+            entry({ id: 10, name: 'Luz' }),
+            oneOff({ id: 20 }),
+            oneOff({ id: 21, name: 'Saldo pendiente: Luz', origin: 'CARRIED_OVER' }),
+            oneOff({ id: 22, name: 'Diferencia de cierre: Banco', origin: 'CLOSING_DIFFERENCE' }),
+            oneOff({ id: 23, name: 'Ya consolidada', status: 'CONSOLIDATED' }),
+          ]),
+        ),
+      });
+
+      expect(header('Gastos')).toContain('Acciones');
+      const rowOf = (id: number) => section('Gastos').querySelector(`[data-entry-id="${id}"]`)!;
+      expect(rowOf(10).querySelector('[data-testid="edit-entry"]')).toBeNull();
+      expect(rowOf(20).querySelector('[data-testid="edit-entry"]')).not.toBeNull();
+      expect(rowOf(21).querySelector('[data-testid="edit-entry"]')).not.toBeNull();
+      expect(rowOf(22).querySelector('[data-testid="edit-entry"]')).not.toBeNull();
+      expect(rowOf(23).querySelector('[data-testid="edit-entry"]')).toBeNull();
+      expect(editButtons().map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Editar Service del auto',
+        'Editar Saldo pendiente: Luz',
+        'Editar Diferencia de cierre: Banco',
+      ]);
+    });
+
+    it('una sección con solo partidas recurrentes no dibuja la columna de acciones vacía', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [entry({ id: 10 })])) });
+
+      expect(header('Gastos')).not.toContain('Acciones');
+      expect(editButtons()).toHaveLength(0);
+      // El botón del período sí está: no depende de las partidas.
+      expect(addButton()).not.toBeNull();
+    });
+
+    it('«Agregar partida» abre el diálogo con el mes que se ve y un vencimiento dentro de él', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(NOVEMBER) });
+
+      addButton()!.click();
+
+      expect(dialog.open).toHaveBeenCalledTimes(1);
+      const data = dialog.open.mock.calls[0][1].data as EntryFormDialogData;
+      expect(data).toEqual({ period: '2026-11', suggestedDueDate: '2026-11-01' });
+    });
+
+    it('en el mes actual sugiere el día de hoy', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(2026, 9, 8, 12));
+      try {
+        await open('/presupuesto');
+
+        addButton()!.click();
+
+        const data = dialog.open.mock.calls[0][1].data as EntryFormDialogData;
+        expect(data).toEqual({ period: '2026-10', suggestedDueDate: '2026-10-08' });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('«Editar» abre el diálogo con la partida', async () => {
+      const puntual = oneOff({ id: 20 });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [puntual])) });
+
+      editButtons()[0].click();
+
+      const data = dialog.open.mock.calls[0][1].data as EntryFormDialogData;
+      expect(data.period).toBe('2026-11');
+      expect(data.entry).toEqual(puntual);
+    });
+
+    it('al guardar vuelve a pedir el mes y muestra lo que responde el backend, sin vaciar la pantalla', async () => {
+      const after = withEntries('OPEN', [oneOff({ id: 20 })]);
+      await open('/presupuesto/2026-11', { '2026-11': of(NOVEMBER) });
+      const getPeriod = vi.fn().mockReturnValue(of(after));
+      api.getPeriod = getPeriod;
+      const tableBefore = section('Gastos').querySelector('table');
+      dialogResult = { entry: oneOff({ id: 20 }), created: true };
+
+      addButton()!.click();
+      await refresh();
+
+      expect(getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(snackBar.open).toHaveBeenCalledWith('Partida «Service del auto» agregada.', undefined, expect.anything());
+      expect(rows('Gastos').map((row) => cells(row)[1])).toEqual(['Service del auto']);
+      expect(text(root())).not.toContain('Cargando el mes…');
+      // Las tablas no se desmontan: no se pierde el foco ni parpadea la pantalla.
+      expect(tableBefore).not.toBeNull();
+    });
+
+    it('al editar avisa que la partida se guardó', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [oneOff({ id: 20 })])) });
+      dialogResult = { entry: oneOff({ id: 20, name: 'Cambio de aceite' }), created: false };
+
+      editButtons()[0].click();
+      await refresh();
+
+      expect(snackBar.open).toHaveBeenCalledWith('Partida «Cambio de aceite» guardada.', undefined, expect.anything());
+    });
+
+    it('si el diálogo avisa que la pantalla estaba desactualizada, vuelve a pedir el mes', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(NOVEMBER) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = { stale: true };
+
+      addButton()!.click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(NOVEMBER) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = undefined;
+
+      addButton()!.click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls);
+    });
+
+    it('después de editar, el foco queda en el «Editar» de la partida aunque haya cambiado de lugar', async () => {
+      const first = oneOff({ id: 20, name: 'Alfa', dueDate: '2026-11-05' });
+      const second = oneOff({ id: 21, name: 'Beta', dueDate: '2026-11-20' });
+      const moved = oneOff({ id: 20, name: 'Alfa', dueDate: '2026-11-28' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [first, second])) });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [second, moved])));
+      editButtons()[0].focus();
+      dialogResult = { entry: moved, created: false };
+
+      editButtons()[0].click();
+      await refresh();
+      await refresh();
+
+      const target = section('Gastos').querySelector('[data-entry-id="20"] [data-testid="edit-entry"]');
+      expect(rows('Gastos').map((row) => cells(row)[1])).toEqual(['Beta', 'Alfa']);
+      expect(document.activeElement).toBe(target);
     });
   });
 });

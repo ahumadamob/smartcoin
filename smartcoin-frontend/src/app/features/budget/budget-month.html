@@ -15,7 +15,12 @@
         <span class="badge badge-current" data-testid="current">Mes actual</span>
       }
     }
-    <!-- Acciones del período (agregar una partida, HU-16; cerrar el mes, HU-30): van acá, solo si `!readonly()`. -->
+    <!-- Acciones del período (cerrar el mes: HU-30): van acá, junto a las que existen, solo si `!readonly()`. -->
+    @if (view() && !readonly()) {
+      <span class="actions">
+        <button mat-flat-button type="button" data-testid="add-entry" (click)="addEntry()">Agregar partida</button>
+      </span>
+    }
   </header>
 
   @if (range() && !error()) {
@@ -60,6 +65,7 @@
         [entries]="current.incomes"
         [totals]="current.totals"
         [readonly]="readonly()"
+        (edit)="editEntry($event)"
       />
       <app-entry-table
         heading="Gastos"
@@ -68,6 +74,7 @@
         [entries]="current.expenses"
         [totals]="current.totals"
         [readonly]="readonly()"
+        (edit)="editEntry($event)"
       />
       @if (current.totals.length > 0) {
         <section class="result" aria-label="Resultado">

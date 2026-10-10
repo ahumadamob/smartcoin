@@ -1,0 +1,123 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate class="dialog">
+  <h2 mat-dialog-title>
+    @if (editing) {
+      Editar partida
+    } @else {
+      Agregar partida de {{ data.period | period }}
+    }
+  </h2>
+
+  <mat-dialog-content class="content">
+    @if (loading()) {
+      <p role="status">Cargando cuentas y categorías…</p>
+    } @else if (loadError(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    } @else if (accounts().length === 0) {
+      <p role="status" data-testid="no-accounts">
+        Para cargar una partida necesitás una cuenta.
+        <a routerLink="/cuentas" mat-dialog-close>Cargá una cuenta</a>
+        y volvé a intentar.
+      </p>
+    } @else {
+      @if (error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Nombre</mat-label>
+        <input matInput formControlName="name" maxlength="100" autocomplete="off" required />
+        @if (form.controls.name.hasError('required') || form.controls.name.hasError('blank')) {
+          <mat-error>Ingresá el nombre de la partida.</mat-error>
+        } @else if (form.controls.name.hasError('server')) {
+          <mat-error>{{ form.controls.name.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Tipo</mat-label>
+        <mat-select formControlName="kind" required>
+          @for (kind of kinds; track kind) {
+            <mat-option [value]="kind">{{ kindLabels[kind] }}</mat-option>
+          }
+        </mat-select>
+        @if (editing) {
+          <mat-hint>El tipo no se puede cambiar: eliminá la partida y creá otra.</mat-hint>
+        }
+        @if (form.controls.kind.hasError('required')) {
+          <mat-error>Elegí si es un ingreso o un gasto.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Cuenta</mat-label>
+        <mat-select formControlName="accountId" required>
+          @for (account of accounts(); track account.id) {
+            <mat-option [value]="account.id">{{ account.name }} · {{ currencyLabels[account.currency] }}</mat-option>
+          }
+        </mat-select>
+        @if (entry && selectedCurrency(); as currency) {
+          @if (currency !== entry.currency) {
+            <mat-hint class="warning">
+              Esta cuenta es en {{ currencyLabels[currency] }}: la partida pasa a esa moneda.
+            </mat-hint>
+          } @else {
+            <mat-hint>La moneda de la partida es la de su cuenta.</mat-hint>
+          }
+        } @else {
+          <mat-hint>La moneda de la partida es la de su cuenta.</mat-hint>
+        }
+        @if (form.controls.accountId.hasError('required')) {
+          <mat-error>Elegí la cuenta.</mat-error>
+        } @else if (form.controls.accountId.hasError('server')) {
+          <mat-error>{{ form.controls.accountId.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Categoría</mat-label>
+        <mat-select formControlName="categoryId">
+          <mat-option [value]="null">Sin categoría</mat-option>
+          @for (category of categories(); track category.id) {
+            <mat-option [value]="category.id">{{ category.name }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>Opcional.</mat-hint>
+        @if (form.controls.categoryId.hasError('server')) {
+          <mat-error>{{ form.controls.categoryId.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <div class="pair">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Vencimiento</mat-label>
+          <input matInput type="date" formControlName="dueDate" required />
+          @if (form.controls.dueDate.hasError('required')) {
+            <mat-error>Ingresá el vencimiento.</mat-error>
+          } @else if (form.controls.dueDate.hasError('date')) {
+            <mat-error>Ingresá una fecha válida.</mat-error>
+          } @else if (form.controls.dueDate.hasError('server')) {
+            <mat-error>{{ form.controls.dueDate.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Presupuestado</mat-label>
+          <input matInput formControlName="budgetedAmount" inputmode="decimal" autocomplete="off" required />
+          <mat-hint>Con coma decimal, por ejemplo 1500,50.</mat-hint>
+          @if (form.controls.budgetedAmount.hasError('required')) {
+            <mat-error>Ingresá el monto presupuestado.</mat-error>
+          } @else if (form.controls.budgetedAmount.hasError('amount')) {
+            <mat-error>Escribilo con coma decimal, hasta 2 decimales y sin signo, por ejemplo 1500,50.</mat-error>
+          } @else if (form.controls.budgetedAmount.hasError('server')) {
+            <mat-error>{{ form.controls.budgetedAmount.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" (click)="cancel()">Cancelar</button>
+    <button mat-flat-button type="submit" [disabled]="!ready() || submitting()">Guardar</button>
+  </mat-dialog-actions>
+</form>

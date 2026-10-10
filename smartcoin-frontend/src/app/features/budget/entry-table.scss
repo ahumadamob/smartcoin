@@ -77,3 +77,8 @@ tfoot td {
   color: var(--mat-sys-on-surface-variant);
   border-style: dashed;
 }
+
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

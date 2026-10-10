@@ -1,0 +1,32 @@
+.dialog {
+  display: block;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.error {
+  margin: 0;
+  color: var(--mat-sys-error);
+}
+
+.warning {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

@@ -11,6 +11,12 @@
   flex-wrap: wrap;
 }
 
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .title {
   margin: 0;
   font: var(--mat-sys-headline-medium);

@@ -16,11 +16,14 @@
             <th scope="col" class="number">Real</th>
             <th scope="col" class="number">Pendiente</th>
             <th scope="col">Estado</th>
+            @if (showActions()) {
+              <th scope="col">Acciones</th>
+            }
           </tr>
         </thead>
         <tbody>
           @for (entry of entries(); track entry.id) {
-            <tr [class.overdue]="entry.overdue">
+            <tr [class.overdue]="entry.overdue" [attr.data-entry-id]="entry.id">
               <td class="nowrap" data-testid="due">
                 {{ entry.dueDate | date: dateFormat }}
                 @if (entry.overdue) {
@@ -46,6 +49,21 @@
               <td class="number">{{ entry.actualAmount | money: entry.currency }}</td>
               <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
               <td class="nowrap" data-testid="status">{{ statusLabels[entry.status] }}</td>
+              @if (showActions()) {
+                <td class="nowrap" data-testid="actions">
+                  @if (canEdit(entry)) {
+                    <button
+                      mat-button
+                      type="button"
+                      data-testid="edit-entry"
+                      [attr.aria-label]="'Editar ' + entry.name"
+                      (click)="edit.emit(entry)"
+                    >
+                      Editar
+                    </button>
+                  }
+                </td>
+              }
             </tr>
           }
         </tbody>
@@ -57,6 +75,9 @@
               <td class="number">{{ row.totals.actualAmount | money: row.currency }}</td>
               <td class="number">{{ row.totals.pendingAmount | money: row.currency }}</td>
               <td></td>
+              @if (showActions()) {
+                <td></td>
+              }
             </tr>
           }
         </tfoot>
