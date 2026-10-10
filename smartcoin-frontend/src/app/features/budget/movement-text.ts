@@ -1,4 +1,4 @@
-import { PeriodEntry } from '../../api';
+import { MovementDates, PeriodEntry } from '../../api';
 import { CurrencyCode } from '../../shared/pipes/money.pipe';
 
 /** Cobro de un ingreso, pago de un gasto (docs/glosario.md: el movimiento es «cobro o pago»). */
@@ -32,4 +32,36 @@ export function registeredMessage(entry: PeriodEntry, amount: number, money: For
   return entry.pendingAmount === 0
     ? `${done} ${coveredNotice(entry.name, entry.pendingAmount, entry.currency, money)}`
     : done;
+}
+
+/**
+ * La ventana todavía no abrió: la fecha más temprana que informa el backend es posterior a la más tardía (hoy).
+ * Solo lee el rango que informó el backend; las fechas ISO `YYYY-MM-DD` se comparan como texto.
+ */
+export function windowNotOpenYet(dates: MovementDates): boolean {
+  return dates.earliestDate > dates.latestDate;
+}
+
+/** La fecha con la que arranca el campo: hoy, según el reloj del backend. */
+export function suggestedDate(dates: MovementDates): string {
+  return dates.latestDate;
+}
+
+/**
+ * Una línea que explica hasta cuándo hacia atrás se puede fechar el movimiento (HU-20, RN-21). Los días vienen del
+ * backend porque la ventana es configurable. `period` y `earliest` ya vienen con formato («diciembre 2026»,
+ * «21/11/2026»); `earliest` es la fecha más temprana con la cuenta elegida, que puede ser la apertura de la cuenta.
+ */
+export function windowNotice(earlyDays: number, period: string, earliest: string): string {
+  const days = earlyDays === 1 ? '1 día' : `${earlyDays} días`;
+  const rule =
+    earlyDays === 0
+      ? `No se puede fechar antes del inicio de ${period}.`
+      : `Se puede fechar hasta ${days} antes del inicio de ${period}.`;
+  return `${rule} Fecha más temprana con esta cuenta: ${earliest}.`;
+}
+
+/** Cuando la ventana no abrió: dice desde cuándo se admiten movimientos (D-33). */
+export function notOpenYetNotice(earliest: string): string {
+  return `Todavía no se pueden registrar movimientos de esta partida: se admiten desde el ${earliest}.`;
 }

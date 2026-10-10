@@ -3,7 +3,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
-import { AccountResponse, CuentasService, Movement, MovementRequest, MovimientosService, PeriodEntry } from '../../api';
+import {
+  AccountResponse,
+  CuentasService,
+  Movement,
+  MovementDates,
+  MovementRequest,
+  MovimientosService,
+  PeriodEntry,
+} from '../../api';
 import { provideLocale } from '../../core/locale';
 import { MovementDialog, MovementDialogData, MovementDialogResult } from './movement-dialog';
 
@@ -58,18 +66,33 @@ const movement = (id: number, date: string, amount: number, accountName: string,
   currency: 'ARS',
 });
 
+/** Lo que informa el backend con hoy 20/11 y la ventana de 10 días para una partida de noviembre. */
+const DATES: MovementDates = { earliestDate: '2026-10-22', latestDate: '2026-11-20', earlyDays: 10 };
+
 const problem = (status: number, body: object) => throwError(() => new HttpErrorResponse({ status, error: body }));
 
 describe('MovementDialog (HU-19)', () => {
   let fixture: ComponentFixture<MovementDialog>;
-  let api: { listMovements: ReturnType<typeof vi.fn>; registerMovement: ReturnType<typeof vi.fn> };
+  let api: {
+    listMovements: ReturnType<typeof vi.fn>;
+    registerMovement: ReturnType<typeof vi.fn>;
+    getMovementDates: ReturnType<typeof vi.fn>;
+  };
   let ref: { close: ReturnType<typeof vi.fn<(result?: MovementDialogResult) => void>> };
 
   async function open(
     data: Partial<MovementDialogData> = {},
-    options: { movements?: Movement[]; accounts?: AccountResponse[]; listError?: boolean } = {},
+    options: {
+      movements?: Movement[];
+      accounts?: AccountResponse[];
+      listError?: boolean;
+      dates?: MovementDates | ((accountId: number) => MovementDates);
+    } = {},
   ) {
+    const datesFor = (accountId: number) =>
+      typeof options.dates === 'function' ? options.dates(accountId) : (options.dates ?? DATES);
     api = {
+      getMovementDates: vi.fn((entryId: number, accountId?: number) => of(datesFor(accountId ?? 0))),
       listMovements: vi.fn(() => (options.listError ? problem(500, {}) : of(options.movements ?? []))),
       registerMovement: vi.fn((entryId: number, request: MovementRequest) =>
         of({
@@ -89,7 +112,7 @@ describe('MovementDialog (HU-19)', () => {
         { provide: MatDialogRef, useValue: ref },
         {
           provide: MAT_DIALOG_DATA,
-          useValue: { entry: ENTRY, period: '2026-11', today: new Date(2026, 10, 20), ...data },
+          useValue: { entry: ENTRY, period: '2026-11', ...data },
         },
       ],
     }).compileComponents();
@@ -189,13 +212,19 @@ describe('MovementDialog (HU-19)', () => {
   });
 
   describe('el formulario', () => {
-    it('arranca con hoy, la cuenta de la partida y el pendiente como monto, con coma decimal', async () => {
+    it('arranca con hoy según el backend, la cuenta de la partida y el pendiente como monto, con coma decimal', async () => {
       await open({ entry: { ...ENTRY, status: 'PARTIAL', actualAmount: 70000, pendingAmount: 50000.5 } });
 
       expect(input('Fecha').value).toBe('2026-11-20');
       expect(input('Fecha').type).toBe('date');
       expect(input('Monto').value).toBe('50000,50');
       expect(form().controls['accountId'].value).toBe(12);
+    });
+
+    it('la fecha con la que arranca es la que informa el backend, no la del navegador', async () => {
+      await open({}, { dates: { earliestDate: '2026-11-21', latestDate: '2026-11-30', earlyDays: 10 } });
+
+      expect(input('Fecha').value).toBe('2026-11-30');
     });
 
     it('con el pendiente en 0 el monto arranca vacío', async () => {
@@ -231,6 +260,83 @@ describe('MovementDialog (HU-19)', () => {
       for (const label of ['Fecha', 'Monto', 'Cuenta', 'Nota']) {
         expect(field(label), label).toBeTruthy();
       }
+    });
+  });
+
+  describe('la ventana de anticipación (HU-20)', () => {
+    const notice = () => root().querySelector('[data-testid="window-notice"]');
+
+    it('explica en una línea la ventana con los días y la fecha más temprana que informa el backend', async () => {
+      await open(
+        { entry: { ...ENTRY, kind: 'INCOME', name: 'Sueldo' }, period: '2026-12' },
+        { dates: { earliestDate: '2026-11-21', latestDate: '2026-11-30', earlyDays: 10 } },
+      );
+
+      expect(text(notice())).toBe(
+        'Se puede fechar hasta 10 días antes del inicio de diciembre 2026. Fecha más temprana con esta cuenta: 21/11/2026.',
+      );
+      expect(api.getMovementDates).toHaveBeenCalledWith(900, 12);
+    });
+
+    it('si la ventana es de otro valor, el texto la sigue', async () => {
+      await open({}, { dates: { earliestDate: '2026-10-29', latestDate: '2026-11-20', earlyDays: 3 } });
+
+      expect(text(notice())).toContain('hasta 3 días antes del inicio de noviembre 2026');
+      expect(text(notice())).not.toContain('10 días');
+    });
+
+    it('al cambiar de cuenta se vuelve a pedir la fecha más temprana y la fecha escrita no se toca', async () => {
+      await open(
+        {},
+        {
+          dates: (accountId) =>
+            accountId === 14
+              ? { earliestDate: '2026-11-05', latestDate: '2026-11-20', earlyDays: 10 }
+              : DATES,
+        },
+      );
+      type('Fecha', '2026-11-01');
+      expect(text(notice())).toContain('22/10/2026');
+
+      const control = fixture.componentInstance as unknown as {
+        form: { controls: { accountId: { setValue(value: number): void } } };
+      };
+      control.form.controls.accountId.setValue(14);
+      fixture.detectChanges();
+
+      expect(api.getMovementDates).toHaveBeenLastCalledWith(900, 14);
+      expect(text(notice())).toContain('Fecha más temprana con esta cuenta: 05/11/2026.');
+      expect(input('Fecha').value).toBe('2026-11-01');
+    });
+
+    it('si la ventana todavía no abrió dice desde cuándo y no deja enviar', async () => {
+      await open(
+        { period: '2027-03' },
+        { dates: { earliestDate: '2027-02-19', latestDate: '2026-10-10', earlyDays: 10 } },
+      );
+
+      expect(text(notice())).toBe(
+        'Todavía no se pueden registrar movimientos de esta partida: se admiten desde el 19/02/2027.',
+      );
+      expect(button('Registrar pago').disabled).toBe(true);
+      submit();
+      expect(api.registerMovement).not.toHaveBeenCalled();
+    });
+
+    it('el último día antes de abrir no deja enviar y el día en que abre sí', async () => {
+      await open({}, { dates: { earliestDate: '2026-11-21', latestDate: '2026-11-20', earlyDays: 10 } });
+      expect(button('Registrar pago').disabled).toBe(true);
+      TestBed.resetTestingModule();
+
+      await open({}, { dates: { earliestDate: '2026-11-21', latestDate: '2026-11-21', earlyDays: 10 } });
+      expect(button('Registrar pago').disabled).toBe(false);
+    });
+
+    it('si no se pueden cargar las fechas se muestra el error de carga y no se deja enviar', async () => {
+      await open({}, { listError: true });
+
+      expect(notice()).toBeNull();
+      expect(button('Registrar pago').disabled).toBe(true);
     });
   });
 

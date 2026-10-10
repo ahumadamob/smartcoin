@@ -58,6 +58,10 @@
         }
       </section>
 
+      @if (windowText(); as window) {
+        <p class="notice" role="status" data-testid="window-notice">{{ window }}</p>
+      }
+
       @if (accounts().length === 0) {
         <p role="status" data-testid="no-accounts">
           No tenés una cuenta en {{ entry.currency === 'USD' ? 'dólares' : 'pesos' }} para registrar el {{ word }}.

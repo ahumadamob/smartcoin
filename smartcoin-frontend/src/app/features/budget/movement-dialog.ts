@@ -1,5 +1,7 @@
+import { DatePipe, formatDate } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, inject, LOCALE_ID, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -7,23 +9,28 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
-import { AccountResponse, CuentasService, Movement, MovementRegistered, MovimientosService, PeriodEntry } from '../../api';
+import { catchError, EMPTY, forkJoin, switchMap } from 'rxjs';
+import {
+  AccountResponse,
+  CuentasService,
+  Movement,
+  MovementDates,
+  MovementRegistered,
+  MovimientosService,
+  PeriodEntry,
+} from '../../api';
 import { detailFor, messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { parseAmount, formatAmountInput } from '../../shared/amount';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
-import { coveredNotice, movementWord, registerLabel } from './movement-text';
-import { DatePipe } from '@angular/common';
+import { coveredNotice, movementWord, notOpenYetNotice, registerLabel, suggestedDate, windowNotice, windowNotOpenYet } from './movement-text';
 
 /** Qué abre el diálogo: la partida (la fila de la vista del mes) y el mes que se está viendo. */
 export interface MovementDialogData {
   entry: PeriodEntry;
   /** `YYYY-MM` del mes que se está viendo. */
   period: string;
-  /** Hoy en el navegador, solo para la fecha con la que arranca el campo; el backend decide qué fecha vale. */
-  today?: Date;
 }
 
 /**
@@ -37,15 +44,6 @@ export type MovementDialogResult = MovementRegistered | { stale: true };
 const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'NOT_FOUND'];
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-/** `YYYY-MM-DD` con la fecha local del navegador. */
-function isoOf(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
 
 /** Monto con coma decimal y mayor que 0. El formato lo valida el frontend; el resto, el backend. */
 function positiveAmount(control: AbstractControl): ValidationErrors | null {
@@ -85,6 +83,10 @@ type FieldName = 'date' | 'amount' | 'accountId' | 'note';
  * las reglas (ventana de anticipación, apertura de la cuenta, fecha futura, mes cerrado, moneda, partida
  * consolidada) las decide el backend y acá se muestra su error sin perder lo cargado.
  *
+ * La fecha con la que arranca el campo, la fecha más temprana y la ventana de anticipación las informa el backend
+ * (`GET /api/entries/{id}/movement-dates`, HU-20), y se vuelve a pedir al cambiar de cuenta porque la apertura de la
+ * cuenta puede mover la fecha más temprana. Acá no se calcula ni se repite la regla.
+ *
  * El monto se convierte de coma decimal a número antes de enviarlo; el frontend no suma ni resta nada con él. Con
  * el pendiente en 0, un aviso dice que la partida está cubierta (criterio 6): no hay botón porque consolidar llega
  * con HU-23.
@@ -113,6 +115,9 @@ export class MovementDialog implements OnInit {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly ref = inject<MatDialogRef<MovementDialog, MovementDialogResult>>(MatDialogRef);
   private readonly money = new MoneyPipe();
+  private readonly periodPipe = new PeriodPipe();
+  private readonly locale = inject(LOCALE_ID);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly data = inject<MovementDialogData>(MAT_DIALOG_DATA);
 
   protected readonly entry = this.data.entry;
@@ -133,6 +138,8 @@ export class MovementDialog implements OnInit {
   /** Solo las cuentas de la moneda de la partida (S-02). */
   protected readonly accounts = signal<AccountResponse[]>([]);
   protected readonly movements = signal<Movement[]>([]);
+  /** Rango de fechas que admite la partida con la cuenta elegida, según el backend. `null` hasta que carga. */
+  protected readonly dates = signal<MovementDates | null>(null);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
   /** Error del backend que no es de un campo, o `null`. Los de un campo salen debajo de él. */
@@ -147,13 +154,30 @@ export class MovementDialog implements OnInit {
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(200)] }),
   });
 
-  /** El formulario se puede enviar cuando terminó de cargar y hay al menos una cuenta de esa moneda. */
+  /** Una línea con la ventana de anticipación y la fecha más temprana, o `null` si no hay que mostrarla. */
+  protected readonly windowText = computed(() => {
+    const dates = this.dates();
+    if (dates === null) {
+      return null;
+    }
+    const earliest = formatDate(dates.earliestDate, DATE_FORMAT, this.locale);
+    return windowNotOpenYet(dates)
+      ? notOpenYetNotice(earliest)
+      : windowNotice(dates.earlyDays, this.periodPipe.transform(this.data.period), earliest);
+  });
+
+  /** `false` cuando la ventana de la partida todavía no abrió: ninguna fecha sirve y no se deja enviar. */
+  protected readonly windowOpen = computed(() => {
+    const dates = this.dates();
+    return dates === null || !windowNotOpenYet(dates);
+  });
+
+  /** El formulario se puede enviar cuando terminó de cargar, hay una cuenta de esa moneda y la ventana abrió. */
   protected readonly ready = computed(
-    () => !this.loading() && this.loadError() === null && this.accounts().length > 0,
+    () => !this.loading() && this.loadError() === null && this.accounts().length > 0 && this.windowOpen(),
   );
 
   ngOnInit(): void {
-    this.form.controls.date.setValue(isoOf(this.data.today ?? new Date()));
     // El pendiente sugiere el monto de un pago que cierra la partida; si ya no queda nada, el campo arranca vacío.
     if (this.entry.pendingAmount > 0) {
       this.form.controls.amount.setValue(formatAmountInput(this.entry.pendingAmount));
@@ -162,10 +186,13 @@ export class MovementDialog implements OnInit {
     forkJoin({
       accounts: this.accountsApi.listAccounts(),
       movements: this.api.listMovements(this.entry.id),
+      dates: this.api.getMovementDates(this.entry.id, this.entry.accountId),
     }).subscribe({
-      next: ({ accounts, movements }) => {
+      next: ({ accounts, movements, dates }) => {
         this.accounts.set(accounts.accounts.filter((account) => account.currency === this.entry.currency));
         this.movements.set(movements);
+        this.dates.set(dates);
+        this.form.controls.date.setValue(suggestedDate(dates));
         this.loading.set(false);
       },
       error: (e: unknown) => {
@@ -173,6 +200,18 @@ export class MovementDialog implements OnInit {
         this.loading.set(false);
       },
     });
+    // La fecha más temprana depende de la cuenta (su apertura): al cambiarla, se vuelve a pedir al backend. La fecha
+    // que ya escribió el usuario no se toca; si falla el pedido, queda el rango anterior y el backend decide al enviar.
+    this.form.controls.accountId.valueChanges
+      .pipe(
+        switchMap((accountId) =>
+          accountId === null
+            ? EMPTY
+            : this.api.getMovementDates(this.entry.id, accountId).pipe(catchError(() => EMPTY)),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((dates) => this.dates.set(dates));
   }
 
   protected submit(): void {
