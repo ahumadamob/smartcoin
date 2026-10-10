@@ -2,9 +2,13 @@ import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { API_URL, startPeriod, startSession } from './support';
 
 /**
- * Épica 5 · Movimientos. HU-19 (registrar cobros y pagos, en partes y desde otra cuenta de la misma moneda). Un
- * usuario propio para todo el archivo: los movimientos se registran siempre con un usuario de prueba, nunca con el
- * real. Las cuentas y las partidas se cargan por la API: sus pantallas las cubren otras épicas.
+ * Épica 5 · Movimientos. HU-19 (registrar cobros y pagos, en partes y desde otra cuenta de la misma moneda) y HU-20
+ * (cobros anticipados). Un usuario propio para cada `describe`: los movimientos se registran siempre con un usuario de
+ * prueba, nunca con el real. Las cuentas y las partidas se cargan por la API: sus pantallas las cubren otras épicas.
+ *
+ * HU-20 no puede usar diciembre con el reloj real. Usa el mes actual: el usuario nace con el período inicial dos meses
+ * antes, así que una partida de este mes admite un movimiento fechado hasta N días antes de su primer día (N, la
+ * ventana, la informa el backend). Todas las fechas salen de hoy: el test pasa cualquier día del mes y en enero.
  */
 
 const two = (n: number) => String(n).padStart(2, '0');
@@ -215,4 +219,161 @@ test.describe('HU-19 · registrar cobros y pagos', () => {
     await expect(entry.nth(7)).toHaveText('$ 28.499,50');
     await expect(entry.nth(8)).toHaveText('Parcial');
   });
+});
+
+const MONTHS = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+/** `dd/MM/yyyy`, como lo muestra la aplicación. */
+const shown = (date: Date) => `${two(date.getDate())}/${two(date.getMonth() + 1)}/${date.getFullYear()}`;
+
+test.describe('HU-20 · registrar cobros anticipados', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthLabel = `${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
+  const AMOUNT = '250000';
+
+  let page: Page;
+  let api: APIRequestContext;
+  let entryId: number;
+  /** Ventana de anticipación que informa el backend (configurable). */
+  let earlyDays: number;
+  /** Primer día de la ventana: primer día del mes de la partida menos `earlyDays`. */
+  let windowStart: Date;
+  let dayBefore: Date;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const create = async (path: string, data: object) => {
+      const response = await api.post(path, { data });
+      expect(response.status(), `alta en ${path}: ${JSON.stringify(data)}`).toBe(201);
+      return (await response.json()).id as number;
+    };
+    const bank = await create('/api/accounts', {
+      name: 'Banco Nación',
+      type: 'BANK',
+      currency: 'ARS',
+      openingDate: `${startPeriod()}-01`,
+      initialBalance: 0,
+    });
+    // Un ingreso de este mes: es la partida a la que se le cobra por adelantado.
+    entryId = await create(`/api/periods/${periodOf(today)}/entries`, {
+      name: 'Sueldo',
+      kind: 'INCOME',
+      accountId: bank,
+      dueDate: isoDate(today),
+      budgetedAmount: 1000000,
+    });
+    const dates = await (await api.get(`/api/entries/${entryId}/movement-dates`)).json();
+    earlyDays = dates.earlyDays as number;
+    windowStart = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), 1 - earlyDays);
+    dayBefore = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), 1 - earlyDays - 1);
+    await page.goto('/presupuesto');
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const dialog = () => page.getByRole('dialog');
+  const row = () =>
+    page
+      .getByRole('region', { name: 'Ingresos', exact: true })
+      .locator('tbody tr')
+      .filter({ has: page.getByRole('rowheader', { name: 'Sueldo', exact: true }) });
+  const openDialog = () => row().getByRole('button', { name: 'Registrar cobro de Sueldo' }).click();
+
+  test('el backend informa la ventana: el primer día es el del mes menos la ventana, y hoy es el último', async () => {
+    const response = await api.get(`/api/entries/${entryId}/movement-dates`);
+
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toEqual({
+      earliestDate: isoDate(windowStart),
+      latestDate: isoDate(today),
+      earlyDays,
+    });
+  });
+
+  test('el día anterior al límite responde DATE_OUT_OF_RANGE, nombra la fecha más temprana y no registra nada', async () => {
+    const response = await api.post(`/api/entries/${entryId}/movements`, {
+      data: { date: isoDate(dayBefore), amount: 100, accountId: await accountId() },
+    });
+
+    expect(response.status()).toBe(409);
+    const body = await response.json();
+    expect(body.code).toBe('DATE_OUT_OF_RANGE');
+    expect(body.detail).toContain(shown(windowStart));
+    const list = await (await api.get(`/api/entries/${entryId}/movements`)).json();
+    expect(list).toEqual([]);
+  });
+
+  test('el diálogo explica la ventana con los datos del backend y el error sale bajo el campo', async () => {
+    await openDialog();
+
+    await expect(dialog().getByTestId('window-notice')).toHaveText(
+      `Se puede fechar hasta ${earlyDays} días antes del inicio de ${monthLabel}. ` +
+        `Fecha más temprana con esta cuenta: ${shown(windowStart)}.`,
+    );
+    await expect(dialog().getByLabel('Fecha')).toHaveValue(isoDate(today));
+
+    await dialog().getByLabel('Fecha').fill(isoDate(dayBefore));
+    await dialog().getByLabel('Monto').fill('250000,00');
+    await dialog().getByRole('button', { name: 'Registrar cobro', exact: true }).click();
+
+    await expect(dialog()).toBeVisible();
+    await expect(dialog().getByText(`La fecha no puede ser anterior al ${shown(windowStart)}`)).toBeVisible();
+    await expect(dialog().getByLabel('Fecha')).toBeFocused();
+  });
+
+  test('el límite exacto de la ventana es válido: se guarda y la partida queda Parcial', async () => {
+    await dialog().getByLabel('Fecha').fill(isoDate(windowStart));
+    await dialog().getByRole('button', { name: 'Registrar cobro', exact: true }).click();
+
+    await expect(dialog()).toBeHidden();
+    const cells = row().locator('th, td');
+    await expect(cells.nth(6)).toHaveText('$ 250.000,00');
+    await expect(cells.nth(8)).toHaveText('Parcial');
+    const list = await (await api.get(`/api/entries/${entryId}/movements`)).json();
+    expect(list).toHaveLength(1);
+    expect(list[0].date).toBe(isoDate(windowStart));
+    expect(list[0].amount).toBe(Number(AMOUNT));
+  });
+
+  test('en /cuentas el saldo incluye el cobro anticipado por su fecha, aunque la partida sea de este mes', async () => {
+    await page.goto('/cuentas');
+
+    const bank = page.getByRole('listitem').filter({ hasText: 'Banco Nación' });
+    await expect(bank.getByTestId('balance')).toHaveText('$ 250.000,00');
+    await expect(page.getByRole('region', { name: '$ (ARS)' }).getByTestId('subtotal')).toContainText('$ 250.000,00');
+  });
+
+  test('una partida de un mes lejano dice desde cuándo admite movimientos y no deja enviar', async () => {
+    const far = new Date(today.getFullYear(), today.getMonth() + 3, 1);
+    const farWindowStart = new Date(far.getFullYear(), far.getMonth(), 1 - earlyDays);
+    const response = await api.post(`/api/periods/${periodOf(far)}/entries`, {
+      data: { name: 'Aguinaldo', kind: 'INCOME', accountId: await accountId(), dueDate: isoDate(far), budgetedAmount: 500000 },
+    });
+    expect(response.status()).toBe(201);
+
+    await page.goto(`/presupuesto/${periodOf(far)}`);
+    await page.getByRole('button', { name: 'Registrar cobro de Aguinaldo' }).click();
+
+    await expect(dialog().getByTestId('window-notice')).toHaveText(
+      `Todavía no se pueden registrar movimientos de esta partida: se admiten desde el ${shown(farWindowStart)}.`,
+    );
+    await expect(dialog().getByRole('button', { name: 'Registrar cobro', exact: true })).toBeDisabled();
+  });
+
+  async function accountId(): Promise<number> {
+    const accounts = await (await api.get('/api/accounts')).json();
+    return accounts.accounts[0].id as number;
+  }
 });
