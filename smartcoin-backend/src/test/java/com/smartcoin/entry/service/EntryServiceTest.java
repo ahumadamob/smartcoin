@@ -24,6 +24,7 @@ import java.util.Optional;
 import com.smartcoin.account.domain.Account;
 import com.smartcoin.account.repository.AccountRepository;
 import com.smartcoin.budgetitem.domain.BudgetItem;
+import com.smartcoin.budgetitem.repository.BudgetItemRepository;
 import com.smartcoin.category.domain.Category;
 import com.smartcoin.category.repository.CategoryRepository;
 import com.smartcoin.entry.domain.BudgetEntry;
@@ -78,7 +79,7 @@ class EntryServiceTest {
 	@BeforeEach
 	void setUp() {
 		// 12:00 en Mendoza (UTC−3) del 8 de octubre de 2026.
-		service = new EntryService(periods, entries, movements, accounts, categories,
+		service = new EntryService(periods, entries, movements, accounts, categories, mock(BudgetItemRepository.class),
 				Clock.fixed(Instant.parse("2026-10-08T15:00:00Z"), ZONE));
 		november = period(NOVEMBER, 100, PeriodStatus.OPEN);
 		when(accounts.findByIdAndUserId(42L, USER_ID)).thenReturn(Optional.of(pesos));

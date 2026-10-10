@@ -1,11 +1,13 @@
 package com.smartcoin.entry.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import com.smartcoin.entry.domain.BudgetEntry;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -58,4 +60,15 @@ public interface BudgetEntryRepository extends JpaRepository<BudgetEntry, Long> 
 			left join fetch i.category
 			where e.id = :id and e.userId = :userId""")
 	Optional<BudgetEntry> findByIdAndUserIdWithDetails(@Param("id") Long id, @Param("userId") Long userId);
+
+	/**
+	 * HU-18 (RN-30, RN-31): elimina de una sola vez las partidas del usuario con estos ids, en una sola sentencia.
+	 * Las claves foráneas son {@code RESTRICT} y no hay cascadas: el servicio ya verificó que ninguna tiene
+	 * movimientos ni está consolidada, y elimina el Concepto después, no antes.
+	 *
+	 * @return cuántas filas se eliminaron
+	 */
+	@Modifying
+	@Query("delete from BudgetEntry e where e.userId = :userId and e.id in :ids")
+	int deleteByUserIdAndIdIn(@Param("userId") Long userId, @Param("ids") Collection<Long> ids);
 }

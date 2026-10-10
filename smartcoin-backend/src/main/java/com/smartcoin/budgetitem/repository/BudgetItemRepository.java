@@ -7,6 +7,7 @@ import java.util.Optional;
 import com.smartcoin.budgetitem.domain.BudgetItem;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -45,4 +46,14 @@ public interface BudgetItemRepository extends JpaRepository<BudgetItem, Long> {
 			       or (i.generatedUntil < :horizon and (i.endPeriod is null or i.generatedUntil < i.endPeriod)))
 			order by i.id""")
 	List<BudgetItem> findPendingGeneration(@Param("userId") Long userId, @Param("horizon") YearMonth horizon);
+
+	/**
+	 * HU-18 (RN-31): elimina el Concepto del usuario. Solo después de eliminar sus partidas: la clave foránea de
+	 * {@code budget_entry.budget_item_id} es {@code RESTRICT}.
+	 *
+	 * @return cuántas filas se eliminaron
+	 */
+	@Modifying
+	@Query("delete from BudgetItem i where i.userId = :userId and i.id = :id")
+	int deleteByUserIdAndId(@Param("userId") Long userId, @Param("id") Long id);
 }

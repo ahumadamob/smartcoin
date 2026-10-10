@@ -511,7 +511,7 @@ class BudgetItemEditServiceTest {
 
 	@Test
 	void anEntryWhoseAmountWasEditedKeepsItWhenTheCurrentAmountChangesAndTheOthersTakeTheNewOne() {
-		EntryService entryService = new EntryService(periods, entries, movements, accounts, categories,
+		EntryService entryService = new EntryService(periods, entries, movements, accounts, categories, items,
 				Clock.fixed(Instant.parse("2026-10-07T15:00:00Z"), ZONE));
 		BudgetEntry february = stored.stream().filter(e -> e.getPeriod().getPeriodMonth().equals(FEBRUARY))
 				.findFirst().orElseThrow();
