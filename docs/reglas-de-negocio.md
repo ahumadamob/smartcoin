@@ -152,6 +152,15 @@ Aclaraciones (HU-16, D-30):
 
 > Ejemplo, con ventana de 10 días: para el sueldo de diciembre (período 2026-12), la fecha más temprana es el 21/11. El 25/11 y el 30/11 son válidos; el 20/11 se rechaza.
 
+Aclaraciones (HU-19, D-33):
+
+- **Orden de evaluación**: formato del cuerpo (400); la partida (404, RN-01); el período de la partida (`PERIOD_CLOSED`) y su estado (`ENTRY_NOT_PENDING`), en ese orden, porque en un período cerrado todas están consolidadas y el motivo útil es el mes (D-30); la cuenta (400 en `accountId` si no existe o es de otro usuario, D-24: no es `CURRENCY_MISMATCH`); la moneda (`CURRENCY_MISMATCH`); y la fecha. Se informa **el primero que falla**, nunca varios.
+- **La fecha** se evalúa en el orden de la lista: ventana, apertura de la cuenta, hoy (los tres `DATE_OUT_OF_RANGE`) y, por último, el mes de la fecha (`PERIOD_CLOSED`). Una fecha fuera de rango en un mes cerrado informa el rango.
+- **Un mes anterior al período inicial** del usuario no es un período abierto ni cerrado: responde `DATE_OUT_OF_RANGE`, no `PERIOD_CLOSED`. Por la API no se puede producir, porque la apertura de una cuenta nunca es anterior al primer día del período inicial (RN-33) y la condición de la apertura la cubre antes.
+- **Una partida cuya ventana todavía no abrió no admite ninguna fecha**: la más temprana válida (primer día del período menos la ventana) es posterior a hoy, y una fecha posterior a hoy se rechaza. Responde `DATE_OUT_OF_RANGE`, y el `detail` dice desde qué fecha se admiten movimientos.
+- **El monto** mayor que 0 y con hasta 2 decimales es de formato: `VALIDATION_ERROR` en `amount` (RN-03).
+- **Con el pendiente en 0 se puede seguir registrando**: un pago que supera el presupuestado es válido (RN-17). Registrar no cambia nada guardado en la partida.
+
 **RN-22. Editar o eliminar un movimiento.** La partida debe estar pendiente, y el mes de la fecha actual del movimiento debe ser un período abierto. Al editar, los valores nuevos cumplen RN-21. Si se elimina el último movimiento, la partida vuelve a Estimada.
 
 **RN-23. Registrar no consolida.** La partida queda pendiente aunque el real alcance o supere al presupuestado. La pantalla puede sugerir consolidar cuando el pendiente llega a 0.

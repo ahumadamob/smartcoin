@@ -109,6 +109,18 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **Un solo borrado, en una transacción**: las partidas del alcance se eliminan con una sola sentencia y después, si corresponde, el Concepto (las claves foráneas son `RESTRICT`). `generated_until` no se toca nunca.
 - **Riesgo conocido, sin resolver** (igual que HU-12): un movimiento registrado entre la lectura y el borrado chocaría con la clave foránea y daría error 500, sin cambiar nada. Se acepta por el uso de a un usuario por vez.
 
+**D-33. Registrar un movimiento.** *Confirmada* (HU-19) en el orden de evaluación, el mes sin período y el aviso de pendiente 0, resueltos con el usuario antes de escribir código. El resto son decisiones de implementación que se presentaron en el plan y no tuvieron objeciones.
+
+- **Endpoints**: `POST /api/entries/{id}/movements` responde 201 con `{movement, entry}`: el movimiento y la partida con sus valores derivados ya actualizados (real, pendiente, estimado y estado). Así el aviso de pendiente 0 sale del backend y el frontend no suma nada. `GET /api/entries/{id}/movements` lista los movimientos por fecha y orden de registro, con su cuenta; se pueden leer también los de una partida consolidada o de un período cerrado.
+- **Orden de evaluación** (se informa el primero que falla): token (401); formato del cuerpo (400); partida inexistente o ajena (404); período de la partida cerrado (409 `PERIOD_CLOSED`); partida consolidada (409 `ENTRY_NOT_PENDING`); cuenta que no existe o es de otro usuario (400 en `accountId`, D-24); moneda (409 `CURRENCY_MISMATCH`); y la fecha: ventana, apertura y hoy (409 `DATE_OUT_OF_RANGE`) antes que el mes de la fecha (409 `PERIOD_CLOSED`). `PERIOD_CLOSED` va antes de `ENTRY_NOT_PENDING` por el mismo motivo que en D-30; en la fecha rige la letra de RN-21 (las tres primeras antes que la última).
+- **Un mes sin período** (anterior al período inicial) responde `DATE_OUT_OF_RANGE`: no está cerrado, está fuera del rango de períodos que existen (RN-06). Por la API no se produce (la apertura de la cuenta lo cubre antes, RN-33), pero la regla pura `MovementDateValidator` lo decide.
+- **Una partida lejana no admite movimientos**: si la ventana de su período abre después de hoy, ninguna fecha cumple la ventana y «no futura» a la vez (S-09). Responde 409 `DATE_OUT_OF_RANGE` con un `detail` que dice desde cuándo. La pantalla ofrece la acción igual: las reglas las decide el backend.
+- **Se puede registrar con el pendiente en 0**: un pago que supera el presupuestado es válido (RN-17) y no cambia el presupuestado (RN-23). Un monto que no es mayor que 0 o tiene más de 2 decimales es `VALIDATION_ERROR` en `amount` (RN-03; RN-21 no le da código propio).
+- **La nota** se guarda sin espacios en los extremos; en blanco, sin nota. Máximo 200 caracteres.
+- **El aviso de «pendiente 0»** (criterio 6) es un texto informativo, sin botón, hasta que exista la consolidación (HU-23): «ya está cubierta: pendiente $ 0,00. Sigue Parcial hasta que se consolide». Sale al guardar y al abrir el diálogo de una Parcial con pendiente 0. HU-23 le suma la acción «Consolidar».
+- **El diálogo** arranca con hoy (fecha del navegador, solo como sugerencia: el backend decide), la cuenta de la partida y, si queda pendiente, ese monto. Solo ofrece cuentas de la moneda de la partida (S-02).
+- **Un pedido rechazado no guarda nada.**
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
