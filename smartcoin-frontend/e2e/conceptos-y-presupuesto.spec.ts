@@ -867,6 +867,7 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
       '$ 0,00',
       '$ 85.000,00',
       'Estimada',
+      'Editar monto',
     ]);
     await expect(cells(row('Ingresos', 'Alquiler cobrado'))).toHaveText([
       new RegExp(`^\\s*${dateText(month(0), 28)}`),
@@ -878,6 +879,7 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
       'US$ 0,00',
       'US$ 1.000,00',
       'Estimada',
+      'Editar monto',
     ]);
     await expect(row('Gastos', 'Seguro').getByTestId('budgeted')).toHaveText('$ 20.000,50');
     await expect(row('Gastos', 'Seguro').getByTestId('installment')).toHaveText('—');
@@ -895,14 +897,14 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
   test('los totales y el resultado van separados por moneda', async () => {
     await expect(totals('Ingresos')).toHaveCount(2);
     await expect(cells(totals('Ingresos').nth(0))).toHaveText([
-      'Total en pesos', '$ 1.200.000,00', '$ 0,00', '$ 1.200.000,00', '',
+      'Total en pesos', '$ 1.200.000,00', '$ 0,00', '$ 1.200.000,00', '', '',
     ]);
     await expect(cells(totals('Ingresos').nth(1))).toHaveText([
-      'Total en dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00', '',
+      'Total en dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00', '', '',
     ]);
     // No hay gastos en dólares: Gastos solo tiene el total en pesos.
     await expect(totals('Gastos')).toHaveCount(1);
-    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 555.000,50', '$ 0,00', '$ 555.000,50', '']);
+    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 555.000,50', '$ 0,00', '$ 555.000,50', '', '']);
 
     await expect(results()).toHaveCount(2);
     await expect(cells(results().nth(0))).toHaveText(['Pesos', '$ 1.200.000,00', '$ 555.000,50', '$ 644.999,50']);
@@ -919,7 +921,7 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
     await expect(row('Gastos', 'Heladera').getByTestId('installment')).toHaveText('Cuota 5 de 12');
     await expect(row('Gastos', 'Alquiler').getByTestId('due')).toHaveText(lastDay(0));
     await expect(page.getByText('Vencida', { exact: true })).toHaveCount(0);
-    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 535.000,00', '$ 0,00', '$ 535.000,00', '']);
+    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 535.000,00', '$ 0,00', '$ 535.000,00', '', '']);
   });
 
   test('dos meses después el bimestral vuelve a aparecer', async () => {

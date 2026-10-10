@@ -85,9 +85,17 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **El tipo no se edita**, como en los Conceptos (RN-15). Un tipo distinto responde 409 `FIELD_NOT_EDITABLE`; enviar el mismo no es un cambio. Cambiarlo con movimientos invertiría su efecto en los saldos (RN-35), y en una diferencia de cierre cambiaría su sentido. Para cambiarlo se elimina la partida (HU-18) y se crea otra.
 - **El período de una partida no se edita**: no está en RN-18. Para pasarla a otro mes se elimina y se crea otra.
 - **El PATCH cambia solo lo que se envía**: un campo omitido o `null` significa «no cambia»; para vaciar la categoría se envía `clearCategory: true` (con `categoryId` a la vez, 400 en `clearCategory`). Se descartó `Optional` porque Jackson 3 deserializa igual un campo ausente y un `null` (verificado), y un envoltorio propio habría sacado el nombre y el monto de Bean Validation. Un cuerpo sin cambios, o con los mismos valores, responde 200 sin cambiar nada.
-- **Una recurrente no se edita por este endpoint**: cualquier cambio responde 409 `FIELD_NOT_EDITABLE` («se editan en su Concepto»). HU-17 levanta esa restricción solo para `budgetedAmount` y la marca editada, sin cambiar el contrato.
+- **Una recurrente no se edita por este endpoint**: cualquier cambio responde 409 `FIELD_NOT_EDITABLE` («se editan en su Concepto»). HU-17 levantó esa restricción solo para `budgetedAmount`, que la marca editada, sin cambiar el contrato (D-31).
 - **Orden de evaluación del alta**: token (401); formato del período y del cuerpo (400); período inexistente (404, RN-06); período cerrado (409 `PERIOD_CLOSED`); vencimiento fuera de rango (400 en `dueDate`); cuenta y categoría que no existen o son de otro usuario (400 en `accountId` y `categoryId`, D-24). **De la edición**: token; formato del cuerpo y categoría con `clearCategory` (400); partida inexistente o ajena (404); `PERIOD_CLOSED`; `ENTRY_NOT_PENDING`; dato no editable (409 `FIELD_NOT_EDITABLE`); vencimiento, cuenta y categoría (400); y, con movimientos, la moneda (409 `CURRENCY_MISMATCH`). `PERIOD_CLOSED` va antes de `ENTRY_NOT_PENDING` porque en un período cerrado todas las partidas están consolidadas y el motivo útil es el mes.
 - **Un pedido rechazado no cambia nada.**
+
+**D-31. Editar el monto de una partida recurrente.** *Confirmada* (HU-17).
+
+- **Mismo monto, ningún cambio**: enviar el presupuestado que la partida ya tiene responde 200 sin marcarla (coherente con D-30: un pedido con los mismos valores no cambia nada).
+- **La marca es «fijado a mano», no «distinto del vigente»**: una partida editada que vuelve a quedar en el monto vigente del Concepto sigue editada. No hay forma de quitar la marca salvo «Pisar» al consolidar (RN-26); un «Restablecer monto» sería una funcionalidad nueva, fuera de HU-17.
+- **Cuerpo mixto**: el presupuestado junto con otro dato de una recurrente que cambia es 409 `FIELD_NOT_EDITABLE` y no cambia nada.
+- **Parciales**: se editan, con el pendiente recalculado (S-11, RN-17). Sin aviso del backend si el monto queda por debajo de lo registrado; el diálogo lo avisa.
+- **Sin contrato nuevo**: el cuerpo y la respuesta del PATCH no cambian; el frontend usa el mismo `PATCH /api/entries/{id}` con solo `budgetedAmount`.
 
 ## Supuestos tomados al redactar
 

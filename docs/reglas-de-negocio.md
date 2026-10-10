@@ -110,7 +110,14 @@ Aclaraciones (HU-13): «período abierto» es todo período no cerrado, incluido
 - En una partida sin Concepto se editan nombre, categoría, cuenta, vencimiento y presupuestado (con los límites de RN-19). No se marca como editada porque no se propaga.
 - Editar nunca cambia otras partidas ni el monto vigente del Concepto.
 
-Aclaraciones (HU-16, D-30): el tipo no se edita (409 `FIELD_NOT_EDITABLE`; enviar el mismo no es un cambio) ni el período. Los datos de una recurrente son los de su Concepto: hasta HU-17, cualquier cambio sobre ella es 409 `FIELD_NOT_EDITABLE`. Un campo omitido no cambia; la categoría se vacía aparte. Un pedido sin cambios, o con los mismos valores, no cambia nada. Un pedido rechazado no cambia nada.
+Aclaraciones (HU-16, D-30): el tipo no se edita (409 `FIELD_NOT_EDITABLE`; enviar el mismo no es un cambio) ni el período. Los datos de una recurrente son los de su Concepto: cualquier cambio sobre ella salvo el presupuestado es 409 `FIELD_NOT_EDITABLE`. Un campo omitido no cambia; la categoría se vacía aparte. Un pedido sin cambios, o con los mismos valores, no cambia nada. Un pedido rechazado no cambia nada.
+
+Aclaraciones (HU-17, D-31):
+
+- Cambiar el presupuestado de una recurrente la marca como editada. Enviar el mismo monto que ya tiene no es un cambio: no la marca. Una vez editada, **sigue editada aunque el monto vuelva a coincidir con el vigente del Concepto**: la marca significa «el usuario fijó este monto», no «difiere del vigente». Hoy solo se quita con «Pisar» al consolidar (RN-26).
+- Un cuerpo que mezcla el presupuestado con otro dato de una recurrente que cambia se rechaza entero (409 `FIELD_NOT_EDITABLE`): no se aplica el monto a medias.
+- Las partidas Parciales se editan igual (S-11, RN-16). El presupuestado puede quedar por debajo de lo ya cobrado o pagado: el pendiente pasa a 0 y el estimado es el real (RN-17).
+- Editar el monto no cambia otras partidas, el monto vigente del Concepto, ni genera nada ni asegura el horizonte (D-11). Un cambio posterior del monto vigente no pisa la partida editada (RN-15), pero sí cambia su vencimiento y su cuenta.
 
 **RN-19. Partidas sin Concepto.**
 
