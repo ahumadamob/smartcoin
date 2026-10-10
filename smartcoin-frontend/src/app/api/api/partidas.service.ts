@@ -17,6 +17,8 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { EntryDeletionPreview } from '../model/entryDeletionPreview';
+// @ts-ignore
 import { EntryUpdateRequest } from '../model/entryUpdateRequest';
 // @ts-ignore
 import { OneOffEntryRequest } from '../model/oneOffEntryRequest';
@@ -106,6 +108,140 @@ export class PartidasService extends BaseService {
             {
                 context: localVarHttpContext,
                 body: oneOffEntryRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Eliminar una partida
+     * Elimina una partida pendiente y sin movimientos de un período abierto (RN-30, RN-31, RN-32). Una partida sin Concepto no lleva &#x60;scope&#x60;. Una recurrente lo exige: &#x60;ONLY_THIS&#x60; elimina solo esa partida y el Concepto sigue igual (la partida no reaparece al asegurar el horizonte, RN-13); &#x60;THIS_AND_FUTURE&#x60; elimina esa y todas las posteriores del Concepto y fija su fin en el mes anterior. El Concepto también se elimina si queda sin ninguna partida y sin nada por generar. Todo o nada: si alguna partida del alcance lo impide, no se elimina ni se modifica nada. Orden en que se evalúa: valor de &#x60;scope&#x60; inválido (400), partida inexistente o ajena (404), alcance faltante o sobrante (400), período cerrado (409) y partidas del alcance consolidadas (409 ENTRY_NOT_PENDING) o con movimientos (409 ENTRY_HAS_MOVEMENTS). &#x60;GET /api/entries/{id}/deletion-preview&#x60; informa de antemano qué haría cada alcance.
+     * @endpoint delete /api/entries/{id}
+     * @param id 
+     * @param scope Alcance. Obligatorio en una partida recurrente; no se envía en una sin Concepto. ONLY_THIS: solo esta. THIS_AND_FUTURE: esta y las siguientes del Concepto.
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public deleteEntry(id: number, scope?: 'ONLY_THIS' | 'THIS_AND_FUTURE', observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public deleteEntry(id: number, scope?: 'ONLY_THIS' | 'THIS_AND_FUTURE', observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public deleteEntry(id: number, scope?: 'ONLY_THIS' | 'THIS_AND_FUTURE', observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public deleteEntry(id: number, scope?: 'ONLY_THIS' | 'THIS_AND_FUTURE', observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling deleteEntry.');
+        }
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'scope',
+            <any>scope,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/entries/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Vista previa de la eliminación de una partida
+     * Informa, sin modificar nada, qué haría eliminar la partida: con cada alcance si es recurrente (&#x60;onlyThis&#x60;, &#x60;thisAndFuture&#x60;), o solo &#x60;removal&#x60; si no tiene Concepto. Para cada uno: si se puede, cuántas partidas se eliminarían y de qué mes a qué mes, qué pasa con el Concepto (sigue, termina en un mes o se elimina) y las partidas que lo impiden, con su mes y su motivo. Es la misma regla que aplica &#x60;DELETE /api/entries/{id}&#x60;.
+     * @endpoint get /api/entries/{id}/deletion-preview
+     * @param id 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getEntryDeletionPreview(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<EntryDeletionPreview>;
+    public getEntryDeletionPreview(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<EntryDeletionPreview>>;
+    public getEntryDeletionPreview(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<EntryDeletionPreview>>;
+    public getEntryDeletionPreview(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling getEntryDeletionPreview.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/entries/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}/deletion-preview`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<EntryDeletionPreview>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

@@ -28,6 +28,9 @@ model/changePasswordRequest.ts
 model/createUserRequest.ts
 model/createdUserResponse.ts
 model/currencySubtotal.ts
+model/deletionBlocker.ts
+model/deletionPlan.ts
+model/entryDeletionPreview.ts
 model/entryUpdateRequest.ts
 model/fieldEditability.ts
 model/loginRequest.ts
