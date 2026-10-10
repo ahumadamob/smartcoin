@@ -58,4 +58,15 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
 	 */
 	@Query("select sum(m.amount) from Movement m where m.userId = :userId and m.entry.id = :entryId")
 	BigDecimal sumByEntry(@Param("userId") Long userId, @Param("entryId") Long entryId);
+
+	/**
+	 * HU-19: los movimientos de una partida del usuario, por fecha y, a igual fecha, por orden de creación, con su
+	 * cuenta en la misma consulta.
+	 */
+	@Query("""
+			select m from Movement m
+			join fetch m.account
+			where m.userId = :userId and m.entry.id = :entryId
+			order by m.movementDate, m.id""")
+	List<Movement> findByUserIdAndEntryIdWithAccount(@Param("userId") Long userId, @Param("entryId") Long entryId);
 }
