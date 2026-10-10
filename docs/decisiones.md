@@ -97,6 +97,18 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **Parciales**: se editan, con el pendiente recalculado (S-11, RN-17). Sin aviso del backend si el monto queda por debajo de lo registrado; el diálogo lo avisa.
 - **Sin contrato nuevo**: el cuerpo y la respuesta del PATCH no cambian; el frontend usa el mismo `PATCH /api/entries/{id}` con solo `budgetedAmount`.
 
+**D-32. Eliminar una partida.** *Confirmada* (HU-18).
+
+- **Alcance obligatorio y sin valor por defecto**: una recurrente sin `scope` es 400 `VALIDATION_ERROR` en `scope`; una partida sin Concepto con `scope` (cualquiera) también. Solo este mes parece inofensivo pero deja un hueco permanente, y D-19 pide que se pregunte. Un `scope` con un valor que no existe es 400 sin detalle por campo.
+- **Solo este mes sobre la última partida**: el Concepto también se elimina si no le queda ninguna partida y no tiene nada por generar (fin definido y ya generado). Sin eso quedaría en la lista, sin forma de darlo de baja (no hay endpoint propio) y bloqueando su cuenta y su categoría (`ACCOUNT_IN_USE`, `CATEGORY_IN_USE`). Un Concepto que todavía puede generar sigue igual: «Solo este mes» no es una baja. Se descartó eliminarlo siempre que quede sin partidas, que convertiría «Solo este mes» en una baja total de un Concepto abierto.
+- **Plan de cuotas recortado**: «Este mes y los siguientes» fija un fin anterior al calculado y el total no cambia. D-27 se ajusta: las cuotas que quedan llegan hasta la última que sigue en el plan, no hasta el total (ver D-27).
+- **Código con consolidadas y movimientos a la vez**: `ENTRY_NOT_PENDING` si alguna del alcance está consolidada (siempre tiene movimientos, RN-25), si no `ENTRY_HAS_MOVEMENTS`. `entries` lista todas las que impiden. Coherente con la edición, que revisa primero la consolidación (D-30). `PERIOD_CLOSED` va antes.
+- **Vista previa**: `GET /api/entries/{id}/deletion-preview`, de solo lectura, que usa la misma regla pura (`EntryDeletionPlanner`) que la eliminación. Así el diálogo muestra cuántas partidas se eliminan, desde qué mes y qué pasa con el Concepto, y lista los impedimentos por mes y motivo antes de confirmar; si el backend rechaza igual, vuelve a pedirla. El 409 sigue trayendo solo los ids en `entries`.
+- **Partidas de saldo postergado y de diferencia de cierre** se eliminan como cualquier partida sin Concepto (RN-30 no las excluye). Eliminar un saldo postergado equivale a haber cerrado con lo registrado (la original ya está consolidada en un período cerrado y no cambia). Eliminar una diferencia de cierre no la pierde: los saldos salen de los movimientos (RN-35) y la conciliación del próximo cierre la vuelve a encontrar (RN-42).
+- **Las Parciales ofrecen «Eliminar»**: «pendiente» incluye Parcial (S-11). El backend las rechaza por tener movimientos (RN-32) y el diálogo lo explica con la vista previa; el botón no se oculta para que el motivo sea visible.
+- **Un solo borrado, en una transacción**: las partidas del alcance se eliminan con una sola sentencia y después, si corresponde, el Concepto (las claves foráneas son `RESTRICT`). `generated_until` no se toca nunca.
+- **Riesgo conocido, sin resolver** (igual que HU-12): un movimiento registrado entre la lectura y el borrado chocaría con la clave foránea y daría error 500, sin cambiar nada. Se acepta por el uso de a un usuario por vez.
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
@@ -121,7 +133,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-11. Cambiar el monto vigente de un Concepto actualiza sus partidas pendientes no editadas.** Es una corrección del Concepto (por ejemplo, un error de tipeo al crearlo) y no contradice D-11, que se refiere a editar partidas. «Pendientes» incluye las Parciales (RN-16): reciben el monto nuevo y su pendiente se recalcula (RN-17). Aclarado en HU-13.
 
-**S-12. Tipo, periodicidad, período de inicio, período de fin y cuotas de un Concepto no se editan** (RN-15). Para cambiarlos se da de baja y se crea otro. En una baja el fin se fija (HU-18), pero eso no es editarlo.
+**S-12. Tipo, periodicidad, período de inicio, período de fin y cuotas de un Concepto no se editan** (RN-15). Para cambiarlos se da de baja y se crea otro. En una baja el fin se fija (HU-18, D-32), pero eso no es editarlo.
 
 **S-13. La cuenta tiene fecha de apertura y saldo inicial a esa fecha.** No se aceptan movimientos anteriores. Por defecto, la fecha de apertura es el primer día del período inicial del usuario. La fecha de apertura debe estar entre el primer día del período inicial y hoy, ambos inclusive: no puede ser futura. *Confirmada.*
 

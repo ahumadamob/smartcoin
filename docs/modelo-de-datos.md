@@ -12,7 +12,7 @@ Esquema relacional para MySQL 8, pensado para migrar a PostgreSQL sin rediseñar
 - Montos: `DECIMAL(19,2)`. Fechas de negocio: `DATE`. Períodos: `CHAR(7)` con formato `YYYY-MM`, que se ordena bien como texto.
 - Fechas técnicas (`created_at`, `updated_at`, `closed_at`, `consolidated_at`): `DATETIME(6)` en UTC.
 - Booleanos: `BOOLEAN`.
-- Claves foráneas con `ON DELETE RESTRICT`. No hay borrados en cascada: toda eliminación pasa por las reglas del servicio.
+- Claves foráneas con `ON DELETE RESTRICT`. No hay borrados en cascada: toda eliminación pasa por las reglas del servicio, que elimina primero las partidas y después el Concepto (HU-18).
 - Juego de caracteres `utf8mb4` con colación `utf8mb4_0900_as_ci`, que compara sin distinguir mayúsculas pero **sí acentos** ("Año" y "Ano" son nombres distintos; "Año" y "AÑO", el mismo). Los nombres únicos por usuario aprovechan eso. Cada `CREATE TABLE` la declara, sin depender de la colación por defecto de la base.
 - Migraciones Flyway en `smartcoin-backend/src/main/resources/db/migration/mysql/`. Al migrar a PostgreSQL se agrega `db/migration/postgresql/` con el esquema equivalente.
 - Todas las tablas llevan `created_at` y `updated_at` (`account_closing` solo `created_at`, porque no se modifica). En las tablas de abajo no se repiten.
@@ -95,7 +95,7 @@ Restricciones: `UNIQUE (user_id, name)`.
 | `due_day` | SMALLINT | no | 1 a 31. |
 | `due_month_offset` | SMALLINT | no | 0 o −1. |
 | `start_period` | CHAR(7) | no | Primer período con partida. No editable. |
-| `end_period` | CHAR(7) | sí | Último período posible. Null = sin fin. En cuotas se calcula; en una baja se fija. |
+| `end_period` | CHAR(7) | sí | Último período posible. Null = sin fin. En cuotas se calcula; en una baja (HU-18) se fija en el mes anterior al de la primera partida eliminada, sin tocar `generated_until` ni `installments_total`. |
 | `installments_total` | SMALLINT | sí | Total de cuotas (≥ 1; la API admite hasta 360, D-25). Null = no es en cuotas. No editable. |
 | `first_installment_number` | SMALLINT | sí | Cuota que corresponde a `start_period`, entre 1 y `installments_total`. No editable. |
 | `estimation_rule` | VARCHAR(20) | no | `LAST_VALUE`, `AVERAGE_LAST_3` |

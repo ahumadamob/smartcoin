@@ -81,6 +81,7 @@ En la base, el estado de la partida se guarda solo como `PENDING` o `CONSOLIDATE
 | Cerrar el mes | `closePeriod` | Verifica todo, compara saldos y bloquea el período para siempre. Se aplica a períodos. |
 | Transferir | `transfer` | Mueve plata entre dos cuentas propias. |
 | Eliminar partida | `deleteEntry` | Borra una partida. Si viene de un Concepto, pregunta el alcance. |
+| Vista previa de la eliminación | `deletionPreview` | Informa, sin cambiar nada, qué eliminaría cada alcance y qué partidas lo impiden. |
 
 ## Términos a evitar
 

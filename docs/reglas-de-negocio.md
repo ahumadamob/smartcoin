@@ -205,6 +205,16 @@ Consecuencias:
 
 **RN-32. Lo consolidado no se elimina.** Ni las partidas consolidadas ni sus movimientos. Una partida con movimientos tampoco: primero se eliminan los movimientos o se consolida (`ENTRY_HAS_MOVEMENTS`).
 
+Aclaraciones (HU-18, D-32):
+
+- **Alcance**: una partida recurrente exige `scope` (`ONLY_THIS` o `THIS_AND_FUTURE`); sin él, 400 `VALIDATION_ERROR` en `scope`. Una partida sin Concepto no lleva alcance: si se envía, también 400 en `scope`. No hay valor por defecto.
+- **Solo este mes y el Concepto sin partidas**: si la partida eliminada era la última que le quedaba al Concepto y además no tiene nada por generar (tiene fin y ya generó hasta él, `generated_until ≥ fin`), el Concepto también se elimina: sin partidas ni nada por generar ya no habría forma de darlo de baja (RN-31 se completa en este punto). Si todavía puede generar partidas (no tiene fin, o su fin es posterior al horizonte), sigue igual y el horizonte le genera las de los meses que entren.
+- **Este mes y los siguientes**: el alcance es el período P de la partida y todos los posteriores; las anteriores no se tocan aunque estén consolidadas o tengan movimientos. El fin pasa a ser P − 1 aunque ese mes no tenga partida (periodicidad bimestral, trimestral...). `generated_until` no cambia, así que el horizonte no genera más para el Concepto. En un plan de cuotas el total no cambia (es no editable, RN-15): las cuotas que quedan llegan hasta la última que sigue en el plan (D-27). Si no queda ninguna partida del Concepto, el Concepto se elimina aunque P no sea su período de inicio.
+- **Impedimentos**: el código es `ENTRY_NOT_PENDING` si alguna partida del alcance está consolidada y `ENTRY_HAS_MOVEMENTS` si no; `entries` lista **todas** las que impiden, de los dos tipos, y `detail` cuenta cada tipo. Una consolidada siempre tiene movimientos (RN-25) y se informa como consolidada.
+- **Orden de los errores**: token (401); valor de `scope` inválido (400); partida inexistente o de otro usuario (404); alcance faltante o sobrante (400 en `scope`); período de la partida elegida cerrado (409 `PERIOD_CLOSED`, antes que mirar partidas); partidas del alcance que impiden (409). Un pedido rechazado no cambia nada.
+- **Saldo postergado y diferencia de cierre** (RN-30): se eliminan como cualquier partida sin Concepto, con las mismas condiciones. El diálogo avisa qué significa en cada caso.
+- **Vista previa**: `GET /api/entries/{id}/deletion-preview` informa, sin cambiar nada y con la misma regla, qué haría cada alcance: si se puede, cuántas partidas, de qué mes a qué mes, qué pasa con el Concepto y qué partidas lo impiden con su mes y su motivo.
+
 ## 8. Cuentas, categorías y transferencias
 
 **RN-33. Cuentas.**
@@ -367,8 +377,8 @@ Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un 
 | `FIELD_NOT_EDITABLE` | 409 | Cambiar un dato que no se puede editar en ese estado. |
 | `PERIOD_NOT_AVAILABLE` | 409 | Usar un período anterior al primer período abierto o posterior al horizonte. |
 | `PERIOD_CLOSED` | 409 | Modificar algo de un período cerrado o con fecha en él. |
-| `ENTRY_NOT_PENDING` | 409 | Operar como pendiente sobre una partida consolidada. |
-| `ENTRY_HAS_MOVEMENTS` | 409 | Eliminar partidas que tienen movimientos. |
+| `ENTRY_NOT_PENDING` | 409 | Operar como pendiente sobre una partida consolidada, o eliminar un alcance que incluye alguna consolidada (con `entries`). |
+| `ENTRY_HAS_MOVEMENTS` | 409 | Eliminar partidas que tienen movimientos (con `entries`). Si el alcance incluye también alguna consolidada, el código es `ENTRY_NOT_PENDING`. |
 | `CURRENCY_MISMATCH` | 409 | Cuenta de distinta moneda que la partida o el Concepto. |
 | `DATE_OUT_OF_RANGE` | 409 | Fecha antes de la ventana, antes de la apertura de la cuenta o futura. |
 | `CONSOLIDATION_REQUIRES_MOVEMENT` | 409 | Consolidar una partida sin movimientos. |
