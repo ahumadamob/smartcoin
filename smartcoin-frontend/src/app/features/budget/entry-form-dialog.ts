@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, OnInit, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -104,6 +104,7 @@ export class EntryFormDialog implements OnInit {
   private readonly api = inject(PartidasService);
   private readonly accountsApi = inject(CuentasService);
   private readonly categoriesApi = inject(CategorasService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly ref = inject<MatDialogRef<EntryFormDialog, EntryFormDialogResult>>(MatDialogRef);
   protected readonly data = inject<EntryFormDialogData>(MAT_DIALOG_DATA);
 
@@ -140,6 +141,18 @@ export class EntryFormDialog implements OnInit {
   protected readonly selectedCurrency = computed(() => {
     const id = this.selectedAccountId();
     return this.accounts().find((account) => account.id === id)?.currency ?? null;
+  });
+
+  /**
+   * La pista del campo Cuenta. Al editar, elegir una cuenta de otra moneda cambia la moneda de la partida y se avisa
+   * (D-30). Se arma acá porque `mat-hint` solo se proyecta si es hijo directo del campo, no dentro de un `@if`.
+   */
+  protected readonly accountHint = computed(() => {
+    const currency = this.selectedCurrency();
+    if (this.entry && currency !== null && currency !== this.entry.currency) {
+      return { text: `Esta cuenta es en ${CURRENCY_LABELS[currency]}: la partida pasa a esa moneda.`, warning: true };
+    }
+    return { text: 'La moneda de la partida es la de su cuenta.', warning: false };
   });
 
   /** El formulario se puede enviar cuando terminó de cargar y hay al menos una cuenta. */
@@ -243,6 +256,8 @@ export class EntryFormDialog implements OnInit {
     if (control) {
       control.setErrors({ server: message });
       control.markAsTouched();
+      // El foco va al campo con el error: queda a la vista aunque el diálogo tenga scroll, y se anuncia.
+      this.host.nativeElement.querySelector<HTMLElement>(`[formcontrolname="${field}"]`)?.focus();
     } else {
       this.error.set(message);
     }

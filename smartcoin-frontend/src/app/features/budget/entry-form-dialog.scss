@@ -11,7 +11,8 @@
 
 .pair {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  // Dos columnas cuando entran; en un ancho angosto, una debajo de la otra.
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 

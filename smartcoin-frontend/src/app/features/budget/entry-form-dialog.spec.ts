@@ -246,6 +246,8 @@ describe('EntryFormDialog (HU-16)', () => {
       expect(ref.close).not.toHaveBeenCalled();
       expect(field('Vencimiento').textContent).toContain('El vencimiento debe estar entre el 01/10/2026 y el 30/11/2026.');
       expect(root().querySelector('[role="alert"]')).toBeNull();
+      // El foco va al campo con el error.
+      expect(document.activeElement).toBe(field('Vencimiento').querySelector('input'));
       expect(form().getRawValue()).toMatchObject({
         name: 'Regalo',
         kind: 'INCOME',

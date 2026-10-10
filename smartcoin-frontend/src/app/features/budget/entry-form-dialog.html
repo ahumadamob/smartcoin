@@ -55,17 +55,7 @@
             <mat-option [value]="account.id">{{ account.name }} · {{ currencyLabels[account.currency] }}</mat-option>
           }
         </mat-select>
-        @if (entry && selectedCurrency(); as currency) {
-          @if (currency !== entry.currency) {
-            <mat-hint class="warning">
-              Esta cuenta es en {{ currencyLabels[currency] }}: la partida pasa a esa moneda.
-            </mat-hint>
-          } @else {
-            <mat-hint>La moneda de la partida es la de su cuenta.</mat-hint>
-          }
-        } @else {
-          <mat-hint>La moneda de la partida es la de su cuenta.</mat-hint>
-        }
+        <mat-hint [class.warning]="accountHint().warning">{{ accountHint().text }}</mat-hint>
         @if (form.controls.accountId.hasError('required')) {
           <mat-error>Elegí la cuenta.</mat-error>
         } @else if (form.controls.accountId.hasError('server')) {
