@@ -26,3 +26,12 @@ export function canEditAmount(entry: PeriodEntry): boolean {
 export function canDeleteEntry(entry: PeriodEntry): boolean {
   return entry.status !== 'CONSOLIDATED';
 }
+
+/**
+ * Si una partida ofrece «Registrar pago» (gasto) o «Registrar cobro» (ingreso) (HU-19, RN-21): las pendientes,
+ * Estimadas o Parciales, con o sin Concepto. Es solo lo que la pantalla ofrece: quien decide es el backend, que
+ * además mira el período (`readonly`, RN-09), la cuenta y la fecha.
+ */
+export function canRegisterMovement(entry: PeriodEntry): boolean {
+  return entry.status !== 'CONSOLIDATED';
+}

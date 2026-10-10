@@ -10,6 +10,7 @@ import { provideLocale } from '../../core/locale';
 import { BudgetMonth } from './budget-month';
 import { EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
+import { MovementDialogData, MovementDialogResult } from './movement-dialog';
 import { budgetMonthMatcher } from './budget-month.matcher';
 
 const entry = (overrides: Partial<PeriodEntry>): PeriodEntry => ({
@@ -150,7 +151,7 @@ describe('BudgetMonth', () => {
   let api: { getPeriod: ReturnType<typeof vi.fn>; getCurrentPeriod: ReturnType<typeof vi.fn> };
   /** El diálogo de HU-16 se simula: lo que importa acá es cuándo se abre, con qué, y qué hace la pantalla al cerrarse. */
   let dialog: { open: ReturnType<typeof vi.fn> };
-  let dialogResult: EntryFormDialogResult | EntryDeleteDialogResult | undefined;
+  let dialogResult: EntryFormDialogResult | EntryDeleteDialogResult | MovementDialogResult | undefined;
   let snackBar: { open: ReturnType<typeof vi.fn> };
 
   /** Por defecto la API responde el mes pedido, vacío; `/current` responde octubre. */
@@ -875,6 +876,165 @@ describe('BudgetMonth', () => {
       expect(api.getPeriod.mock.calls.length).toBe(calls);
       expect(snackBar.open).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(deleteButtons()[0]);
+    });
+  });
+
+  describe('registrar cobros y pagos (HU-19)', () => {
+    const registerButtons = () =>
+      Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="register-movement"]'));
+    const withEntries = (status: 'OPEN' | 'CLOSED', incomes: PeriodEntry[], expenses: PeriodEntry[]): PeriodView => ({
+      ...NOVEMBER,
+      status,
+      incomes,
+      expenses,
+      totals: [
+        { currency: 'ARS', income: side(incomes.length, 0, 0, 0, 0), expense: side(expenses.length, 0, 0, 0, 0), result: 0 },
+      ],
+    });
+    const expensas = (overrides: Partial<PeriodEntry> = {}) =>
+      entry({
+        id: 30,
+        budgetItemId: null,
+        origin: 'ONE_OFF',
+        name: 'Expensas',
+        dueDate: '2026-11-10',
+        budgetedAmount: 120000,
+        pendingAmount: 120000,
+        forecastAmount: 120000,
+        ...overrides,
+      });
+    const registered = (after: PeriodEntry, amount: number): MovementDialogResult => ({
+      movement: {
+        id: 500,
+        entryId: after.id,
+        date: '2026-11-05',
+        amount,
+        note: null,
+        accountId: after.accountId,
+        accountName: after.accountName,
+        currency: after.currency,
+      },
+      entry: after,
+    });
+
+    it('un gasto ofrece «Registrar pago» y un ingreso, «Registrar cobro», en las pendientes de un período abierto', async () => {
+      const income = entry({ id: 31, kind: 'INCOME', name: 'Sueldo', budgetItemId: null, origin: 'ONE_OFF' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [income], [expensas()])) });
+
+      expect(registerButtons().map((b) => text(b))).toEqual(['Registrar cobro', 'Registrar pago']);
+      expect(registerButtons().map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Registrar cobro de Sueldo',
+        'Registrar pago de Expensas',
+      ]);
+    });
+
+    it('lo ofrecen las Parciales y las recurrentes, y no las Consolidadas', async () => {
+      const partial = expensas({ id: 32, name: 'Parcial', status: 'PARTIAL', actualAmount: 70000, pendingAmount: 50000 });
+      const recurring = entry({ id: 33, name: 'Luz' });
+      const done = expensas({ id: 34, name: 'Hecha', status: 'CONSOLIDATED', pendingAmount: 0 });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [partial, recurring, done])) });
+
+      const rowsWithAction = rows('Gastos')
+        .filter((row) => row.querySelector('[data-testid="register-movement"]'))
+        .map((row) => cells(row)[1]);
+      expect(rowsWithAction).toEqual(['Parcial', 'Luz']);
+    });
+
+    it('un período cerrado no la ofrece', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('CLOSED', [], [expensas()])) });
+
+      expect(registerButtons()).toHaveLength(0);
+    });
+
+    it('abre el diálogo con la partida y el mes que se ve', async () => {
+      const entryToPay = expensas();
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [entryToPay])) });
+
+      registerButtons()[0].click();
+
+      expect(dialog.open).toHaveBeenCalledTimes(1);
+      const data = dialog.open.mock.calls[0][1].data as MovementDialogData;
+      expect(data).toEqual({ entry: entryToPay, period: '2026-11' });
+    });
+
+    it('al guardar vuelve a pedir el mes, muestra real y pendiente del backend y no desmonta las tablas', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const after = expensas({ status: 'PARTIAL', actualAmount: 70000, pendingAmount: 50000, forecastAmount: 120000 });
+      const getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [], [after])));
+      api.getPeriod = getPeriod;
+      const tableBefore = section('Gastos').querySelector('table');
+      dialogResult = registered(after, 70000);
+
+      registerButtons()[0].click();
+      await refresh();
+
+      expect(getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Pago de $ 70.000,00 registrado en «Expensas».',
+        undefined,
+        expect.anything(),
+      );
+      const row = cells(rows('Gastos')[0]);
+      expect(row[6]).toContain('70.000,00');
+      expect(row[7]).toContain('50.000,00');
+      expect(row[8]).toBe('Parcial');
+      expect(text(root())).not.toContain('Cargando el mes…');
+      expect(section('Gastos').querySelector('table')).toBe(tableBefore);
+    });
+
+    it('cuando el pendiente llega a 0, el aviso lo dice con lo que informa el backend y sigue Parcial', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const after = expensas({ status: 'PARTIAL', actualAmount: 120000, pendingAmount: 0, forecastAmount: 120000 });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [], [after])));
+      dialogResult = registered(after, 120000);
+
+      registerButtons()[0].click();
+      await refresh();
+
+      const message = snackBar.open.mock.calls[0][0] as string;
+      expect(message).toContain('Pago de $ 120.000,00 registrado en «Expensas».');
+      expect(message).toContain('«Expensas» ya está cubierta: pendiente $ 0,00. Sigue Parcial hasta que se consolide.');
+      expect(cells(rows('Gastos')[0])[8]).toBe('Parcial');
+    });
+
+    it('el foco vuelve al «Registrar pago» de la partida', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const after = expensas({ status: 'PARTIAL', actualAmount: 70000, pendingAmount: 50000 });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [], [after])));
+      registerButtons()[0].focus();
+      dialogResult = registered(after, 70000);
+
+      registerButtons()[0].click();
+      await refresh();
+      await refresh();
+
+      expect(document.activeElement).toBe(
+        section('Gastos').querySelector('[data-entry-id="30"] [data-testid="register-movement"]'),
+      );
+    });
+
+    it('si el diálogo avisa que la pantalla estaba desactualizada, vuelve a pedir el mes sin avisar nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = { stale: true };
+
+      registerButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = undefined;
+
+      registerButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls);
+      expect(snackBar.open).not.toHaveBeenCalled();
     });
   });
 });

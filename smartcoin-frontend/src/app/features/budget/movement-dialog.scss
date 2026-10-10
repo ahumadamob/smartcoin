@@ -1,0 +1,108 @@
+.dialog {
+  display: block;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.context {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.amounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  dt {
+    font: var(--mat-sys-label-large);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    font: var(--mat-sys-title-medium);
+    white-space: nowrap;
+  }
+}
+
+.notice {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--mat-sys-primary);
+  background: var(--mat-sys-surface-container);
+}
+
+.movements {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.subheading {
+  margin: 0;
+  font: var(--mat-sys-title-small);
+}
+
+.empty {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--mat-sys-body-medium);
+}
+
+th,
+td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+thead th {
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+.number {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.pair {
+  display: grid;
+  // Dos columnas cuando entran; en un ancho angosto, una debajo de la otra.
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.error {
+  margin: 0;
+  color: var(--mat-sys-error);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

@@ -18,6 +18,8 @@ const MESSAGES: Record<string, string> = {
   PERIOD_CLOSED: 'Ese mes ya está cerrado y no admite cambios.',
   ENTRY_NOT_PENDING: 'La partida ya está consolidada: no se puede editar.',
   ENTRY_HAS_MOVEMENTS: 'La partida tiene movimientos: no se puede eliminar.',
+  DATE_OUT_OF_RANGE:
+    'La fecha está fuera del rango permitido: no puede ser anterior a la ventana de la partida ni a la apertura de la cuenta, ni posterior a hoy.',
 };
 
 const VALIDATION_ERROR = 'VALIDATION_ERROR';
@@ -50,4 +52,13 @@ export function messageFor(error: unknown): string {
     return body.errors?.[0]?.message || body.detail || VALIDATION_FALLBACK;
   }
   return (body?.code && MESSAGES[body.code]) || body?.detail || UNEXPECTED_ERROR;
+}
+
+/**
+ * El `detail` que mandó el backend, y si no hay, el mismo texto que {@link messageFor}. Para los errores cuyo `detail`
+ * nombra fechas o cuentas y explica más que el texto fijo (por ejemplo, desde qué día se admite un movimiento).
+ */
+export function detailFor(error: unknown): string {
+  const body: ProblemBody | null = error instanceof HttpErrorResponse && typeof error.error === 'object' ? error.error : null;
+  return body?.detail || messageFor(error);
 }

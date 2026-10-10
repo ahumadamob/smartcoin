@@ -25,6 +25,8 @@ import { PeriodPipe } from '../../shared/pipes/period.pipe';
 import { EntryDeleteDialog, EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialog, EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { EntryTable } from './entry-table';
+import { MovementDialog, MovementDialogData, MovementDialogResult } from './movement-dialog';
+import { registeredMessage } from './movement-text';
 import { isPeriod, nextPeriod, PeriodRange, periodsInRange, previousPeriod } from './period-nav';
 import { suggestedDueDate } from './suggested-due-date';
 
@@ -69,6 +71,7 @@ export class BudgetMonth implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly injector = inject(Injector);
+  private readonly money = new MoneyPipe();
 
   protected readonly view = signal<PeriodView | null>(null);
   /** El período pedido: el de la URL o, sin él, el actual, que se conoce cuando responde el backend. */
@@ -141,6 +144,43 @@ export class BudgetMonth implements OnInit {
       return;
     }
     this.openEntryForm({ period, suggestedDueDate: suggestedDueDate(period, range.currentPeriod, new Date()) });
+  }
+
+  /**
+   * «Registrar cobro» o «Registrar pago»: abre el diálogo de la partida y, al guardar, vuelve a pedir el mes. Real,
+   * pendiente, estado y totales los trae el backend; acá no se suma nada (HU-19).
+   */
+  protected registerMovement(entry: PeriodEntry): void {
+    const period = this.period();
+    if (period === null || !isPeriod(period) || this.readonly()) {
+      return;
+    }
+    this.dialog
+      .open<MovementDialog, MovementDialogData, MovementDialogResult>(MovementDialog, {
+        data: { entry, period },
+        width: '640px',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result === undefined) {
+          return;
+        }
+        if ('stale' in result) {
+          // El período se cerró o la partida ya no está pendiente: lo que se ve ya no es lo que hay.
+          this.reload(null);
+          return;
+        }
+        this.snackBar.open(
+          registeredMessage(result.entry, result.movement.amount, (amount, currency) =>
+            this.money.transform(amount, currency),
+          ),
+          undefined,
+          { duration: result.entry.pendingAmount === 0 ? 10000 : 5000 },
+        );
+        this.reload(result.entry.id, null, 'register');
+      });
   }
 
   /** «Editar» una partida sin Concepto: el mismo diálogo, con sus datos (HU-16). */
@@ -227,7 +267,11 @@ export class BudgetMonth implements OnInit {
    * Vuelve a pedir el mes que se está viendo, sin vaciar la pantalla: las tablas siguen montadas y el foco no se
    * pierde. Si la partida guardada cambió de lugar, el navegador suelta el foco al moverla: se le devuelve.
    */
-  private reload(focusEntryId: number | null, afterRemoval: RemovalFocus | null = null): void {
+  private reload(
+    focusEntryId: number | null,
+    afterRemoval: RemovalFocus | null = null,
+    focusAction: 'edit' | 'register' = 'edit',
+  ): void {
     const period = this.period();
     if (period === null || !isPeriod(period)) {
       return;
@@ -252,9 +296,11 @@ export class BudgetMonth implements OnInit {
                 const lost = !document.activeElement || document.activeElement === document.body;
                 if (lost) {
                   const row = `[data-entry-id="${focusEntryId}"]`;
-                  document
-                    .querySelector<HTMLElement>(`${row} [data-testid="edit-entry"], ${row} [data-testid="edit-amount"]`)
-                    ?.focus();
+                  const actions =
+                    focusAction === 'register'
+                      ? `${row} [data-testid="register-movement"]`
+                      : `${row} [data-testid="edit-entry"], ${row} [data-testid="edit-amount"]`;
+                  document.querySelector<HTMLElement>(actions)?.focus();
                 }
               },
               { injector: this.injector },

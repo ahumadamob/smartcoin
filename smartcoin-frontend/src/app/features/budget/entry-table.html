@@ -51,6 +51,17 @@
               <td class="nowrap" data-testid="status">{{ statusLabels[entry.status] }}</td>
               @if (showActions()) {
                 <td class="nowrap" data-testid="actions">
+                  @if (canRegister(entry)) {
+                    <button
+                      mat-button
+                      type="button"
+                      data-testid="register-movement"
+                      [attr.aria-label]="registerLabel(entry.kind) + ' de ' + entry.name"
+                      (click)="registerMovement.emit(entry)"
+                    >
+                      {{ registerLabel(entry.kind) }}
+                    </button>
+                  }
                   @if (canEdit(entry)) {
                     <button
                       mat-button

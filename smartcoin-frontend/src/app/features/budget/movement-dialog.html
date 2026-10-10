@@ -1,0 +1,134 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate class="dialog">
+  <h2 mat-dialog-title>{{ title }} · {{ entry.name }}</h2>
+
+  <mat-dialog-content class="content">
+    <p class="context" data-testid="movement-context">
+      {{ data.period | period }} · vence el {{ entry.dueDate | date: dateFormat }} · {{ entry.accountName }}
+    </p>
+
+    <dl class="amounts" data-testid="movement-amounts">
+      <div>
+        <dt>Presupuestado</dt>
+        <dd data-testid="budgeted">{{ entry.budgetedAmount | money: entry.currency }}</dd>
+      </div>
+      <div>
+        <dt>Real</dt>
+        <dd data-testid="actual">{{ entry.actualAmount | money: entry.currency }}</dd>
+      </div>
+      <div>
+        <dt>Pendiente</dt>
+        <dd data-testid="pending">{{ entry.pendingAmount | money: entry.currency }}</dd>
+      </div>
+    </dl>
+
+    @if (notice) {
+      <p class="notice" role="status" data-testid="covered-notice">{{ notice }}</p>
+    }
+
+    @if (loading()) {
+      <p role="status">Cargando…</p>
+    } @else if (loadError(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    } @else {
+      <section aria-labelledby="movements-heading" class="movements">
+        <h3 id="movements-heading" class="subheading">Movimientos registrados</h3>
+        @if (movements().length === 0) {
+          <p class="empty" data-testid="no-movements">Todavía no tiene movimientos.</p>
+        } @else {
+          <table aria-labelledby="movements-heading" data-testid="movements-list">
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col">Cuenta</th>
+                <th scope="col" class="number">Monto</th>
+                <th scope="col">Nota</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (movement of movements(); track movement.id) {
+                <tr data-testid="movement-row">
+                  <td class="nowrap">{{ movement.date | date: dateFormat }}</td>
+                  <td>{{ movement.accountName }}</td>
+                  <td class="number">{{ movement.amount | money: movement.currency }}</td>
+                  <td>{{ movement.note ?? '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+
+      @if (accounts().length === 0) {
+        <p role="status" data-testid="no-accounts">
+          No tenés una cuenta en {{ entry.currency === 'USD' ? 'dólares' : 'pesos' }} para registrar el {{ word }}.
+          <a routerLink="/cuentas" mat-dialog-close>Cargá una cuenta</a>
+          y volvé a intentar.
+        </p>
+      } @else {
+        @if (error(); as message) {
+          <p class="error" role="alert">{{ message }}</p>
+        }
+
+        <div class="pair">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Fecha</mat-label>
+            <input matInput type="date" formControlName="date" required />
+            @if (form.controls.date.hasError('required')) {
+              <mat-error>Ingresá la fecha del {{ word }}.</mat-error>
+            } @else if (form.controls.date.hasError('date')) {
+              <mat-error>Ingresá una fecha válida.</mat-error>
+            } @else if (form.controls.date.hasError('server')) {
+              <mat-error>{{ form.controls.date.getError('server') }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Monto</mat-label>
+            <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
+            <mat-hint>Con coma decimal, por ejemplo 1500,50.</mat-hint>
+            @if (form.controls.amount.hasError('required')) {
+              <mat-error>Ingresá el monto.</mat-error>
+            } @else if (form.controls.amount.hasError('amount')) {
+              <mat-error>Escribilo con coma decimal, hasta 2 decimales y sin signo, por ejemplo 1500,50.</mat-error>
+            } @else if (form.controls.amount.hasError('positive')) {
+              <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+            } @else if (form.controls.amount.hasError('server')) {
+              <mat-error>{{ form.controls.amount.getError('server') }}</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Cuenta</mat-label>
+          <mat-select formControlName="accountId" required>
+            @for (account of accounts(); track account.id) {
+              <mat-option [value]="account.id">{{ account.name }}</mat-option>
+            }
+          </mat-select>
+          <mat-hint>Solo cuentas en {{ entry.currency === 'USD' ? 'dólares' : 'pesos' }}, la moneda de la partida.</mat-hint>
+          @if (form.controls.accountId.hasError('required')) {
+            <mat-error>Elegí la cuenta.</mat-error>
+          } @else if (form.controls.accountId.hasError('server')) {
+            <mat-error>{{ form.controls.accountId.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Nota</mat-label>
+          <input matInput formControlName="note" maxlength="200" autocomplete="off" />
+          <mat-hint>Opcional.</mat-hint>
+          @if (form.controls.note.hasError('server')) {
+            <mat-error>{{ form.controls.note.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+      }
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" (click)="cancel()">Cancelar</button>
+    <button mat-flat-button type="submit" data-testid="submit-movement" [disabled]="!ready() || submitting()">
+      {{ title }}
+    </button>
+  </mat-dialog-actions>
+</form>

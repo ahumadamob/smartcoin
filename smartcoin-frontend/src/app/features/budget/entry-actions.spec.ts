@@ -1,5 +1,5 @@
 import { PeriodEntry } from '../../api';
-import { canDeleteEntry, canEditAmount, canEditEntry } from './entry-actions';
+import { canDeleteEntry, canEditAmount, canEditEntry, canRegisterMovement } from './entry-actions';
 
 const entry = (overrides: Partial<PeriodEntry>): PeriodEntry =>
   ({ id: 1, budgetItemId: null, status: 'ESTIMATED', ...overrides }) as PeriodEntry;
@@ -26,6 +26,16 @@ describe('acciones de una partida', () => {
       expect(canDeleteEntry(entry({ budgetItemId, status: 'ESTIMATED' }))).toBe(true);
       expect(canDeleteEntry(entry({ budgetItemId, status: 'PARTIAL' }))).toBe(true);
       expect(canDeleteEntry(entry({ budgetItemId, status: 'CONSOLIDATED' }))).toBe(false);
+    }
+  });
+
+  it('«Registrar cobro» y «Registrar pago» son de las pendientes, con o sin Concepto: Estimadas y Parciales, no Consolidadas (HU-19)', () => {
+    for (const budgetItemId of [null, 31]) {
+      for (const kind of ['INCOME', 'EXPENSE'] as const) {
+        expect(canRegisterMovement(entry({ budgetItemId, kind, status: 'ESTIMATED' }))).toBe(true);
+        expect(canRegisterMovement(entry({ budgetItemId, kind, status: 'PARTIAL' }))).toBe(true);
+        expect(canRegisterMovement(entry({ budgetItemId, kind, status: 'CONSOLIDATED' }))).toBe(false);
+      }
     }
   });
 });
