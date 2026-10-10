@@ -66,6 +66,7 @@
         [totals]="current.totals"
         [readonly]="readonly()"
         (edit)="editEntry($event)"
+        (editAmount)="editAmount($event)"
       />
       <app-entry-table
         heading="Gastos"
@@ -75,6 +76,7 @@
         [totals]="current.totals"
         [readonly]="readonly()"
         (edit)="editEntry($event)"
+        (editAmount)="editAmount($event)"
       />
       @if (current.totals.length > 0) {
         <section class="result" aria-label="Resultado">

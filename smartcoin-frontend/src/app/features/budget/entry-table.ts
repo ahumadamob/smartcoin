@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { PeriodCurrencyTotals, PeriodEntry, PeriodSideTotals } from '../../api';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
-import { canEditEntry } from './entry-actions';
+import { canEditAmount, canEditEntry } from './entry-actions';
 
 /** Texto en pantalla del estado de una partida (docs/glosario.md). */
 export const ENTRY_STATUS_LABELS: Record<PeriodEntry.StatusEnum, string> = {
@@ -47,13 +47,16 @@ export class EntryTable {
 
   /** El usuario pidió editar esta partida. */
   readonly edit = output<PeriodEntry>();
+  /** El usuario pidió editar solo el monto de esta partida recurrente (HU-17). */
+  readonly editAmount = output<PeriodEntry>();
 
   protected readonly dateFormat = DATE_FORMAT;
   protected readonly statusLabels = ENTRY_STATUS_LABELS;
   protected readonly canEdit = canEditEntry;
+  protected readonly canEditAmount = canEditAmount;
 
   /** La columna «Acciones» solo existe si alguna partida de la sección tiene una acción (y el período no está cerrado). */
-  protected readonly showActions = computed(() => !this.readonly() && this.entries().some(canEditEntry));
+  protected readonly showActions = computed(() => !this.readonly() && this.entries().some((entry) => canEditEntry(entry) || canEditAmount(entry)));
 
   /** Solo las monedas con partidas en esta sección (D-29). */
   protected readonly footer = computed<FooterRow[]>(() =>

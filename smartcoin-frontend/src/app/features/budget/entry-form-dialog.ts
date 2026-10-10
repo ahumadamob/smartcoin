@@ -25,7 +25,7 @@ import { PeriodPipe } from '../../shared/pipes/period.pipe';
 import { CURRENCY_LABELS } from '../accounts/account-labels';
 import { KIND_LABELS, KINDS } from '../budget-items/budget-item-labels';
 
-/** Qué abre el diálogo: una partida nueva del período, o la edición de una que no viene de un Concepto. */
+/** Qué abre el diálogo: una partida nueva del período, la edición de una sin Concepto o el monto de una recurrente. */
 export interface EntryFormDialogData {
   /** `YYYY-MM` del mes que se está viendo. */
   period: string;
@@ -33,6 +33,8 @@ export interface EntryFormDialogData {
   suggestedDueDate: string;
   /** La partida que se edita; sin ella, es un alta. */
   entry?: PeriodEntry;
+  /** Edita solo el presupuestado de una partida recurrente (HU-17); necesita `entry`. */
+  amountOnly?: boolean;
 }
 
 /**
@@ -83,6 +85,9 @@ type FieldName = 'name' | 'kind' | 'accountId' | 'categoryId' | 'dueDate' | 'bud
  * decimal a número antes de enviarlo; el frontend no calcula nada con él.
  *
  * Se carga la lista de cuentas y categorías al abrirse. En una edición el tipo queda deshabilitado: no se edita.
+ *
+ * Con `amountOnly` (HU-17, partida recurrente) muestra el Concepto y el mes, y solo el presupuestado: envía únicamente
+ * `budgetedAmount`. El cambio vale para ese mes; el backend la marca editada y no toca las demás partidas.
  */
 @Component({
   selector: 'app-entry-form-dialog',
@@ -110,6 +115,8 @@ export class EntryFormDialog implements OnInit {
 
   protected readonly entry = this.data.entry ?? null;
   protected readonly editing = this.entry !== null;
+  /** Solo el presupuestado de una recurrente (HU-17): no hace falta cargar cuentas ni categorías. */
+  protected readonly amountOnly = this.entry !== null && this.data.amountOnly === true;
   protected readonly kinds = KINDS;
   protected readonly kindLabels = KIND_LABELS;
   protected readonly currencyLabels = CURRENCY_LABELS;
@@ -157,10 +164,19 @@ export class EntryFormDialog implements OnInit {
 
   /** El formulario se puede enviar cuando terminó de cargar y hay al menos una cuenta. */
   protected readonly ready = computed(
-    () => !this.loading() && this.loadError() === null && this.accounts().length > 0,
+    () => !this.loading() && this.loadError() === null && (this.amountOnly || this.accounts().length > 0),
   );
 
   ngOnInit(): void {
+    if (this.entry && this.amountOnly) {
+      // Solo se edita el presupuestado: los demás controles no se validan ni se envían.
+      this.form.patchValue({ budgetedAmount: formatAmountInput(this.entry.budgetedAmount) });
+      for (const name of ['name', 'kind', 'accountId', 'categoryId', 'dueDate'] as const) {
+        this.form.controls[name].disable();
+      }
+      this.loading.set(false);
+      return;
+    }
     if (this.entry) {
       this.form.setValue({
         name: this.entry.name,
@@ -198,6 +214,13 @@ export class EntryFormDialog implements OnInit {
     }
     const value = this.form.getRawValue();
     const budgetedAmount = parseAmount(value.budgetedAmount);
+    if (this.entry && this.amountOnly) {
+      if (budgetedAmount !== null) {
+        this.submitting.set(true);
+        this.update(this.entry, { budgetedAmount });
+      }
+      return;
+    }
     if (budgetedAmount === null || value.kind === null || value.accountId === null) {
       return;
     }

@@ -360,7 +360,7 @@ describe('BudgetMonth', () => {
 
     it('muestra dos secciones con sus columnas, en el orden del backend', () => {
       expect(text(section('Ingresos').querySelector('thead'))).toBe(
-        'Vencimiento Nombre Categoría Cuenta Cuota Presupuestado Real Pendiente Estado',
+        'Vencimiento Nombre Categoría Cuenta Cuota Presupuestado Real Pendiente Estado Acciones',
       );
       expect(rows('Ingresos').map((row) => cells(row)[1])).toEqual(['Sueldo A', 'Sueldo B', 'Alquiler cobrado']);
       expect(rows('Gastos').map((row) => cells(row)[1])).toEqual(['Alquiler', 'Resumen Visa', 'Luz', 'Heladera']);
@@ -374,6 +374,7 @@ describe('BudgetMonth', () => {
         '$ 450.000,00',
         '$ 0,00',
         'Consolidada',
+        '',
       ]);
     });
 
@@ -405,11 +406,11 @@ describe('BudgetMonth', () => {
 
     it('al pie de cada sección hay un total por moneda con partidas en esa sección', () => {
       expect(totals('Ingresos')).toEqual([
-        ['Total en pesos', '$ 1.850.000,00', '$ 1.200.000,00', '$ 650.000,00', ''],
-        ['Total en dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00', ''],
+        ['Total en pesos', '$ 1.850.000,00', '$ 1.200.000,00', '$ 650.000,00', '', ''],
+        ['Total en dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00', '', ''],
       ]);
       // Los dólares no tienen gastos: Gastos no muestra una fila en cero.
-      expect(totals('Gastos')).toEqual([['Total en pesos', '$ 735.000,00', '$ 470.000,00', '$ 265.000,00', '']]);
+      expect(totals('Gastos')).toEqual([['Total en pesos', '$ 735.000,00', '$ 470.000,00', '$ 265.000,00', '', '']]);
     });
 
     it('el resultado muestra todas las monedas del período, cada una por separado', () => {
@@ -536,8 +537,10 @@ describe('BudgetMonth', () => {
       ]);
     });
 
-    it('una sección con solo partidas recurrentes no dibuja la columna de acciones vacía', async () => {
-      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [entry({ id: 10 })])) });
+    it('una sección sin ninguna acción posible (todo consolidado) no dibuja la columna de acciones vacía', async () => {
+      await open('/presupuesto/2026-11', {
+        '2026-11': of(withEntries('OPEN', [entry({ id: 10, status: 'CONSOLIDATED' }), oneOff({ id: 11, status: 'CONSOLIDATED' })])),
+      });
 
       expect(header('Gastos')).not.toContain('Acciones');
       expect(editButtons()).toHaveLength(0);
@@ -579,6 +582,71 @@ describe('BudgetMonth', () => {
       const data = dialog.open.mock.calls[0][1].data as EntryFormDialogData;
       expect(data.period).toBe('2026-11');
       expect(data.entry).toEqual(puntual);
+    });
+
+    const amountButtons = () => Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="edit-amount"]'));
+
+    it('«Editar monto» está solo en las recurrentes pendientes (estimadas o parciales) de un período abierto', async () => {
+      await open('/presupuesto/2026-11', {
+        '2026-11': of(
+          withEntries('OPEN', [
+            entry({ id: 10, name: 'Luz' }),
+            entry({ id: 11, name: 'Gas', status: 'PARTIAL' }),
+            entry({ id: 12, name: 'Agua', status: 'CONSOLIDATED' }),
+            oneOff({ id: 20 }),
+          ]),
+        ),
+      });
+
+      const rowOf = (id: number) => section('Gastos').querySelector(`[data-entry-id="${id}"]`)!;
+      expect(header('Gastos')).toContain('Acciones');
+      expect(rowOf(10).querySelector('[data-testid="edit-amount"]')).not.toBeNull();
+      expect(rowOf(11).querySelector('[data-testid="edit-amount"]')).not.toBeNull();
+      expect(rowOf(12).querySelector('[data-testid="edit-amount"]')).toBeNull();
+      // Una partida ofrece una acción u otra, nunca las dos.
+      expect(rowOf(10).querySelector('[data-testid="edit-entry"]')).toBeNull();
+      expect(rowOf(20).querySelector('[data-testid="edit-amount"]')).toBeNull();
+      expect(amountButtons().map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Editar monto de Luz',
+        'Editar monto de Gas',
+      ]);
+    });
+
+    it('un período cerrado no ofrece «Editar monto»', async () => {
+      await open('/presupuesto/2026-08', {
+        '2026-08': of({ ...withEntries('CLOSED', [entry({ id: 10 })]), period: '2026-08' }),
+      });
+
+      expect(amountButtons()).toHaveLength(0);
+      expect(header('Gastos')).not.toContain('Acciones');
+    });
+
+    it('«Editar monto» abre el diálogo en modo solo monto con la partida y el mes', async () => {
+      const luz = entry({ id: 10, name: 'Luz' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [luz])) });
+
+      amountButtons()[0].click();
+
+      const data = dialog.open.mock.calls[0][1].data as EntryFormDialogData;
+      expect(data).toEqual({ period: '2026-11', suggestedDueDate: luz.dueDate, entry: luz, amountOnly: true });
+    });
+
+    it('después de editar el monto, vuelve a pedir el mes y el foco queda en «Editar monto» de la partida', async () => {
+      const luz = entry({ id: 10, name: 'Luz' });
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [luz])) });
+      const edited = entry({ id: 10, name: 'Luz', budgetedAmount: 240000, manual: true });
+      const getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [edited])));
+      api.getPeriod = getPeriod;
+      amountButtons()[0].focus();
+      dialogResult = { entry: edited, created: false };
+
+      amountButtons()[0].click();
+      await refresh();
+      await refresh();
+
+      expect(getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(text(section('Gastos').querySelector('[data-entry-id="10"]'))).toContain('Editada');
+      expect(document.activeElement).toBe(section('Gastos').querySelector('[data-entry-id="10"] [data-testid="edit-amount"]'));
     });
 
     it('al guardar vuelve a pedir el mes y muestra lo que responde el backend, sin vaciar la pantalla', async () => {

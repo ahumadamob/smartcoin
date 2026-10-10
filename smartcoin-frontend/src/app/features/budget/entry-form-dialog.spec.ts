@@ -425,4 +425,109 @@ describe('EntryFormDialog (HU-16)', () => {
       expect(ref.close).toHaveBeenCalledWith({ stale: true });
     });
   });
+
+  describe('solo el monto de una recurrente (HU-17)', () => {
+    const RECURRING: PeriodEntry = {
+      ...ENTRY,
+      budgetItemId: 31,
+      origin: 'RECURRING',
+      name: 'Resumen Visa',
+      categoryId: null,
+      categoryName: null,
+      budgetedAmount: 180000,
+      pendingAmount: 180000,
+      forecastAmount: 180000,
+    };
+
+    beforeEach(() => open({ period: '2026-11', suggestedDueDate: RECURRING.dueDate, entry: RECURRING, amountOnly: true }));
+
+    it('muestra el Concepto y el mes, y solo el campo del presupuestado', () => {
+      expect(root().querySelector('h2')?.textContent).toContain('Editar monto');
+      expect(root().querySelector('[data-testid="amount-context"]')?.textContent).toContain('Resumen Visa');
+      expect(root().querySelector('[data-testid="amount-context"]')?.textContent).toContain('noviembre 2026');
+      expect(root().querySelectorAll('mat-form-field')).toHaveLength(1);
+      expect(field('Presupuestado').querySelector('input')!.value).toBe('180000,00');
+    });
+
+    it('aclara que el cambio vale solo para ese mes y que los demás no se tocan', () => {
+      const note = root().querySelector('[data-testid="amount-note"]')?.textContent ?? '';
+      expect(note).toContain('solo para este mes');
+      expect(note).toContain('los demás meses');
+      expect(note).toContain('Editada');
+    });
+
+    it('no pide cuentas ni categorías y está listo para guardar', () => {
+      expect(text()).not.toContain('Cargando cuentas');
+      expect(button('Guardar').disabled).toBe(false);
+    });
+
+    it('envía únicamente el presupuestado, convertido de coma decimal', () => {
+      type('Presupuestado', '240000,00');
+
+      submit();
+
+      expect(api.updateEntry).toHaveBeenCalledTimes(1);
+      expect(api.updateEntry.mock.calls[0][0]).toBe(900);
+      expect(updated()).toEqual({ budgetedAmount: 240000 });
+      expect(ref.close).toHaveBeenCalledWith({ entry: expect.objectContaining({ budgetedAmount: 240000 }), created: false });
+    });
+
+    it('acepta 0', () => {
+      type('Presupuestado', '0');
+
+      submit();
+
+      expect(updated()).toEqual({ budgetedAmount: 0 });
+    });
+
+    it('valida el formato antes de llamar al backend', () => {
+      type('Presupuestado', '-5');
+      submit();
+      expect(text()).toContain('Escribilo con coma decimal');
+
+      type('Presupuestado', '');
+      submit();
+      expect(text()).toContain('Ingresá el monto presupuestado.');
+      expect(api.updateEntry).not.toHaveBeenCalled();
+    });
+
+    it('un error del backend se muestra bajo el campo con lo cargado intacto', () => {
+      api.updateEntry.mockReturnValue(
+        problem(400, {
+          code: 'VALIDATION_ERROR',
+          detail: 'x',
+          errors: [{ field: 'budgetedAmount', message: 'El presupuestado admite hasta 2 decimales.' }],
+        }),
+      );
+      type('Presupuestado', '10,5');
+
+      submit();
+
+      expect(field('Presupuestado').textContent).toContain('hasta 2 decimales');
+      expect(ref.close).not.toHaveBeenCalled();
+    });
+
+    it('una partida consolidada mientras estaba abierto: error y al cancelar pide recargar', () => {
+      api.updateEntry.mockReturnValue(problem(409, { code: 'ENTRY_NOT_PENDING', detail: 'Consolidada.' }));
+      type('Presupuestado', '1');
+
+      submit();
+      expect(root().querySelector('[role="alert"]')?.textContent).toContain('ya está consolidada');
+
+      button('Cancelar').click();
+      expect(ref.close).toHaveBeenCalledWith({ stale: true });
+    });
+
+    it('con movimientos avisa que lo registrado no se pierde', async () => {
+      TestBed.resetTestingModule();
+      await open({
+        period: '2026-11',
+        suggestedDueDate: RECURRING.dueDate,
+        entry: { ...RECURRING, actualAmount: 50000, status: 'PARTIAL' },
+        amountOnly: true,
+      });
+
+      expect(root().querySelector('[data-testid="amount-paid-note"]')).not.toBeNull();
+    });
+  });
 });

@@ -62,6 +62,17 @@
                       Editar
                     </button>
                   }
+                  @if (canEditAmount(entry)) {
+                    <button
+                      mat-button
+                      type="button"
+                      data-testid="edit-amount"
+                      [attr.aria-label]="'Editar monto de ' + entry.name"
+                      (click)="editAmount.emit(entry)"
+                    >
+                      Editar monto
+                    </button>
+                  }
                 </td>
               }
             </tr>

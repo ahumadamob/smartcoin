@@ -1,6 +1,8 @@
 <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="dialog">
   <h2 mat-dialog-title>
-    @if (editing) {
+    @if (amountOnly) {
+      Editar monto
+    } @else if (editing) {
       Editar partida
     } @else {
       Agregar partida de {{ data.period | period }}
@@ -8,7 +10,39 @@
   </h2>
 
   <mat-dialog-content class="content">
-    @if (loading()) {
+    @if (amountOnly && entry) {
+      @if (error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+
+      <p class="context" data-testid="amount-context">
+        <strong>{{ entry.name }}</strong> · {{ data.period | period }}
+      </p>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Presupuestado</mat-label>
+        <input matInput formControlName="budgetedAmount" inputmode="decimal" autocomplete="off" required />
+        <mat-hint>Con coma decimal, por ejemplo 1500,50.</mat-hint>
+        @if (form.controls.budgetedAmount.hasError('required')) {
+          <mat-error>Ingresá el monto presupuestado.</mat-error>
+        } @else if (form.controls.budgetedAmount.hasError('amount')) {
+          <mat-error>Escribilo con coma decimal, hasta 2 decimales y sin signo, por ejemplo 1500,50.</mat-error>
+        } @else if (form.controls.budgetedAmount.hasError('server')) {
+          <mat-error>{{ form.controls.budgetedAmount.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <p class="note" data-testid="amount-note">
+        El cambio vale solo para este mes: los demás meses y el monto vigente del Concepto no se tocan. La partida
+        queda marcada como «Editada» y un cambio posterior del monto vigente no la modifica.
+      </p>
+      @if (entry.actualAmount !== 0) {
+        <p class="note" data-testid="amount-paid-note">
+          Esta partida ya tiene movimientos: si el presupuestado queda por debajo de lo registrado, no queda
+          pendiente.
+        </p>
+      }
+    } @else if (loading()) {
       <p role="status">Cargando cuentas y categorías…</p>
     } @else if (loadError(); as message) {
       <p class="error" role="alert">{{ message }}</p>

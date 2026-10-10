@@ -140,6 +140,15 @@ export class BudgetMonth implements OnInit {
     this.openEntryForm({ period, suggestedDueDate: entry.dueDate, entry });
   }
 
+  /** «Editar monto» de una recurrente: el mismo diálogo, solo con el presupuestado (HU-17). */
+  protected editAmount(entry: PeriodEntry): void {
+    const period = this.period();
+    if (period === null || !isPeriod(period) || this.readonly()) {
+      return;
+    }
+    this.openEntryForm({ period, suggestedDueDate: entry.dueDate, entry, amountOnly: true });
+  }
+
   protected go(period: string | null): void {
     if (period !== null) {
       void this.router.navigate(['/presupuesto', period]);
@@ -198,8 +207,9 @@ export class BudgetMonth implements OnInit {
               () => {
                 const lost = !document.activeElement || document.activeElement === document.body;
                 if (lost) {
+                  const row = `[data-entry-id="${focusEntryId}"]`;
                   document
-                    .querySelector<HTMLElement>(`[data-entry-id="${focusEntryId}"] [data-testid="edit-entry"]`)
+                    .querySelector<HTMLElement>(`${row} [data-testid="edit-entry"], ${row} [data-testid="edit-amount"]`)
                     ?.focus();
                 }
               },
