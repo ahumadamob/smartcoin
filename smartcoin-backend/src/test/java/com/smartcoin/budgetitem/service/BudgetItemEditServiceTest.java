@@ -46,6 +46,7 @@ import com.smartcoin.entry.domain.BudgetEntry;
 import com.smartcoin.entry.domain.EntryOrigin;
 import com.smartcoin.entry.domain.StoredEntryStatus;
 import com.smartcoin.entry.repository.BudgetEntryRepository;
+import com.smartcoin.entry.service.EntryService;
 import com.smartcoin.movement.repository.MovementRepository;
 import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.PeriodStatus;
@@ -504,6 +505,38 @@ class BudgetItemEditServiceTest {
 			assertThat(now.get(edited).manual()).isTrue();
 		}
 		assertThat(item.getCurrentAmount()).isEqualByComparingTo("120000.50");
+	}
+
+	// --- HU-17: editar el monto de un mes y después el monto vigente ---
+
+	@Test
+	void anEntryWhoseAmountWasEditedKeepsItWhenTheCurrentAmountChangesAndTheOthersTakeTheNewOne() {
+		EntryService entryService = new EntryService(periods, entries, movements, accounts, categories,
+				Clock.fixed(Instant.parse("2026-10-07T15:00:00Z"), ZONE));
+		BudgetEntry february = stored.stream().filter(e -> e.getPeriod().getPeriodMonth().equals(FEBRUARY))
+				.findFirst().orElseThrow();
+		when(entries.findByIdAndUserIdWithDetails(february.getId(), USER_ID)).thenReturn(Optional.of(february));
+
+		entryService.update(USER_ID, february.getId(),
+				new EntryService.Changes(null, null, null, null, false, null, new BigDecimal("240000.00")));
+
+		assertThat(changedEntries()).containsExactly(FEBRUARY);
+		assertThat(item.getCurrentAmount()).isEqualByComparingTo("100000.00");
+		before = snapshots();
+
+		Detail result = update(b -> {
+			b.amount = new BigDecimal("150000.00");
+			return b;
+		});
+
+		Map<YearMonth, Snap> now = snapshots();
+		assertThat(now.get(FEBRUARY).amount()).isEqualByComparingTo("240000.00");
+		assertThat(now.get(FEBRUARY).manual()).isTrue();
+		assertThat(changedEntries()).containsExactlyInAnyOrder(ESTIMATED, PARTIAL);
+		assertThat(now.get(ESTIMATED).amount()).isEqualByComparingTo("150000.00");
+		// El aviso cuenta la editada de HU-17 junto con las de antes: EDITED, EDITED_AND_PARTIAL y FEBRUARY.
+		assertThat(result.counts().pendingManual()).isEqualTo(3);
+		assertThat(result.counts().pendingNotManual()).isEqualTo(2);
 	}
 
 	@Test

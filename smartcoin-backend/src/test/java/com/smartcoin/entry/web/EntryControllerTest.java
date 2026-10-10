@@ -286,6 +286,20 @@ class EntryControllerTest {
 	}
 
 	@Test
+	void updateOfTheBudgetedAmountAloneIsPassedAsTheOnlyChangeAndAnswersTheEditedMark() throws Exception {
+		when(entries.update(anyLong(), anyLong(), any())).thenReturn(row());
+
+		update("900", "{\"budgetedAmount\":240000.00}").andExpect(status().isOk());
+		update("900", "{\"budgetedAmount\":0}").andExpect(status().isOk());
+
+		ArgumentCaptor<Changes> changes = ArgumentCaptor.forClass(Changes.class);
+		verify(entries, times(2)).update(eq(USER_ID), eq(900L), changes.capture());
+		assertThat(changes.getAllValues().get(0)).isEqualTo(
+				new Changes(null, null, null, null, false, null, new java.math.BigDecimal("240000.00")));
+		assertThat(changes.getAllValues().get(1).budgetedAmount()).isEqualByComparingTo("0");
+	}
+
+	@Test
 	void updateDistinguishesNotSendingTheCategoryFromClearingIt() throws Exception {
 		when(entries.update(anyLong(), anyLong(), any())).thenReturn(row());
 

@@ -114,9 +114,11 @@ public class EntryService {
 	 * vencimiento, cuenta y categoría); y por último la moneda con movimientos (409 {@code CURRENCY_MISMATCH}). Con un
 	 * pedido rechazado no cambia nada.
 	 *
-	 * <p>Las partidas recurrentes toman sus datos del Concepto: cualquier cambio es 409 {@code FIELD_NOT_EDITABLE}.
-	 * Editar su presupuestado, marcándola editada, es HU-17: ahí se levanta esa restricción para ese único campo.
-	 * Editar nunca marca la partida como editada en las que no tienen Concepto (no se propaga, RN-18).
+	 * <p>Las partidas recurrentes toman sus datos del Concepto: cualquier cambio salvo el presupuestado es 409
+	 * {@code FIELD_NOT_EDITABLE}, y un cuerpo que mezcla el presupuestado con otro cambio se rechaza entero (HU-17).
+	 * Cambiar el presupuestado de una recurrente la marca como editada, y queda así aunque vuelva al monto vigente;
+	 * enviar el mismo monto no es un cambio y no la marca. En las que no tienen Concepto nunca se marca: no se
+	 * propaga (RN-18). Editar no toca otras partidas ni el Concepto (D-11).
 	 */
 	@Transactional
 	public EntryRow update(long userId, long id, Changes changes) {
@@ -159,8 +161,13 @@ public class EntryService {
 		if (changes.dueDate() != null) {
 			entry.setDueDate(changes.dueDate());
 		}
-		if (changes.budgetedAmount() != null) {
+		if (changes.budgetedAmount() != null
+				&& changes.budgetedAmount().compareTo(entry.getBudgetedAmount()) != 0) {
 			entry.setBudgetedAmount(amount(changes.budgetedAmount()));
+			// Solo una recurrente queda editada: la marca existe para que el monto vigente no la pise (RN-15, RN-18).
+			if (entry.getBudgetItem() != null) {
+				entry.setManual(true);
+			}
 		}
 		return PeriodViewService.row(entry, movements.sumByEntry(userId, entry.getId()), LocalDate.now(clock));
 	}
@@ -180,7 +187,7 @@ public class EntryService {
 		}
 	}
 
-	/** Si el pedido cambia algún dato de una recurrente, cuyos valores propios salen del Concepto. */
+	/** Si el pedido cambia algún dato de una recurrente que no sea el presupuestado, el único propio de la partida. */
 	private static boolean changesSomething(BudgetEntry entry, Changes changes) {
 		Long currentCategoryId = entry.getBudgetItem().getCategory() == null ? null
 				: entry.getBudgetItem().getCategory().getId();
@@ -189,9 +196,7 @@ public class EntryService {
 				|| changes.accountId() != null && !changes.accountId().equals(entry.getAccount().getId())
 				|| changes.categoryId() != null && !changes.categoryId().equals(currentCategoryId)
 				|| changes.clearCategory() && currentCategoryId != null
-				|| changes.dueDate() != null && !changes.dueDate().equals(entry.getDueDate())
-				|| changes.budgetedAmount() != null
-						&& changes.budgetedAmount().compareTo(entry.getBudgetedAmount()) != 0;
+				|| changes.dueDate() != null && !changes.dueDate().equals(entry.getDueDate());
 	}
 
 	/** RN-19: con movimientos, la cuenta solo cambia por otra de la misma moneda. Sin movimientos es libre (D-30). */

@@ -627,7 +627,6 @@ class EntryServiceTest {
 					only(null, null, 5L, false, null, null),
 					only(null, null, null, true, null, null),
 					only(null, null, null, false, "2026-11-20", null),
-					only(null, null, null, false, null, "50000.00"),
 					new Changes(null, EntryKind.INCOME, null, null, false, null, null))) {
 				assertThatThrownBy(() -> service.update(USER_ID, ENTRY_ID, changes))
 						.isInstanceOfSatisfying(BusinessException.class,
@@ -636,6 +635,136 @@ class EntryServiceTest {
 			assertThat(recurring.isManual()).isFalse();
 			assertThat(recurring.getBudgetedAmount()).isEqualByComparingTo("45000.00");
 			assertThat(recurring.getAccount()).isSameAs(pesos);
+		}
+
+		@Test
+		void changingTheBudgetedAmountOfARecurringEntryMarksItAsEditedAndTouchesNothingElse() {
+			BudgetEntry recurring = recurring();
+			recurring.setBudgetedAmount(amount("180000.00"));
+			recurring.getBudgetItem().setCurrentAmount(amount("180000.00"));
+
+			EntryRow row = service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "240000.00"));
+
+			assertThat(recurring.getBudgetedAmount()).isEqualByComparingTo("240000.00");
+			assertThat(recurring.isManual()).isTrue();
+			assertThat(row.budgetedAmount()).isEqualByComparingTo("240000.00");
+			assertThat(row.manual()).isTrue();
+			assertThat(row.amounts().pending()).isEqualByComparingTo("240000.00");
+			// Sin Concepto de por medio: ni se lo lee ni se lo guarda, y no se toca ninguna otra partida (D-11).
+			assertThat(recurring.getBudgetItem().getCurrentAmount()).isEqualByComparingTo("180000.00");
+			verify(entries).findByIdAndUserIdWithDetails(ENTRY_ID, USER_ID);
+			verifyNoMoreInteractions(entries);
+		}
+
+		@Test
+		void aBudgetedAmountOfZeroIsAccepted() {
+			BudgetEntry recurring = recurring();
+
+			EntryRow row = service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "0.00"));
+
+			assertThat(recurring.getBudgetedAmount()).isEqualByComparingTo("0.00");
+			assertThat(recurring.isManual()).isTrue();
+			assertThat(row.amounts().pending()).isEqualByComparingTo("0.00");
+		}
+
+		@Test
+		void aBudgetedAmountBelowWhatWasAlreadyPaidLeavesNothingPending() {
+			BudgetEntry recurring = recurring();
+			when(movements.sumByEntry(USER_ID, ENTRY_ID)).thenReturn(amount("30000.00"));
+
+			EntryRow row = service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "20000.00"));
+
+			assertThat(recurring.isManual()).isTrue();
+			assertThat(row.amounts().actual()).isEqualByComparingTo("30000.00");
+			assertThat(row.amounts().pending()).isEqualByComparingTo("0.00");
+			assertThat(row.amounts().forecast()).isEqualByComparingTo("30000.00");
+		}
+
+		@Test
+		void aPartialRecurringEntryRecalculatesItsPending() {
+			BudgetEntry recurring = recurring();
+			when(movements.sumByEntry(USER_ID, ENTRY_ID)).thenReturn(amount("10000.00"));
+
+			EntryRow row = service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "60000.00"));
+
+			assertThat(recurring.isManual()).isTrue();
+			assertThat(row.amounts().pending()).isEqualByComparingTo("50000.00");
+			assertThat(row.amounts().forecast()).isEqualByComparingTo("60000.00");
+		}
+
+		@Test
+		void sendingTheSameBudgetedAmountOfARecurringEntryDoesNotMarkIt() {
+			BudgetEntry recurring = recurring();
+
+			service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "45000.00"));
+
+			assertThat(recurring.isManual()).isFalse();
+		}
+
+		@Test
+		void anEditedRecurringEntryStaysEditedWhenItGoesBackToItsOriginalAmount() {
+			BudgetEntry recurring = recurring();
+
+			service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "50000.00"));
+			service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "45000.00"));
+
+			assertThat(recurring.getBudgetedAmount()).isEqualByComparingTo("45000.00");
+			assertThat(recurring.isManual()).isTrue();
+		}
+
+		@Test
+		void aRequestThatMixesTheAmountWithAnotherChangeIsRejectedAsAWhole() {
+			BudgetEntry recurring = recurring();
+
+			assertThatThrownBy(() -> service.update(USER_ID, ENTRY_ID,
+					only(null, null, null, false, "2026-11-20", "50000.00")))
+					.isInstanceOfSatisfying(BusinessException.class,
+							e -> assertThat(e.code()).isEqualTo(ErrorCode.FIELD_NOT_EDITABLE));
+
+			assertThat(recurring.getBudgetedAmount()).isEqualByComparingTo("45000.00");
+			assertThat(recurring.isManual()).isFalse();
+			assertThat(recurring.getDueDate()).isEqualTo(date("2026-11-18"));
+		}
+
+		@Test
+		void aConsolidatedRecurringEntryIsNotPendingAndStaysUntouched() {
+			BudgetEntry recurring = recurring();
+			recurring.setStatus(StoredEntryStatus.CONSOLIDATED);
+
+			assertThatThrownBy(() -> service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "1.00")))
+					.isInstanceOfSatisfying(BusinessException.class,
+							e -> assertThat(e.code()).isEqualTo(ErrorCode.ENTRY_NOT_PENDING));
+			assertThat(recurring.isManual()).isFalse();
+			assertThat(recurring.getBudgetedAmount()).isEqualByComparingTo("45000.00");
+		}
+
+		@Test
+		void aRecurringEntryOfAClosedPeriodIsRejectedWithPeriodClosed() {
+			BudgetEntry recurring = recurring();
+			november.setStatus(PeriodStatus.CLOSED);
+
+			assertThatThrownBy(() -> service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "1.00")))
+					.isInstanceOfSatisfying(BusinessException.class,
+							e -> assertThat(e.code()).isEqualTo(ErrorCode.PERIOD_CLOSED));
+			assertThat(recurring.isManual()).isFalse();
+		}
+
+		@Test
+		void aRecurringEntryOfAnotherUserIsNotFound() {
+			when(entries.findByIdAndUserIdWithDetails(ENTRY_ID, OTHER_USER_ID)).thenReturn(Optional.empty());
+
+			assertThatThrownBy(() -> service.update(OTHER_USER_ID, ENTRY_ID,
+					only(null, null, null, false, null, "1.00")))
+					.isInstanceOfSatisfying(BusinessException.class,
+							e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+		}
+
+		@Test
+		void changingTheBudgetedAmountOfAnEntryWithoutBudgetItemNeverMarksIt() {
+			service.update(USER_ID, ENTRY_ID, only(null, null, null, false, null, "99000.00"));
+
+			assertThat(entry.getBudgetedAmount()).isEqualByComparingTo("99000.00");
+			assertThat(entry.isManual()).isFalse();
 		}
 
 		@Test
