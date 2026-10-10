@@ -120,7 +120,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | `EntryDueDateRange` | RN-19: rango del vencimiento de una partida sin Concepto |
 | `EntryDeletionPlanner` | RN-30 a RN-32: qué partidas entran en el alcance de una eliminación, cuáles la impiden y cómo queda el Concepto (sigue, fin nuevo o desaparece) |
 | `MonthTotals` | RN-44: totales por moneda de ingresos y de gastos, y resultado |
-| `MovementDateValidator` | RN-21: ventana, apertura, fecha futura |
+| `MovementDateValidator` | RN-21: ventana, apertura, fecha futura, y la fecha más temprana que admite una partida (HU-20) |
 | `BalanceCalculator` | RN-35 |
 | `ClosingPlanner` | RN-38 a RN-40: a partir de los datos del período, el plan de cierre (consolidaciones, partidas nuevas, cierres de cuenta) |
 

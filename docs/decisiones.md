@@ -118,8 +118,16 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **Se puede registrar con el pendiente en 0**: un pago que supera el presupuestado es válido (RN-17) y no cambia el presupuestado (RN-23). Un monto que no es mayor que 0 o tiene más de 2 decimales es `VALIDATION_ERROR` en `amount` (RN-03; RN-21 no le da código propio).
 - **La nota** se guarda sin espacios en los extremos; en blanco, sin nota. Máximo 200 caracteres.
 - **El aviso de «pendiente 0»** (criterio 6) es un texto informativo, sin botón, hasta que exista la consolidación (HU-23): «ya está cubierta: pendiente $ 0,00. Sigue Parcial hasta que se consolide». Sale al guardar y al abrir el diálogo de una Parcial con pendiente 0. HU-23 le suma la acción «Consolidar».
-- **El diálogo** arranca con hoy (fecha del navegador, solo como sugerencia: el backend decide), la cuenta de la partida y, si queda pendiente, ese monto. Solo ofrece cuentas de la moneda de la partida (S-02).
+- **El diálogo** arranca con hoy según el backend (D-34; en HU-19 era la fecha del navegador, solo como sugerencia), la cuenta de la partida y, si queda pendiente, ese monto. Solo ofrece cuentas de la moneda de la partida (S-02).
 - **Un pedido rechazado no guarda nada.**
+
+**D-34. Fechas que admite una partida (cobros anticipados).** *Confirmada* (HU-20): las tres dudas se resolvieron con el usuario antes de escribir código, todas por la opción recomendada.
+
+- **El backend informa el rango**: `GET /api/entries/{id}/movement-dates?accountId=` (`getMovementDates`) responde `{earliestDate, latestDate, earlyDays}`. `earliestDate` es la más tardía entre el primer día del período de la partida menos la ventana y la apertura de la cuenta, y sale de la misma regla pura que valida (`MovementDateValidator.earliestDate`, que comparte con `validate` el inicio de la ventana); `latestDate` es hoy según el `Clock`. Sin `accountId` se usa la cuenta prevista de la partida; con él, esa cuenta (S-02: otra cuenta de la misma moneda puede tener una apertura posterior). Si `earliestDate` es posterior a `latestDate`, la partida todavía no admite movimientos. Es solo lectura: no mira el estado de la partida ni de los meses, que decide el registro. Un `accountId` que no existe es 400 en ese campo (D-24).
+- **Por qué un endpoint y no un campo de la partida**: la fecha más temprana depende de la cuenta elegida en el diálogo, y la ventana configurable no tenía lugar en la fila del mes sin agregar campos a toda la vista. No cambia ninguna respuesta existente.
+- **El diálogo** sugiere `latestDate` (hoy del backend, no del navegador), explica en una línea la ventana con `earlyDays` y la fecha más temprana, y la vuelve a pedir al cambiar de cuenta. Si la ventana no abrió, avisa desde cuándo se admiten movimientos y deshabilita el botón (en HU-19 se dejaba enviar y fallaba). No repite ninguna regla: solo compara las dos fechas que informa el backend.
+- **El mensaje de `DATE_OUT_OF_RANGE`** por la ventana nombra su primer día; si la cuenta se abrió después, agrega la fecha más temprana con esa cuenta, para que corregir la fecha no lleve a un segundo error. La validación no cambia.
+- **La vista del mes no señala** las partidas del mes siguiente que ya se pueden cobrar o pagar por anticipado (decisión del usuario); el aviso vive solo en el diálogo.
 
 ## Supuestos tomados al redactar
 

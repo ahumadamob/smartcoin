@@ -568,6 +568,16 @@ Reglas: RN-17, RN-21, RN-23.
 
 Reglas: RN-21, RN-35, RN-41.
 
+**Notas de implementación**
+
+- Depende de **S-01** (la ventana vale también para gastos, sin confirmar), de D-16, D-17, D-33 y de las notas de HU-19: la ventana, la apertura y el mes cerrado ya estaban implementados y probados en `MovementDateValidator` y `MovementService` porque son parte de RN-21. No hay reglas nuevas ni migración. Agrega **D-34**. Se resolvieron con el usuario tres dudas antes de escribir código, todas por la opción recomendada: cómo se entera el usuario de la fecha más temprana (endpoint de solo lectura), qué sugiere el diálogo (hoy del backend; con la ventana sin abrir, aviso y botón deshabilitado) y que la vista del mes no marque nada.
+- `GET /api/entries/{id}/movement-dates?accountId=` (`getMovementDates`) devuelve `{earliestDate, latestDate, earlyDays}`. `MovementDateValidator.earliestDate` es la más tardía entre el inicio de la ventana y la apertura de la cuenta, y `validate` usa la misma `windowStart`; un test parametrizado verifica que la fecha más temprana es exactamente la primera que valida.
+- El mensaje de `DATE_OUT_OF_RANGE` por la ventana ya nombraba su primer día (HU-19). Ahora, si la cuenta se abrió después, agrega la fecha más temprana con esa cuenta.
+- Frontend: `MovementDialog` toma del backend la fecha con la que arranca el campo (antes, la del navegador), muestra «Se puede fechar hasta N días antes del inicio de {mes}. Fecha más temprana con esta cuenta: {fecha}.» y la vuelve a pedir al cambiar de cuenta; con la ventana sin abrir muestra desde cuándo y no deja enviar. Textos en `movement-text.ts`.
+- Tests: `MovementDateValidatorTest` (fecha más temprana: sueldo de diciembre, cruce de año, cuenta abierta después del inicio de la ventana, ventanas de 0, 3, 10 y 31, y que coincide con lo que valida), `MovementServiceTest` (rango, cuenta elegida, partida lejana, ventana configurable, mensajes, y que el mes cerrado dentro de la ventana sigue rechazado: criterio 4), `MovementControllerTest`, `AdvanceIncomeBalanceTest` (criterio 3: con el repositorio simulado, el sueldo cobrado el 25/11 está en el saldo al 25/11 y no en el del 24/11; el del 30/11, en el del 30/11 y no en el del 29/11; el del 02/12, no) y, en el frontend, el diálogo y los textos. De punta a punta en `e2e/movimientos.spec.ts`: con el reloj real no se puede usar diciembre, así que se usa el mes actual (el usuario de prueba nace con el período inicial dos meses antes), con todas las fechas calculadas desde hoy: el límite exacto es válido, el día anterior responde `DATE_OUT_OF_RANGE` y el saldo de `/cuentas` incluye el cobro.
+- **Criterios que se completan en otra historia**: el criterio 4 con un mes **cerrado real** se verifica en HU-33 (hoy no hay cómo cerrar un mes: está probado con repositorios simulados). El caso real de los sueldos de diciembre se puede verificar a mano a partir del 21/11 (la ventana de diciembre abre ese día): registrar el cobro el 21/11 con fecha de ese día, y comprobar que el 20/11 era `DATE_OUT_OF_RANGE`.
+- **Límite de lo que se puede verificar**: el saldo a una fecha arbitraria no se expone por la API, así que que el SQL excluya los movimientos posteriores a la fecha de corte sigue sin poder verificarse con datos reales hasta HU-30 a HU-34 (cierre y flujo de caja) o hasta que haya Docker y Testcontainers. El test de saldo por fecha prueba que el servicio pide el saldo a la fecha del reloj y arma el resultado con `BalanceCalculator`; el filtro por fecha lo hace el repositorio simulado. Con datos reales se verificó la inclusión (el cobro del mes anterior suma por su fecha).
+
 ### HU-21 · Corregir o eliminar un movimiento
 
 **Como** usuario **quiero** corregir un movimiento mal cargado **para** que los números sean los reales.
@@ -596,6 +606,7 @@ Reglas: RN-24.
 | Método y ruta | Uso |
 |---|---|
 | `GET /api/entries/{id}/movements` · `POST /api/entries/{id}/movements` | Ver y registrar movimientos de una partida. |
+| `GET /api/entries/{id}/movement-dates?accountId=` | Fecha más temprana, fecha más tardía (hoy) y ventana de anticipación que admite la partida (HU-20, D-34). |
 | `PUT /api/movements/{id}` · `DELETE /api/movements/{id}` | Corregir o eliminar. |
 | `POST /api/entries/{id}/quick-settle` | Pago rápido (fecha, cuenta y política opcionales). |
 
