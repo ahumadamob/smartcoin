@@ -197,6 +197,8 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **T-17. Las partidas generadas se guardan con un solo `saveAll`.** Las claves son `IDENTITY`, y con eso Hibernate no agrupa los `INSERT` por JDBC: hay una consulta para todos los períodos destino y un `INSERT` por partida (25 como máximo por Concepto), en la misma transacción. Se prefirió a un `INSERT` por JDBC en lote, que saltea JPA y las fechas de auditoría. *Confirmada* (HU-10).
 
+**T-18. El pago rápido (HU-22) se implementa después de HU-25.** Registra un movimiento y consolida en un solo paso (RN-24), así que depende de la consolidación (HU-23) y de la elección sobre partidas editadas (HU-25). La iteración 5 queda con HU-19 a HU-21 y la 6 con HU-23, HU-24, HU-25, HU-22 y HU-26. Las reglas no cambian. *Confirmada.*
+
 ## Cambios respecto de lo conversado
 
 Ajustes hechos al pasar la conversación a documentos, para que Mario los revise:

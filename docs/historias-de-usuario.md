@@ -13,8 +13,8 @@ Formato de cada historia: qué se quiere y para qué, criterios de aceptación v
 | 2 | HU-07 a HU-09 | Cargar cuentas con su saldo inicial, y categorías. |
 | 3 | HU-10 a HU-15 | Crear Conceptos, ver 24 meses de partidas generadas y recorrer los meses. |
 | 4 | HU-16 a HU-18 | Agregar partidas puntuales, editar montos y dar de baja. |
-| 5 | HU-19 a HU-22 | Registrar cobros y pagos, parciales y anticipados. |
-| 6 | HU-23 a HU-26 | Consolidar y ver cómo se ajustan los meses siguientes. |
+| 5 | HU-19 a HU-21 | Registrar cobros y pagos, parciales y anticipados. |
+| 6 | HU-23 a HU-25, HU-22 y HU-26 | Consolidar y ver cómo se ajustan los meses siguientes, y pagar o cobrar todo con un clic. |
 | 7 | HU-27 a HU-29 | Transferir entre cuentas y comprar o vender dólares. |
 | 8 | HU-30 a HU-33 | Cerrar el mes. |
 | 9 | HU-34 a HU-36 | Flujo de caja, proyección de saldos y vista de varios meses (propuestas, S-18). |
@@ -563,6 +563,8 @@ Reglas: RN-21, RN-35, RN-41.
 Reglas: RN-22.
 
 ### HU-22 · Pago rápido
+
+> Se implementa en la iteración 6, después de HU-25: el pago rápido consolida, y necesita la consolidación y la elección sobre partidas editadas (T-18).
 
 **Como** usuario **quiero** pagar o cobrar todo lo pendiente con un clic **para** no cargar el movimiento y después consolidar.
 
