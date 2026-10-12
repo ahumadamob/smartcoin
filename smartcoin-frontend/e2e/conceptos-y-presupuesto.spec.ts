@@ -847,6 +847,17 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
     return dateText(date, date.getDate());
   };
 
+  /**
+   * El vencimiento de una partida de este mes, tal como lo muestra la celda: la fecha y, si el día ya pasó, la marca
+   * «Vencida» (RN-20). «Hoy» es el de la zona de la aplicación, como en el backend: la prueba pasa cualquier día.
+   */
+  const dueCell = (day: number) => {
+    const today = Number(
+      new Intl.DateTimeFormat('en-US', { timeZone: 'America/Argentina/Mendoza', day: 'numeric' }).format(new Date()),
+    );
+    return day < today ? `${dateText(month(0), day)} Vencida` : dateText(month(0), day);
+  };
+
   test('abre en el mes actual, con las partidas en orden de vencimiento y sus datos', async () => {
     await expect(heading(0)).toBeVisible();
     await expect(page).toHaveURL(/\/presupuesto$/);
@@ -858,7 +869,7 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
     await expect(names('Gastos')).toHaveText(['Alquiler', 'Heladera', 'Seguro']);
 
     await expect(cells(row('Gastos', 'Heladera'))).toHaveText([
-      dateText(month(0), 10),
+      dueCell(10),
       'Heladera',
       'Hogar',
       'Banco Nación',
