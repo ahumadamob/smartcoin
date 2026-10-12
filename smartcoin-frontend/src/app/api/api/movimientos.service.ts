@@ -44,6 +44,66 @@ export class MovimientosService extends BaseService {
     }
 
     /**
+     * Eliminar un movimiento
+     * Elimina un movimiento (RN-22). Mismas condiciones sobre el movimiento actual que al corregirlo: partida pendiente en un período abierto y mes de su fecha abierto. No toca la partida: si era su último movimiento, vuelve a mostrarse Estimada porque ya no tiene.
+     * @endpoint delete /api/movements/{id}
+     * @param id 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public deleteMovement(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public deleteMovement(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public deleteMovement(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public deleteMovement(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling deleteMovement.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/movements/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Fechas que admite un movimiento de la partida
      * La fecha más temprana y la más tardía con que se puede registrar un movimiento en la partida (RN-21), y la ventana de anticipación en días. La más temprana es la más tardía entre el inicio de la ventana (primer día del período menos la ventana) y la apertura de la cuenta; la más tardía es hoy. Con &#x60;accountId&#x60; se considera esa cuenta; sin él, la cuenta prevista de la partida. Si la más temprana es posterior a la más tardía, la partida todavía no admite movimientos. Informa solo el rango: no mira el estado de la partida ni de los meses, que decide el registro.
      * @endpoint get /api/entries/{entryId}/movement-dates
@@ -240,6 +300,81 @@ export class MovimientosService extends BaseService {
         let localVarPath = `/api/entries/${this.configuration.encodeParam({name: "entryId", value: entryId, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}/movements`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<MovementRegistered>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: movementRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Corregir un movimiento
+     * Reemplaza fecha, monto, cuenta y nota de un movimiento (RN-22). La partida no cambia: un movimiento no se mueve de una partida a otra. Pide que la partida esté pendiente en un período abierto y que el mes de la fecha actual del movimiento esté abierto; los valores nuevos cumplen RN-21, con las mismas respuestas que el alta. Si los valores son los que ya tiene, responde 200 sin guardar nada. La fecha y la cuenta se revalidan solo si cambian. Orden en que se evalúa, y se informa el primero que falla: formato del cuerpo (400), movimiento inexistente o ajeno (404), período de la partida cerrado (409 PERIOD_CLOSED), partida consolidada (409 ENTRY_NOT_PENDING), mes de la fecha actual cerrado (409 PERIOD_CLOSED), cuenta inexistente o ajena (400 en &#x60;accountId&#x60;), moneda distinta (409 CURRENCY_MISMATCH) y fecha nueva: anterior a la ventana de anticipación, a la apertura de la cuenta o posterior a hoy (409 DATE_OUT_OF_RANGE), y en un mes cerrado (409 PERIOD_CLOSED). Responde con el movimiento y la partida con sus valores derivados.
+     * @endpoint put /api/movements/{id}
+     * @param id 
+     * @param movementRequest 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public updateMovement(id: number, movementRequest: MovementRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<MovementRegistered>;
+    public updateMovement(id: number, movementRequest: MovementRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<MovementRegistered>>;
+    public updateMovement(id: number, movementRequest: MovementRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<MovementRegistered>>;
+    public updateMovement(id: number, movementRequest: MovementRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling updateMovement.');
+        }
+        if (movementRequest === null || movementRequest === undefined) {
+            throw new Error('Required parameter movementRequest was null or undefined when calling updateMovement.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/movements/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<MovementRegistered>('put', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 body: movementRequest,

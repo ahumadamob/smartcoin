@@ -12,7 +12,7 @@ import { PeriodEntry } from './periodEntry';
 
 
 /**
- * Un movimiento recién registrado y su partida con los valores derivados ya actualizados (real, pendiente, estimado y estado), calculados por el backend.
+ * Un movimiento recién registrado o corregido y su partida con los valores derivados ya actualizados (real, pendiente, estimado y estado), calculados por el backend.
  */
 export interface MovementRegistered { 
     movement: Movement;
