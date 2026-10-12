@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import com.smartcoin.account.domain.AccountTotal;
 import com.smartcoin.entry.domain.EntryTotal;
@@ -69,4 +70,14 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
 			where m.userId = :userId and m.entry.id = :entryId
 			order by m.movementDate, m.id""")
 	List<Movement> findByUserIdAndEntryIdWithAccount(@Param("userId") Long userId, @Param("entryId") Long entryId);
+
+	/**
+	 * HU-21: un movimiento del usuario con su cuenta; {@code null} si no existe o es de otro usuario (RN-01). La
+	 * partida se carga aparte, con su período, para devolverla ya con sus valores derivados.
+	 */
+	@Query("""
+			select m from Movement m
+			join fetch m.account
+			where m.id = :id and m.userId = :userId""")
+	Optional<Movement> findByIdAndUserIdWithAccount(@Param("id") Long id, @Param("userId") Long userId);
 }

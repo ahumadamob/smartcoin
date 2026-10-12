@@ -5,7 +5,7 @@ import com.smartcoin.period.web.PeriodViewResponse.PeriodEntry;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(name = "MovementRegistered", description = "Un movimiento recién registrado y su partida con los valores "
+@Schema(name = "MovementRegistered", description = "Un movimiento recién registrado o corregido y su partida con los valores "
 		+ "derivados ya actualizados (real, pendiente, estimado y estado), calculados por el backend.")
 public record MovementRegisteredResponse(
 
