@@ -30,6 +30,10 @@
         }
       </dl>
 
+      <p class="note" data-testid="irreversible">
+        Consolidar no se puede deshacer por ahora: la partida queda cerrada con su monto real.
+      </p>
+
       @if (!current.recurring) {
         <p data-testid="no-propagation">
           Esta partida no viene de un Concepto: se consolida por su monto real y no afecta otros meses.
@@ -73,9 +77,6 @@
         }
       }
 
-      <p class="note" data-testid="irreversible">
-        Consolidar no se puede deshacer por ahora: la partida queda cerrada con su monto real.
-      </p>
     }
   }
 </mat-dialog-content>

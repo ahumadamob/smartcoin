@@ -206,7 +206,17 @@ Consecuencias:
 >
 > Ejemplo, partidas editadas: Resumen Visa con último valor. Diciembre fue editada a 300.000,00. Se consolida noviembre en 210.000,00. Con Respetar, diciembre queda en 300.000,00 y enero en adelante pasa a 210.000,00. Con Pisar, todas pasan a 210.000,00 y diciembre deja de estar editada.
 
+Aclaraciones (HU-23, D-36):
+
+- **Orden de evaluación** (se informa el primero que falla): la partida (404, RN-01); el período (`PERIOD_CLOSED`); el estado (`ENTRY_NOT_PENDING`); los movimientos (`CONSOLIDATION_REQUIRES_MOVEMENT`); y las editadas del destino sin política (`MANUAL_POLICY_REQUIRED`, con sus ids en `entries`).
+- Se puede consolidar una partida de un mes futuro con un cobro anticipado, y los meses en cualquier orden: el destino siempre es posterior a la primera consolidada de la base (S-05), así que consolidar octubre después de noviembre no toca noviembre ni lo anterior a ella.
+- **Si E es igual a lo que ya había**, el monto vigente se fija igual. Una editada en el destino exige política aunque su monto ya sea E, porque Pisar le quita la marca de editada (D-31).
+- La marca de editada de la partida que se consolida no cambia. Una política enviada cuando no hace falta se ignora.
+- La partida, el Concepto y las partidas de destino cambian en una sola transacción; el Concepto se bloquea para que dos consolidaciones simultáneas no se pisen.
+
 **RN-27. Vista previa de la consolidación.** Sin modificar nada, informa: monto real, E, monto vigente actual, y cada partida de destino con su período, presupuestado actual, presupuestado nuevo y si está editada. Indica si hace falta elegir política.
+
+Aclaraciones (HU-23, D-36): la vista previa sale del mismo plan que la consolidación. Lista todo el destino, con un indicador `changes` por partida (en una editada, solo con Pisar). Una partida que no se puede consolidar responde 200 con `allowed: false` y el motivo (`PERIOD_CLOSED`, `ENTRY_NOT_PENDING` o `CONSOLIDATION_REQUIRES_MOVEMENT`); una partida sin Concepto responde sin estimación ni destino (RN-28).
 
 **RN-28. Partidas sin Concepto.** Se consolidan con RN-25 y no propagan.
 
