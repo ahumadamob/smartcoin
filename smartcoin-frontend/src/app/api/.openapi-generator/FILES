@@ -5,6 +5,7 @@ api/api.ts
 api/autenticacin.service.ts
 api/categoras.service.ts
 api/conceptos.service.ts
+api/consolidacin.service.ts
 api/cuentas.service.ts
 api/movimientos.service.ts
 api/partidas.service.ts
@@ -26,6 +27,10 @@ model/budgetItemResponse.ts
 model/categoryRequest.ts
 model/categoryResponse.ts
 model/changePasswordRequest.ts
+model/consolidateRequest.ts
+model/consolidation.ts
+model/consolidationPreview.ts
+model/consolidationTarget.ts
 model/createUserRequest.ts
 model/createdUserResponse.ts
 model/currencySubtotal.ts
