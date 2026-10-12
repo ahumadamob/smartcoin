@@ -45,7 +45,7 @@ import { DATE_FORMAT } from '../../core/locale';
 import { parseAmount, formatAmountInput } from '../../shared/amount';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
-import { canChangeMovements } from './entry-actions';
+import { canChangeMovements, canConsolidate } from './entry-actions';
 import { MovementDeleteDialog, MovementDeleteDialogData, MovementDeleteDialogResult } from './movement-delete-dialog';
 import {
   correctedMessage,
@@ -79,7 +79,7 @@ export interface MovementDialogData {
  * backend dijo que el período se cerró o la partida ya no está pendiente (la pantalla estaba desactualizada), o sin
  * valor si el usuario canceló.
  */
-export type MovementDialogResult = MovementRegistered | { stale: true };
+export type MovementDialogResult = MovementRegistered | { stale: true } | { consolidate: true; entry: PeriodEntry };
 
 /** Estos códigos significan que lo que muestra la pantalla ya no es lo que hay en el backend. */
 const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'NOT_FOUND'];
@@ -129,8 +129,7 @@ type FieldName = 'date' | 'amount' | 'accountId' | 'note';
  * cuenta puede mover la fecha más temprana. Acá no se calcula ni se repite la regla.
  *
  * El monto se convierte de coma decimal a número antes de enviarlo; el frontend no suma ni resta nada con él. Con
- * el pendiente en 0, un aviso dice que la partida está cubierta (criterio 6): no hay botón porque consolidar llega
- * con HU-23.
+ * el pendiente en 0, un aviso dice que la partida está cubierta (criterio 6) y ofrece «Consolidar» (HU-23).
  *
  * HU-21: cada movimiento de la lista ofrece «Editar» y «Eliminar» mientras la partida esté pendiente y el período
  * abierto. Editar carga el formulario del alta con los valores del movimiento y lo envía con `PUT`; eliminar pide
@@ -182,6 +181,8 @@ export class MovementDialog implements OnInit {
   );
   /** «Editar» y «Eliminar» por fila: solo con la partida pendiente y el período abierto. */
   protected readonly canChange = computed(() => canChangeMovements(this.entry(), this.data.readonly));
+  /** «Consolidar» junto al aviso de «cubierta» (HU-23): solo con la partida pendiente y el período abierto. */
+  protected readonly canConsolidate = computed(() => !this.data.readonly && canConsolidate(this.entry()));
   /** Qué se hizo con un movimiento (corregido, eliminado), o `null`. */
   protected readonly changeNotice = signal<string | null>(null);
   /**
@@ -463,6 +464,11 @@ export class MovementDialog implements OnInit {
 
   protected cancel(): void {
     this.ref.close(this.stale ? { stale: true } : undefined);
+  }
+
+  /** «Consolidar» desde el aviso: se cierra el diálogo y la vista del mes abre el de consolidar (HU-23). */
+  protected consolidate(): void {
+    this.ref.close({ consolidate: true, entry: this.entry() });
   }
 
   /**

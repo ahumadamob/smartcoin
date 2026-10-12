@@ -31,7 +31,15 @@ describe('messageFor', () => {
     ['CURRENCY_MISMATCH', 'La cuenta elegida es de otra moneda. Elegí una cuenta en la misma moneda.'],
     ['FIELD_NOT_EDITABLE', 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.'],
     ['PERIOD_CLOSED', 'Ese mes ya está cerrado y no admite cambios.'],
-    ['ENTRY_NOT_PENDING', 'La partida ya está consolidada: no se puede editar.'],
+    ['ENTRY_NOT_PENDING', 'La partida ya está consolidada: no admite ese cambio.'],
+    [
+      'CONSOLIDATION_REQUIRES_MOVEMENT',
+      'La partida no tiene movimientos: registrá al menos un cobro o pago antes de consolidarla.',
+    ],
+    [
+      'MANUAL_POLICY_REQUIRED',
+      'Hay partidas editadas a mano en los meses siguientes: no se puede consolidar sin decidir qué hacer con ellas.',
+    ],
     ['ENTRY_HAS_MOVEMENTS', 'La partida tiene movimientos: no se puede eliminar.'],
   ])('traduce %s', (code, expected) => {
     expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);

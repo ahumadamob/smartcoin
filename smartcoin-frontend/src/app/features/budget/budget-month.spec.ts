@@ -8,6 +8,7 @@ import { Observable, of, Subject, throwError } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { provideLocale } from '../../core/locale';
 import { BudgetMonth } from './budget-month';
+import { ConsolidationDialogData, ConsolidationDialogResult } from './consolidation-dialog';
 import { EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { MovementDialogData, MovementDialogResult } from './movement-dialog';
@@ -151,8 +152,15 @@ describe('BudgetMonth', () => {
   let api: { getPeriod: ReturnType<typeof vi.fn>; getCurrentPeriod: ReturnType<typeof vi.fn> };
   /** El diálogo de HU-16 se simula: lo que importa acá es cuándo se abre, con qué, y qué hace la pantalla al cerrarse. */
   let dialog: { open: ReturnType<typeof vi.fn> };
-  let dialogResult: EntryFormDialogResult | EntryDeleteDialogResult | MovementDialogResult | undefined;
+  let dialogResult:
+    | EntryFormDialogResult
+    | EntryDeleteDialogResult
+    | MovementDialogResult
+    | ConsolidationDialogResult
+    | undefined;
   let snackBar: { open: ReturnType<typeof vi.fn> };
+  /** La acción del aviso («Consolidar»): se dispara con `snackAction.next()`. */
+  let snackAction: Subject<void>;
 
   /** Por defecto la API responde el mes pedido, vacío; `/current` responde octubre. */
   async function open(url: string, responses: Record<string, Observable<PeriodView>> = {}) {
@@ -162,7 +170,8 @@ describe('BudgetMonth', () => {
     };
     dialogResult = undefined;
     dialog = { open: vi.fn(() => ({ afterClosed: () => of(dialogResult) })) };
-    snackBar = { open: vi.fn() };
+    snackAction = new Subject<void>();
+    snackBar = { open: vi.fn(() => ({ onAction: () => snackAction })) };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ matcher: budgetMonthMatcher, component: BudgetMonth }]),
@@ -1027,6 +1036,39 @@ describe('BudgetMonth', () => {
       expect(cells(rows('Gastos')[0])[8]).toBe('Parcial');
     });
 
+    it('con el pendiente en 0 el aviso ofrece «Consolidar» y abre el diálogo de consolidar con la partida (HU-23)', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const after = expensas({ status: 'PARTIAL', actualAmount: 120000, pendingAmount: 0, forecastAmount: 120000 });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [], [after])));
+      dialogResult = registered(after, 120000);
+
+      registerButtons()[0].click();
+      await refresh();
+
+      expect(snackBar.open.mock.calls[0][1]).toBe('Consolidar');
+      expect(dialog.open).toHaveBeenCalledTimes(1);
+
+      dialogResult = undefined;
+      snackAction.next();
+      await refresh();
+
+      expect(dialog.open).toHaveBeenCalledTimes(2);
+      const data = dialog.open.mock.calls[1][1].data as ConsolidationDialogData;
+      expect(data).toEqual({ entry: after, period: '2026-11' });
+    });
+
+    it('si todavía queda pendiente, el aviso no ofrece «Consolidar»', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const after = expensas({ status: 'PARTIAL', actualAmount: 70000, pendingAmount: 50000 });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [], [after])));
+      dialogResult = registered(after, 70000);
+
+      registerButtons()[0].click();
+      await refresh();
+
+      expect(snackBar.open.mock.calls[0][1]).toBeUndefined();
+    });
+
     it('el foco vuelve al «Registrar pago» de la partida', async () => {
       await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
       const after = expensas({ status: 'PARTIAL', actualAmount: 70000, pendingAmount: 50000 });
@@ -1061,6 +1103,99 @@ describe('BudgetMonth', () => {
       dialogResult = undefined;
 
       registerButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('consolidar (HU-23)', () => {
+    const luz = (overrides: Partial<PeriodEntry> = {}) =>
+      entry({ id: 40, name: 'Luz', status: 'PARTIAL', actualAmount: 41000, pendingAmount: 4000, ...overrides });
+    const view = (status: 'OPEN' | 'CLOSED', expenses: PeriodEntry[]): PeriodView => ({
+      ...NOVEMBER,
+      status,
+      incomes: [],
+      expenses,
+      totals: [{ currency: 'ARS', income: side(0, 0, 0, 0, 0), expense: side(expenses.length, 0, 0, 0, 0), result: 0 }],
+    });
+    const consolidateButtons = () =>
+      Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="consolidate-entry"]'));
+
+    it('«Consolidar» está solo en las pendientes con movimientos de un período abierto', async () => {
+      await open('/presupuesto/2026-11', {
+        '2026-11': of(
+          view('OPEN', [
+            luz({ id: 40, name: 'Luz' }),
+            entry({ id: 41, name: 'Agua' }),
+            entry({ id: 42, name: 'Gas', status: 'CONSOLIDATED', actualAmount: 100, pendingAmount: 0 }),
+          ]),
+        ),
+      });
+
+      expect(consolidateButtons().map((b) => b.getAttribute('aria-label'))).toEqual(['Consolidar Luz']);
+    });
+
+    it('un período cerrado no la ofrece', async () => {
+      await open('/presupuesto/2026-08', {
+        '2026-08': of({ ...view('CLOSED', [luz()]), period: '2026-08' }),
+      });
+
+      expect(consolidateButtons()).toHaveLength(0);
+    });
+
+    it('abre el diálogo con la partida y el mes que se ve', async () => {
+      const partial = luz();
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [partial])) });
+
+      consolidateButtons()[0].click();
+
+      const data = dialog.open.mock.calls[0][1].data as ConsolidationDialogData;
+      expect(data).toEqual({ entry: partial, period: '2026-11' });
+    });
+
+    it('al consolidar avisa lo que hizo el backend y vuelve a pedir el mes: la partida se ve Consolidada sin acciones', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [luz()])) });
+      const after = luz({ status: 'CONSOLIDATED', pendingAmount: 0, forecastAmount: 41000 });
+      api.getPeriod = vi.fn().mockReturnValue(of(view('OPEN', [after])));
+      const tableBefore = section('Gastos').querySelector('table');
+      dialogResult = {
+        consolidated: true,
+        entry: after,
+        message: '«Luz» consolidada por $ 41.000,00. Se actualizaron 3 partidas de los meses siguientes.',
+      };
+
+      consolidateButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(snackBar.open.mock.calls[0][0]).toContain('consolidada por $ 41.000,00');
+      expect(cells(rows('Gastos')[0])[8]).toBe('Consolidada');
+      expect(cells(rows('Gastos')[0])[7]).toBe('$ 0,00');
+      expect(consolidateButtons()).toHaveLength(0);
+      expect(section('Gastos').querySelector('[data-testid="actions"]')).toBeNull();
+      expect(section('Gastos').querySelector('table')).toBe(tableBefore);
+    });
+
+    it('si el diálogo avisa que la pantalla estaba desactualizada, vuelve a pedir el mes sin avisar nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [luz()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = { stale: true };
+
+      consolidateButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [luz()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = undefined;
+
+      consolidateButtons()[0].click();
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);

@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { PeriodCurrencyTotals, PeriodEntry, PeriodSideTotals } from '../../api';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
-import { canDeleteEntry, canEditAmount, canEditEntry, canRegisterMovement } from './entry-actions';
+import { canConsolidate, canDeleteEntry, canEditAmount, canEditEntry, canRegisterMovement } from './entry-actions';
 import { registerLabel } from './movement-text';
 
 /** Texto en pantalla del estado de una partida (docs/glosario.md). */
@@ -26,7 +26,7 @@ interface FooterRow {
  * Las acciones sobre una partida van en una última columna «Acciones», que se agrega solo si `readonly` es falso (un
  * período cerrado no tiene acciones) y alguna partida de la sección tiene una: no se dibuja una columna vacía. Hoy son
  * «Registrar cobro» o «Registrar pago» (HU-19), «Editar» (partidas sin Concepto, HU-16), «Editar monto» (recurrentes,
- * HU-17) y «Eliminar» (HU-18); consolidar llega con su historia. La tabla no cambia nada: emite el pedido y quien la
+ * HU-17), «Consolidar» (HU-23) y «Eliminar» (HU-18). La tabla no cambia nada: emite el pedido y quien la
  * usa abre el diálogo.
  */
 @Component({
@@ -49,6 +49,8 @@ export class EntryTable {
 
   /** El usuario pidió registrar un cobro o pago de esta partida (HU-19). */
   readonly registerMovement = output<PeriodEntry>();
+  /** El usuario pidió consolidar esta partida (HU-23). */
+  readonly consolidate = output<PeriodEntry>();
   /** El usuario pidió editar esta partida. */
   readonly edit = output<PeriodEntry>();
   /** El usuario pidió editar solo el monto de esta partida recurrente (HU-17). */
@@ -63,13 +65,19 @@ export class EntryTable {
   protected readonly canEdit = canEditEntry;
   protected readonly canEditAmount = canEditAmount;
   protected readonly canDelete = canDeleteEntry;
+  protected readonly canConsolidate = canConsolidate;
 
   /** La columna «Acciones» solo existe si alguna partida de la sección tiene una acción (y el período no está cerrado). */
   protected readonly showActions = computed(
     () =>
       !this.readonly() &&
       this.entries().some(
-        (entry) => canRegisterMovement(entry) || canEditEntry(entry) || canEditAmount(entry) || canDeleteEntry(entry),
+        (entry) =>
+          canRegisterMovement(entry) ||
+          canConsolidate(entry) ||
+          canEditEntry(entry) ||
+          canEditAmount(entry) ||
+          canDeleteEntry(entry),
       ),
   );
 

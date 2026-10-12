@@ -37,6 +37,15 @@ export function canRegisterMovement(entry: PeriodEntry): boolean {
 }
 
 /**
+ * Si una partida ofrece «Consolidar» (HU-23, RN-25): las pendientes con al menos un movimiento, que son las Parciales.
+ * Una Estimada no tiene movimientos (S-03). Es solo lo que la pantalla ofrece: quien decide es el backend, que además
+ * mira el período (`readonly`, RN-09).
+ */
+export function canConsolidate(entry: PeriodEntry): boolean {
+  return entry.status === 'PARTIAL';
+}
+
+/**
  * Si el diálogo de una partida ofrece «Editar» y «Eliminar» en sus movimientos (HU-21, RN-22): solo con la partida
  * pendiente en un período no cerrado. Es solo lo que la pantalla ofrece: quien decide es el backend, que además mira
  * el mes de la fecha del movimiento.

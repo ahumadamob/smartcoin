@@ -1,0 +1,94 @@
+<h2 mat-dialog-title>Consolidar «{{ entry.name }}» de {{ data.period | period }}</h2>
+
+<mat-dialog-content class="content">
+  @if (loading()) {
+    <p role="status">Cargando…</p>
+  } @else if (loadError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  } @else if (preview(); as current) {
+    @if (error(); as message) {
+      <p class="error" role="alert" data-testid="consolidate-error">{{ message }}</p>
+    }
+
+    @if (!current.allowed) {
+      <p class="note" role="status" data-testid="blocked">{{ current.blockedDetail }}</p>
+    } @else {
+      <dl class="amounts" data-testid="consolidation-amounts">
+        <div>
+          <dt>Monto real</dt>
+          <dd data-testid="actual">{{ current.actualAmount | money: entry.currency }}</dd>
+        </div>
+        @if (current.recurring) {
+          <div>
+            <dt>Monto vigente actual</dt>
+            <dd data-testid="current-amount">{{ current.currentAmount! | money: entry.currency }}</dd>
+          </div>
+          <div>
+            <dt>Nueva estimación</dt>
+            <dd data-testid="estimate">{{ current.estimate! | money: entry.currency }}</dd>
+          </div>
+        }
+      </dl>
+
+      @if (!current.recurring) {
+        <p data-testid="no-propagation">
+          Esta partida no viene de un Concepto: se consolida por su monto real y no afecta otros meses.
+        </p>
+      } @else {
+        @if (ruleLabel(); as rule) {
+          <p class="note" data-testid="rule">Regla de estimación del Concepto: {{ rule }}.</p>
+        }
+
+        @if (blockedByPolicy()) {
+          <p class="note" role="status" data-testid="policy-required">{{ manualText() }}</p>
+          <ul class="targets" data-testid="edited-targets">
+            @for (target of edited(); track target.entryId) {
+              <li data-testid="edited-target">
+                {{ target.period | period }}: editada en {{ target.currentBudgetedAmount | money: entry.currency }}
+              </li>
+            }
+          </ul>
+        } @else if (changing().length === 0) {
+          <p data-testid="no-changes">{{ noChanges() }}</p>
+        } @else {
+          <p id="targets-label" class="lead">Estas partidas de los meses siguientes cambian:</p>
+          <table aria-labelledby="targets-label" data-testid="targets">
+            <thead>
+              <tr>
+                <th scope="col">Mes</th>
+                <th scope="col" class="number">Presupuestado actual</th>
+                <th scope="col" class="number">Presupuestado nuevo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (target of changing(); track target.entryId) {
+                <tr data-testid="target">
+                  <th scope="row">{{ target.period | period }}</th>
+                  <td class="number">{{ target.currentBudgetedAmount | money: entry.currency }}</td>
+                  <td class="number">{{ target.newBudgetedAmount | money: entry.currency }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      }
+
+      <p class="note" data-testid="irreversible">
+        Consolidar no se puede deshacer por ahora: la partida queda cerrada con su monto real.
+      </p>
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" data-testid="cancel-consolidate" (click)="cancel()">Cancelar</button>
+  <button
+    mat-flat-button
+    type="button"
+    data-testid="confirm-consolidate"
+    [disabled]="!canConfirm()"
+    (click)="submit()"
+  >
+    Consolidar
+  </button>
+</mat-dialog-actions>

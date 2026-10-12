@@ -8,6 +8,7 @@ import {
   CuentasService,
   Movement,
   MovementDates,
+  MovementRegistered,
   MovementRequest,
   MovimientosService,
   PeriodEntry,
@@ -215,13 +216,32 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
       expect(root().querySelector('[data-testid="movements-list"]')).toBeNull();
     });
 
-    it('con el pendiente en 0 en una Parcial avisa que está cubierta, sin botón de consolidar', async () => {
+    it('con el pendiente en 0 en una Parcial avisa que está cubierta y ofrece «Consolidar» (HU-23)', async () => {
       await open({ entry: { ...ENTRY, status: 'PARTIAL', actualAmount: 120000, pendingAmount: 0 } });
 
       expect(text(root().querySelector('[data-testid="covered-notice"]'))).toBe(
         '«Expensas» ya está cubierta: pendiente $ 0,00. Sigue Parcial hasta que se consolide.',
       );
-      expect(button('Consolidar')).toBeUndefined();
+      expect(root().querySelector('[data-testid="consolidate-from-dialog"]')).not.toBeNull();
+    });
+
+    it('«Consolidar» cierra el diálogo pidiendo consolidar la partida', async () => {
+      const covered = { ...ENTRY, status: 'PARTIAL' as const, actualAmount: 120000, pendingAmount: 0 };
+      await open({ entry: covered });
+
+      root().querySelector<HTMLButtonElement>('[data-testid="consolidate-from-dialog"]')!.click();
+
+      expect(ref.close).toHaveBeenCalledWith({ consolidate: true, entry: covered });
+    });
+
+    it('en un período cerrado el aviso no ofrece «Consolidar»', async () => {
+      await open({
+        entry: { ...ENTRY, status: 'PARTIAL', actualAmount: 120000, pendingAmount: 0 },
+        readonly: true,
+      });
+
+      expect(root().querySelector('[data-testid="covered-notice"]')).not.toBeNull();
+      expect(root().querySelector('[data-testid="consolidate-from-dialog"]')).toBeNull();
     });
 
     it('una Estimada con presupuestado 0 no está «cubierta»: no hay aviso', async () => {
@@ -372,7 +392,7 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
       expect(api.registerMovement).toHaveBeenCalledTimes(1);
       expect(api.registerMovement.mock.calls[0][0]).toBe(900);
       expect(sent()).toEqual({ date: '2026-11-05', amount: 70000.5, accountId: 12, note: 'Primera parte' });
-      const result = ref.close.mock.calls[0][0] as Exclude<MovementDialogResult, { stale: true }>;
+      const result = ref.close.mock.calls[0][0] as MovementRegistered;
       expect(result.movement.amount).toBe(70000.5);
       expect(result.entry.status).toBe('PARTIAL');
     });

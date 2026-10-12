@@ -22,6 +22,7 @@ import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
+import { ConsolidationDialog, ConsolidationDialogData, ConsolidationDialogResult } from './consolidation-dialog';
 import { EntryDeleteDialog, EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialog, EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { EntryTable } from './entry-table';
@@ -177,14 +178,59 @@ export class BudgetMonth implements OnInit {
           this.reload(null);
           return;
         }
-        this.snackBar.open(
+        if ('consolidate' in result) {
+          // El aviso de «cubierta» ofreció consolidar desde el diálogo de movimientos (HU-23).
+          this.consolidateEntry(result.entry);
+          return;
+        }
+        const covered = result.entry.status === 'PARTIAL' && result.entry.pendingAmount === 0;
+        const bar = this.snackBar.open(
           registeredMessage(result.entry, result.movement.amount, (amount, currency) =>
             this.money.transform(amount, currency),
           ),
-          undefined,
-          { duration: result.entry.pendingAmount === 0 ? 10000 : 5000 },
+          covered ? 'Consolidar' : undefined,
+          { duration: covered ? 10000 : 5000 },
         );
+        if (covered) {
+          bar
+            .onAction()
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe(() => this.consolidateEntry(result.entry));
+        }
         this.reload(result.entry.id, null, 'register');
+      });
+  }
+
+  /**
+   * «Consolidar»: el diálogo muestra la vista previa del backend y, al confirmar, se vuelve a pedir el mes: la partida
+   * se ve Consolidada y los meses siguientes con lo que propagó el backend (HU-23). Acá no se calcula nada.
+   */
+  protected consolidateEntry(entry: PeriodEntry): void {
+    const period = this.period();
+    if (period === null || !isPeriod(period) || this.readonly()) {
+      return;
+    }
+    const focus = this.removalFocus(entry);
+    this.dialog
+      .open<ConsolidationDialog, ConsolidationDialogData, ConsolidationDialogResult>(ConsolidationDialog, {
+        data: { entry, period },
+        width: '600px',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result === undefined) {
+          return;
+        }
+        if ('stale' in result) {
+          // El período se cerró o la partida ya no está pendiente: lo que se ve ya no es lo que hay.
+          this.reload(null);
+          return;
+        }
+        this.snackBar.open(result.message, undefined, { duration: 8000 });
+        // La fila consolidada ya no tiene acciones: el foco pasa a la de la fila que ocupa su lugar.
+        this.reload(null, focus);
       });
   }
 

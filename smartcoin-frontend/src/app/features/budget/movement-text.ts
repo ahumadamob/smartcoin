@@ -17,8 +17,8 @@ export function registerLabel(kind: PeriodEntry.KindEnum): string {
 }
 
 /**
- * Aviso cuando el pendiente llegó a 0 (HU-19, criterio 6, RN-23). Es solo texto: la acción «Consolidar» llega con
- * HU-23. Dice únicamente lo que es cierto hoy: la partida está cubierta y sigue Parcial hasta que se consolide. El
+ * Aviso cuando el pendiente llegó a 0 (HU-19, criterio 6, RN-23). La acción «Consolidar» la ofrece quien muestra el aviso
+ * (HU-23). Dice únicamente lo que es cierto hoy: la partida está cubierta y sigue Parcial hasta que se consolide. El
  * monto es el que informa el backend; acá solo se le da formato.
  */
 export function coveredNotice(name: string, pendingAmount: number, currency: CurrencyCode, money: FormatMoney): string {

@@ -23,6 +23,11 @@
 
     @if (notice(); as covered) {
       <p class="notice" role="status" data-testid="covered-notice">{{ covered }}</p>
+      @if (canConsolidate()) {
+        <button mat-stroked-button type="button" data-testid="consolidate-from-dialog" (click)="consolidate()">
+          Consolidar
+        </button>
+      }
     }
 
     @if (loading()) {
