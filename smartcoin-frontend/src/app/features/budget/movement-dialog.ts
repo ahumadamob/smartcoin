@@ -12,9 +12,18 @@ import {
   LOCALE_ID,
   OnInit,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  FormGroupDirective,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -200,6 +209,9 @@ export class MovementDialog implements OnInit {
   protected readonly submitting = signal(false);
   private stale = false;
 
+  /** La directiva guarda si el formulario «ya se envió»: hay que limpiarla para que no marque errores al volver a cargarlo. */
+  private readonly formDirective = viewChild(FormGroupDirective);
+
   protected readonly form = new FormGroup({
     date: new FormControl('', { nonNullable: true, validators: [Validators.required, isoDate] }),
     amount: new FormControl('', { nonNullable: true, validators: [Validators.required, positiveAmount] }),
@@ -326,7 +338,7 @@ export class MovementDialog implements OnInit {
     this.error.set(null);
     this.changeNotice.set(null);
     this.editing.set(movement);
-    this.form.reset({
+    this.loadForm({
       date: movement.date,
       amount: formatAmountInput(movement.amount),
       accountId: movement.accountId,
@@ -421,12 +433,22 @@ export class MovementDialog implements OnInit {
   /** El formulario del alta: hoy, la cuenta de la partida y, si queda pendiente, ese monto. */
   private resetRegisterForm(dates: MovementDates | null = this.dates()): void {
     const entry = this.entry();
-    this.form.reset({
+    this.loadForm({
       date: dates === null ? '' : suggestedDate(dates),
       amount: entry.pendingAmount > 0 ? formatAmountInput(entry.pendingAmount) : '',
       accountId: entry.accountId,
       note: '',
     });
+  }
+
+  /** Carga valores nuevos en el formulario como si fuera uno recién abierto: sin errores ni «enviado» de antes. */
+  private loadForm(values: { date: string; amount: string; accountId: number | null; note: string }): void {
+    const directive = this.formDirective();
+    if (directive) {
+      directive.resetForm(values);
+    } else {
+      this.form.reset(values);
+    }
   }
 
   private focusRowAction(movementId: number, action: 'edit-movement' | 'delete-movement' = 'edit-movement'): void {

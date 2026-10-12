@@ -631,6 +631,30 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
         expect(text(root().querySelector('h2'))).toBe('Registrar pago · Expensas');
       });
 
+      it('después de guardar, el formulario del alta vuelve sin errores aunque el monto quede vacío (pendiente 0)', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+        await click(action(1, 'edit-movement'));
+
+        type('Monto', '30000,00');
+        submit();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(form().controls['amount'].value).toBe('');
+        expect(root().querySelector('mat-error')).toBeNull();
+      });
+
+      it('al empezar a corregir después de un error, el formulario no arrastra el «enviado» anterior', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+        submit();
+        fixture.detectChanges();
+        expect(root().querySelector('mat-error')).not.toBeNull();
+
+        await click(action(1, 'edit-movement'));
+
+        expect(root().querySelector('mat-error')).toBeNull();
+      });
+
       it('cambiar de cuenta envía la cuenta nueva', async () => {
         await open({ entry: PARTIAL }, { movements: TWO });
         await click(action(1, 'edit-movement'));
