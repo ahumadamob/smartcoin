@@ -377,3 +377,211 @@ test.describe('HU-20 · registrar cobros anticipados', () => {
     return accounts.accounts[0].id as number;
   }
 });
+
+test.describe('HU-21 · corregir o eliminar un movimiento', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+  let page: Page;
+  let api: APIRequestContext;
+  let entryId: number;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const create = async (path: string, data: object) => {
+      const response = await api.post(path, { data });
+      expect(response.status(), `alta en ${path}: ${JSON.stringify(data)}`).toBe(201);
+      return (await response.json()).id as number;
+    };
+    const account = (name: string) =>
+      create('/api/accounts', {
+        name,
+        type: 'BANK',
+        currency: 'ARS',
+        openingDate: `${startPeriod()}-01`,
+        initialBalance: 0,
+      });
+    const bank = await account('Banco Nación');
+    await account('Billetera');
+    entryId = await create(`/api/periods/${periodOf(today)}/entries`, {
+      name: 'Expensas',
+      kind: 'EXPENSE',
+      accountId: bank,
+      dueDate: isoDate(today),
+      budgetedAmount: 120000,
+    });
+    await page.goto('/presupuesto');
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const row = () =>
+    page
+      .getByRole('region', { name: 'Gastos', exact: true })
+      .locator('tbody tr')
+      .filter({ has: page.getByRole('rowheader', { name: 'Expensas', exact: true }) });
+  // Con el diálogo abierto la vista de atrás queda fuera del árbol de accesibilidad: se la busca por la partida.
+  const cells = () => page.locator(`[data-entry-id="${entryId}"]`).locator('th, td');
+  /** El diálogo de movimientos de la partida; la confirmación de eliminar es otro diálogo, encima. */
+  const dialog = () => page.getByRole('dialog').filter({ has: page.getByTestId('movement-amounts') });
+  const confirmation = () => page.getByRole('dialog').filter({ has: page.getByTestId('delete-movement-summary') });
+  const open = () => row().getByRole('button', { name: 'Registrar pago de Expensas' }).click();
+  const movementRow = (amount: string) =>
+    dialog().getByTestId('movement-row').filter({ has: page.getByText(amount, { exact: true }) });
+
+  async function accountBalance(name: string) {
+    await page.goto('/cuentas');
+    return page.getByRole('listitem').filter({ hasText: name }).getByTestId('balance');
+  }
+
+  test('se registran dos pagos y cada fila de la lista ofrece Editar y Eliminar', async () => {
+    await open();
+    await dialog().getByLabel('Monto').fill('70.000,00');
+    await dialog().getByRole('button', { name: 'Registrar pago', exact: true }).click();
+    await expect(dialog()).toBeHidden();
+
+    await open();
+    await dialog().getByLabel('Monto').fill('50.000,00');
+    await dialog().getByRole('button', { name: 'Registrar pago', exact: true }).click();
+    await expect(dialog()).toBeHidden();
+
+    await expect(cells().nth(6)).toHaveText('$ 120.000,00');
+    await expect(cells().nth(7)).toHaveText('$ 0,00');
+    await expect(cells().nth(8)).toHaveText('Parcial');
+    await open();
+    await expect(dialog().getByTestId('movement-row')).toHaveCount(2);
+    await expect(dialog().getByTestId('edit-movement')).toHaveCount(2);
+    await expect(dialog().getByTestId('delete-movement')).toHaveCount(2);
+  });
+
+  test('corregir el monto de un pago actualiza real, pendiente y estado en el diálogo y en la vista del mes', async () => {
+    await movementRow('$ 70.000,00').getByTestId('edit-movement').click();
+
+    await expect(dialog().getByRole('heading', { name: 'Corregir pago · Expensas' })).toBeVisible();
+    await expect(dialog().getByLabel('Monto')).toHaveValue('70000,00');
+    await expect(dialog().getByTestId('window-notice')).toBeVisible();
+    await dialog().getByLabel('Monto').fill('30.000,00');
+    await dialog().getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(dialog().getByTestId('change-notice')).toHaveText('Pago corregido: ahora es de $ 30.000,00.');
+    await expect(dialog().getByTestId('actual')).toHaveText('$ 80.000,00');
+    await expect(dialog().getByTestId('pending')).toHaveText('$ 40.000,00');
+    await expect(movementRow('$ 30.000,00')).toHaveCount(1);
+    await expect(movementRow('$ 70.000,00')).toHaveCount(0);
+    // La vista del mes de atrás ya tiene los valores nuevos, con el diálogo todavía abierto.
+    await expect(cells().nth(6)).toHaveText('$ 80.000,00');
+    await expect(cells().nth(7)).toHaveText('$ 40.000,00');
+    await expect(cells().nth(8)).toHaveText('Parcial');
+    await expect(movementRow('$ 30.000,00').getByTestId('edit-movement')).toBeFocused();
+  });
+
+  test('una fecha futura al corregir sale bajo el campo con el motivo y no cambia nada', async () => {
+    await movementRow('$ 30.000,00').getByTestId('edit-movement').click();
+    await dialog().getByLabel('Fecha').fill(isoDate(tomorrow));
+    await dialog().getByLabel('Monto').fill('99.000,00');
+    await dialog().getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(dialog().getByText('La fecha no puede ser posterior a hoy')).toBeVisible();
+    await expect(dialog().getByLabel('Fecha')).toBeFocused();
+    // Lo cargado queda como estaba y nada se guardó.
+    await expect(dialog().getByLabel('Monto')).toHaveValue('99.000,00');
+    await expect(dialog().getByRole('heading', { name: 'Corregir pago · Expensas' })).toBeVisible();
+    const list = await (await api.get(`/api/entries/${entryId}/movements`)).json();
+    expect(list.map((m: { amount: number }) => m.amount).sort()).toEqual([30000, 50000]);
+
+    await dialog().getByRole('button', { name: 'Cancelar corrección' }).click();
+    await expect(dialog().getByRole('heading', { name: 'Registrar pago · Expensas' })).toBeVisible();
+  });
+
+  test('pasar el pago corregido a otra cuenta cambia los saldos de las dos en /cuentas', async () => {
+    await movementRow('$ 30.000,00').getByTestId('edit-movement').click();
+    await dialog().getByLabel('Cuenta', { exact: true }).click();
+    await page.getByRole('option', { name: 'Billetera', exact: true }).click();
+    await dialog().getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(dialog().getByTestId('change-notice')).toBeVisible();
+    await expect(movementRow('$ 30.000,00')).toContainText('Billetera');
+    await page.keyboard.press('Escape');
+    await expect(dialog()).toBeHidden();
+
+    await expect(await accountBalance('Banco Nación')).toHaveText('-$ 50.000,00');
+    await expect(await accountBalance('Billetera')).toHaveText('-$ 30.000,00');
+  });
+
+  test('eliminar pide confirmar con fecha, monto y cuenta; el foco pasa a la fila que ocupa el lugar', async () => {
+    await page.goto('/presupuesto');
+    await open();
+    await movementRow('$ 30.000,00').getByTestId('delete-movement').click();
+
+    await expect(confirmation().getByTestId('delete-date')).toHaveText(
+      `${two(today.getDate())}/${two(today.getMonth() + 1)}/${today.getFullYear()}`,
+    );
+    await expect(confirmation().getByTestId('delete-amount')).toHaveText('$ 30.000,00');
+    await expect(confirmation().getByTestId('delete-account')).toHaveText('Billetera');
+    // Cancelar no elimina nada.
+    await confirmation().getByRole('button', { name: 'Cancelar' }).click();
+    await expect(dialog().getByTestId('movement-row')).toHaveCount(2);
+
+    await movementRow('$ 30.000,00').getByTestId('delete-movement').click();
+    await confirmation().getByRole('button', { name: 'Eliminar pago' }).click();
+
+    await expect(dialog().getByTestId('movement-row')).toHaveCount(1);
+    await expect(dialog().getByTestId('change-notice')).toHaveText('Pago de $ 30.000,00 eliminado.');
+    await expect(dialog().getByTestId('actual')).toHaveText('$ 50.000,00');
+    await expect(dialog().getByTestId('pending')).toHaveText('$ 70.000,00');
+    await expect(movementRow('$ 50.000,00').getByTestId('edit-movement')).toBeFocused();
+  });
+
+  test('al eliminar el último la partida vuelve a Estimada y los saldos quedan como al principio', async () => {
+    await movementRow('$ 50.000,00').getByTestId('delete-movement').click();
+    await expect(confirmation().getByTestId('delete-only-note')).toBeVisible();
+    await confirmation().getByRole('button', { name: 'Eliminar pago' }).click();
+
+    await expect(dialog().getByTestId('no-movements')).toBeVisible();
+    await expect(dialog().getByTestId('actual')).toHaveText('$ 0,00');
+    await expect(dialog().getByTestId('pending')).toHaveText('$ 120.000,00');
+    await expect(dialog().getByLabel('Fecha')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog()).toBeHidden();
+
+    await expect(cells().nth(6)).toHaveText('$ 0,00');
+    await expect(cells().nth(7)).toHaveText('$ 120.000,00');
+    await expect(cells().nth(8)).toHaveText('Estimada');
+    await expect(await accountBalance('Banco Nación')).toHaveText('$ 0,00');
+    await expect(await accountBalance('Billetera')).toHaveText('$ 0,00');
+  });
+
+  test('un movimiento de otro usuario no se toca: 404 al corregir y al eliminar', async ({ playwright }) => {
+    const created = await api.post(`/api/entries/${entryId}/movements`, {
+      data: { date: isoDate(today), amount: 1000, accountId: (await (await api.get('/api/accounts')).json()).accounts[0].id },
+    });
+    expect(created.status()).toBe(201);
+    const movement = (await created.json()).movement;
+
+    const otherPage = await page.context().browser()!.newPage();
+    const { token } = await startSession(otherPage, playwright);
+    await otherPage.close();
+    const stranger = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const put = await stranger.put(`/api/movements/${movement.id}`, {
+      data: { date: isoDate(today), amount: 1, accountId: movement.accountId },
+    });
+    const del = await stranger.delete(`/api/movements/${movement.id}`);
+
+    expect(put.status()).toBe(404);
+    expect(del.status()).toBe(404);
+    const list = await (await api.get(`/api/entries/${entryId}/movements`)).json();
+    expect(list).toHaveLength(1);
+    await stranger.dispose();
+  });
+});
