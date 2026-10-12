@@ -129,6 +129,18 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **El mensaje de `DATE_OUT_OF_RANGE`** por la ventana nombra su primer día; si la cuenta se abrió después, agrega la fecha más temprana con esa cuenta, para que corregir la fecha no lleve a un segundo error. La validación no cambia.
 - **La vista del mes no señala** las partidas del mes siguiente que ya se pueden cobrar o pagar por anticipado (decisión del usuario); el aviso vive solo en el diálogo.
 
+**D-35. Corregir o eliminar un movimiento.** *Confirmada* (HU-21): las cuatro dudas se resolvieron con el usuario antes de escribir código, todas por la opción recomendada.
+
+- **Endpoints**: `PUT /api/movements/{id}` (`updateMovement`) responde 200 con `{movement, entry}`, igual que el alta, con la partida y sus valores derivados ya actualizados. `DELETE /api/movements/{id}` (`deleteMovement`) responde 204. Un movimiento de otro usuario o inexistente es 404 (RN-01). El cuerpo del `PUT` es el mismo `MovementRequest` del alta.
+- **Orden de evaluación** (se informa el primero que falla): token (401); formato del cuerpo (400); movimiento inexistente o ajeno (404); período de la partida cerrado (409 `PERIOD_CLOSED`); partida consolidada (409 `ENTRY_NOT_PENDING`); mes de la fecha actual del movimiento cerrado (409 `PERIOD_CLOSED`); cuenta inexistente o ajena (400 en `accountId`, D-24); moneda (409 `CURRENCY_MISMATCH`); y la fecha nueva, con la misma regla pura del alta: ventana, apertura y hoy (409 `DATE_OUT_OF_RANGE`) antes que el mes (409 `PERIOD_CLOSED`). Primero el estado actual (RN-22) y después los valores nuevos (RN-21), como D-33.
+- **Sin cambios** es válido: 200 con el mismo movimiento y sin guardar nada.
+- **La fecha se revalida solo si cambian la fecha o la cuenta.** Con la ventana configurable (D-17), si se achica, un movimiento que era válido quedaría fuera de ella y no se podría corregir ni su nota. Con la fecha y la cuenta iguales, el monto y la nota se corrigen sin mirar la ventana. El monto sigue siendo mayor que 0 y con 2 decimales (formato, RN-03).
+- **La partida nunca se modifica**: ni al editar ni al eliminar. Al quedar sin movimientos, vuelve a mostrarse Estimada porque ya no tiene (RN-16).
+- **Movimiento congelado**: uno con fecha en un mes cerrado no se edita ni se elimina, aunque su partida siga pendiente en un período abierto. Es la lectura literal de RN-22. Consecuencia: esa partida no se puede eliminar (S-08) y solo sale consolidándola. No hay campo `editable` en la respuesta: el backend informa el motivo al intentarlo. Hoy no se puede producir de punta a punta, porque no hay cierre de mes hasta HU-33.
+- **`GET /api/entries/{id}/movement-dates` sirve tal cual** al diálogo de edición: depende de la partida y de la cuenta elegida, no del movimiento.
+- **RN-33** sigue bien: «tiene movimientos», la fecha del primer movimiento de una cuenta y los saldos se consultan en vivo en la tabla `movement`; no hay nada guardado que corregir al editar o eliminar.
+- **Frontend**: el diálogo ofrece «Editar» y «Eliminar» por fila solo con la partida pendiente en un período abierto. Editar reutiliza el formulario del alta con los valores del movimiento. Eliminar pide confirmar mostrando fecha, monto y cuenta. Después de cada cambio se pide de nuevo la lista y la vista del mes.
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.

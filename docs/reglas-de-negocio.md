@@ -163,6 +163,15 @@ Aclaraciones (HU-19, D-33):
 
 **RN-22. Editar o eliminar un movimiento.** La partida debe estar pendiente, y el mes de la fecha actual del movimiento debe ser un período abierto. Al editar, los valores nuevos cumplen RN-21. Si se elimina el último movimiento, la partida vuelve a Estimada.
 
+Aclaraciones (HU-21, D-35):
+
+- **Qué se edita**: fecha, monto, cuenta y nota. La partida no cambia: un movimiento no se mueve de una partida a otra. Editar es un reemplazo completo (`PUT`).
+- **Orden de evaluación** (se informa el primero que falla): formato del cuerpo (400); el movimiento (404, RN-01); el período de la partida (`PERIOD_CLOSED`) y su estado (`ENTRY_NOT_PENDING`), en ese orden (D-30); el mes de la fecha actual del movimiento (`PERIOD_CLOSED`); y, sobre los valores nuevos, la cuenta (400 en `accountId`), la moneda (`CURRENCY_MISMATCH`) y la fecha (RN-21). Primero el estado de lo que existe, después lo que se pide. El `PERIOD_CLOSED` por la fecha actual y el de la fecha nueva se distinguen por el `detail`.
+- **La fecha se revalida solo si cambian la fecha o la cuenta.** Corregir el monto o la nota de un movimiento viejo no vuelve a mirar la ventana, la apertura ni hoy: la ventana es configurable y no debe volver inalcanzable un movimiento ya registrado. Si cambia la fecha o la cuenta, rige RN-21 completa, con la misma regla pura que el alta.
+- **Sin cambios**: enviar los valores que ya tiene es un pedido válido; responde 200 y no guarda nada.
+- **Eliminar** no toca la partida: al quedar sin movimientos se muestra Estimada (RN-16) sin guardar nada en ella.
+- **Un movimiento con fecha en un mes cerrado no se edita ni se elimina**, aunque su partida siga pendiente en un período abierto (el cobro anticipado del 25/11 de una partida de diciembre, con noviembre cerrado). La partida no se puede eliminar por tener movimientos (RN-32); se resuelve consolidándola.
+
 **RN-23. Registrar no consolida.** La partida queda pendiente aunque el real alcance o supere al presupuestado. La pantalla puede sugerir consolidar cuando el pendiente llega a 0.
 
 **RN-24. Pago rápido.** Si el pendiente es mayor que 0, registra un movimiento por el pendiente (fecha de hoy salvo que se indique otra, cuenta de la partida salvo que se indique otra; RN-21) y consolida (RN-25), todo en una sola transacción. Acepta la misma política para partidas editadas que la consolidación (RN-26). Si el pendiente es 0: 409 `NOTHING_PENDING`.
