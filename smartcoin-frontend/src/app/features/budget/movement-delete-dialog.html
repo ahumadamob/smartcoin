@@ -1,0 +1,48 @@
+<h2 mat-dialog-title>Eliminar {{ word }}</h2>
+
+<mat-dialog-content class="content">
+  <p>
+    Vas a eliminar este {{ word }} de <strong>«{{ data.entryName }}»</strong>. No se puede deshacer.
+  </p>
+
+  <dl class="summary" data-testid="delete-movement-summary">
+    <div>
+      <dt>Fecha</dt>
+      <dd data-testid="delete-date">{{ movement.date | date: dateFormat }}</dd>
+    </div>
+    <div>
+      <dt>Monto</dt>
+      <dd data-testid="delete-amount">{{ movement.amount | money: movement.currency }}</dd>
+    </div>
+    <div>
+      <dt>Cuenta</dt>
+      <dd data-testid="delete-account">{{ movement.accountName }}</dd>
+    </div>
+  </dl>
+
+  @if (data.isOnly) {
+    <p class="note" data-testid="delete-only-note">
+      Es el único movimiento de la partida: al eliminarlo vuelve a verse Estimada.
+    </p>
+  }
+
+  @if (error(); as message) {
+    <p class="error" role="alert" data-testid="delete-movement-error">{{ message }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" cdkFocusInitial data-testid="cancel-delete-movement" (click)="cancel()">
+    Cancelar
+  </button>
+  <button
+    mat-flat-button
+    type="button"
+    class="confirm"
+    data-testid="confirm-delete-movement"
+    [disabled]="submitting()"
+    (click)="confirm()"
+  >
+    Eliminar {{ word }}
+  </button>
+</mat-dialog-actions>

@@ -1,8 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import {
   AccountResponse,
   CuentasService,
@@ -14,6 +14,7 @@ import {
 } from '../../api';
 import { provideLocale } from '../../core/locale';
 import { MovementDialog, MovementDialogData, MovementDialogResult } from './movement-dialog';
+import { MovementDeleteDialogResult } from './movement-delete-dialog';
 
 const FREE = { editable: true, reason: null };
 const account = (id: number, name: string, currency: 'ARS' | 'USD'): AccountResponse => ({
@@ -71,13 +72,18 @@ const DATES: MovementDates = { earliestDate: '2026-10-22', latestDate: '2026-11-
 
 const problem = (status: number, body: object) => throwError(() => new HttpErrorResponse({ status, error: body }));
 
-describe('MovementDialog (HU-19)', () => {
+describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   let fixture: ComponentFixture<MovementDialog>;
   let api: {
     listMovements: ReturnType<typeof vi.fn>;
     registerMovement: ReturnType<typeof vi.fn>;
+    updateMovement: ReturnType<typeof vi.fn>;
     getMovementDates: ReturnType<typeof vi.fn>;
   };
+  let refresh: ReturnType<typeof vi.fn<() => Observable<PeriodEntry | null>>>;
+  let confirmDelete: ReturnType<typeof vi.fn>;
   let ref: { close: ReturnType<typeof vi.fn<(result?: MovementDialogResult) => void>> };
 
   async function open(
@@ -87,6 +93,10 @@ describe('MovementDialog (HU-19)', () => {
       accounts?: AccountResponse[];
       listError?: boolean;
       dates?: MovementDates | ((accountId: number) => MovementDates);
+      /** Qué responde `refresh` (la vista del mes ya recargada): por omisión, la partida de `data`. */
+      refreshed?: PeriodEntry | null;
+      /** Qué responde el diálogo de confirmación de eliminar; por omisión, lo cancela. */
+      deleteResult?: MovementDeleteDialogResult;
     } = {},
   ) {
     const datesFor = (accountId: number) =>
@@ -94,6 +104,12 @@ describe('MovementDialog (HU-19)', () => {
     api = {
       getMovementDates: vi.fn((entryId: number, accountId?: number) => of(datesFor(accountId ?? 0))),
       listMovements: vi.fn(() => (options.listError ? problem(500, {}) : of(options.movements ?? []))),
+      updateMovement: vi.fn((id: number, request: MovementRequest) =>
+        of({
+          movement: { ...movement(id, request.date, request.amount, 'Banco Nación', request.note ?? null) },
+          entry: { ...ENTRY, status: 'PARTIAL', actualAmount: request.amount },
+        }),
+      ),
       registerMovement: vi.fn((entryId: number, request: MovementRequest) =>
         of({
           movement: { ...movement(501, request.date, request.amount, 'Banco Nación', request.note ?? null) },
@@ -102,6 +118,10 @@ describe('MovementDialog (HU-19)', () => {
       ),
     };
     ref = { close: vi.fn() };
+    refresh = vi.fn(() => of(options.refreshed === undefined ? { ...ENTRY, ...data.entry } : options.refreshed));
+    // El componente importa `MatDialogModule`, que trae su propio `MatDialog`: se simula el método, no el proveedor.
+    confirmDelete = vi.spyOn(MatDialog.prototype, 'open') as unknown as ReturnType<typeof vi.fn>;
+    confirmDelete.mockImplementation(() => ({ afterClosed: () => of(options.deleteResult) }));
     await TestBed.configureTestingModule({
       imports: [MovementDialog],
       providers: [
@@ -112,7 +132,7 @@ describe('MovementDialog (HU-19)', () => {
         { provide: MatDialogRef, useValue: ref },
         {
           provide: MAT_DIALOG_DATA,
-          useValue: { entry: ENTRY, period: '2026-11', ...data },
+          useValue: { entry: ENTRY, period: '2026-11', readonly: false, refresh, ...data },
         },
       ],
     }).compileComponents();
@@ -179,7 +199,7 @@ describe('MovementDialog (HU-19)', () => {
       );
 
       const rows = Array.from(root().querySelectorAll('[data-testid="movement-row"]')).map((row) =>
-        Array.from(row.querySelectorAll('td')).map((cell) => text(cell)),
+        Array.from(row.querySelectorAll('td:not(.row-actions)')).map((cell) => text(cell)),
       );
       expect(api.listMovements).toHaveBeenCalledWith(900);
       expect(rows).toEqual([
@@ -511,6 +531,267 @@ describe('MovementDialog (HU-19)', () => {
 
       expect(root().querySelector('[role="alert"]')).not.toBeNull();
       expect(button('Registrar pago').disabled).toBe(true);
+    });
+  });
+  describe('corregir o eliminar un movimiento (HU-21)', () => {
+    const PARTIAL: PeriodEntry = { ...ENTRY, status: 'PARTIAL', actualAmount: 120000, pendingAmount: 0 };
+    const TWO = [
+      movement(1, '2026-11-05', 70000, 'Banco Nación', 'Primera parte'),
+      movement(2, '2026-11-12', 50000, 'Billetera', null),
+    ];
+    const rowOf = (id: number) => root().querySelector<HTMLElement>(`[data-movement-id="${id}"]`)!;
+    const action = (id: number, testid: 'edit-movement' | 'delete-movement') =>
+      rowOf(id).querySelector<HTMLButtonElement>(`[data-testid="${testid}"]`)!;
+    const click = async (el: HTMLElement) => {
+      el.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    describe('las acciones de la lista', () => {
+      it('cada fila de una partida pendiente ofrece Editar y Eliminar, con el movimiento en su nombre', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+
+        expect(root().querySelectorAll('[data-testid="edit-movement"]').length).toBe(2);
+        expect(root().querySelectorAll('[data-testid="delete-movement"]').length).toBe(2);
+        expect(action(1, 'edit-movement').getAttribute('aria-label')).toBe('Editar pago del 05/11/2026 por $ 70.000,00');
+        expect(action(2, 'delete-movement').getAttribute('aria-label')).toBe(
+          'Eliminar pago del 12/11/2026 por $ 50.000,00',
+        );
+      });
+
+      it('con la partida consolidada no hay acciones', async () => {
+        await open({ entry: { ...PARTIAL, status: 'CONSOLIDATED' } }, { movements: TWO });
+
+        expect(root().querySelectorAll('[data-testid="movement-row"]').length).toBe(2);
+        expect(root().querySelector('[data-testid="edit-movement"]')).toBeNull();
+        expect(root().querySelector('[data-testid="delete-movement"]')).toBeNull();
+        expect(text(root().querySelector('thead'))).not.toContain('Acciones');
+      });
+
+      it('con el período cerrado no hay acciones', async () => {
+        await open({ entry: PARTIAL, readonly: true }, { movements: TWO });
+
+        expect(root().querySelector('[data-testid="edit-movement"]')).toBeNull();
+        expect(root().querySelector('[data-testid="delete-movement"]')).toBeNull();
+      });
+    });
+
+    describe('editar', () => {
+      it('«Editar» carga el formulario del alta con los valores del movimiento y lo dice', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+
+        await click(action(1, 'edit-movement'));
+
+        expect(form().controls['date'].value).toBe('2026-11-05');
+        expect(form().controls['amount'].value).toBe('70000,00');
+        expect(form().controls['accountId'].value).toBe(12);
+        expect(form().controls['note'].value).toBe('Primera parte');
+        expect(text(root().querySelector('h2'))).toBe('Corregir pago · Expensas');
+        expect(text(root().querySelector('[data-testid="editing-banner"]'))).toContain('05/11/2026');
+        expect(text(root().querySelector('[data-testid="submit-movement"]'))).toBe('Guardar cambios');
+      });
+
+      it('mantiene la explicación de la ventana y vuelve a pedir la fecha más temprana de la cuenta del movimiento', async () => {
+        await open({ entry: PARTIAL }, { movements: [movement(2, '2026-11-12', 50000, 'Billetera', null)] });
+        api.getMovementDates.mockClear();
+
+        await click(action(2, 'edit-movement'));
+
+        expect(text(root().querySelector('[data-testid="window-notice"]'))).toContain('hasta 10 días antes del inicio de noviembre 2026');
+        expect(api.getMovementDates).toHaveBeenCalledWith(900, 12);
+      });
+
+      it('guardar envía PUT al movimiento y a la partida no le cambia nada: la pantalla y la lista se vuelven a pedir', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO, refreshed: { ...PARTIAL, actualAmount: 80000, pendingAmount: 40000 } });
+        await click(action(1, 'edit-movement'));
+        api.listMovements.mockClear();
+
+        type('Monto', '30000,00');
+        submit();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(api.updateMovement).toHaveBeenCalledWith(1, {
+          date: '2026-11-05',
+          amount: 30000,
+          accountId: 12,
+          note: 'Primera parte',
+        });
+        expect(api.registerMovement).not.toHaveBeenCalled();
+        expect(refresh).toHaveBeenCalled();
+        expect(api.listMovements).toHaveBeenCalledWith(900);
+        // Los valores salen de lo que devolvió el backend: el diálogo no suma nada.
+        expect(text(root().querySelector('[data-testid="actual"]'))).toBe('$ 80.000,00');
+        expect(text(root().querySelector('[data-testid="pending"]'))).toBe('$ 40.000,00');
+        expect(text(root().querySelector('[data-testid="change-notice"]'))).toBe('Pago corregido: ahora es de $ 30.000,00.');
+        expect(ref.close).not.toHaveBeenCalled();
+        // Vuelve el formulario del alta.
+        expect(text(root().querySelector('h2'))).toBe('Registrar pago · Expensas');
+      });
+
+      it('cambiar de cuenta envía la cuenta nueva', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+        await click(action(1, 'edit-movement'));
+        (fixture.componentInstance as unknown as { form: { controls: { accountId: { setValue(v: number): void } } } }).form.controls.accountId.setValue(14);
+
+        submit();
+        await fixture.whenStable();
+
+        expect((api.updateMovement.mock.calls[0][1] as MovementRequest).accountId).toBe(14);
+      });
+
+      it('un error de fecha sale bajo el campo con el detail del backend y no pierde lo cargado', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+        api.updateMovement.mockImplementation(() =>
+          problem(409, {
+            code: 'DATE_OUT_OF_RANGE',
+            title: 'Fecha fuera de rango',
+            detail: 'La fecha no puede ser posterior a hoy (20/11/2026).',
+          }),
+        );
+        await click(action(1, 'edit-movement'));
+
+        type('Fecha', '2026-11-25');
+        type('Monto', '31000,00');
+        submit();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(text(field('Fecha'))).toContain('La fecha no puede ser posterior a hoy (20/11/2026).');
+        expect(form().controls['amount'].value).toBe('31000,00');
+        expect(text(root().querySelector('h2'))).toBe('Corregir pago · Expensas');
+        expect(ref.close).not.toHaveBeenCalled();
+      });
+
+      it('si el backend dice que el período se cerró, avisa, vuelve a pedir y al cerrar la pantalla de atrás se recarga', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+        api.updateMovement.mockImplementation(() =>
+          problem(409, { code: 'PERIOD_CLOSED', title: 'Período cerrado', detail: 'El período 2026-11 está cerrado y no admite cambios.' }),
+        );
+        await click(action(1, 'edit-movement'));
+
+        submit();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(text(root().querySelector('[role="alert"]'))).toContain('está cerrado');
+        expect(refresh).toHaveBeenCalled();
+        root().querySelector<HTMLButtonElement>('mat-dialog-actions button')!.click();
+        expect(ref.close).toHaveBeenCalledWith({ stale: true });
+      });
+
+      it('«Cancelar corrección» vuelve al formulario del alta sin enviar nada', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+        await click(action(1, 'edit-movement'));
+
+        await click(root().querySelector<HTMLElement>('[data-testid="cancel-edit"]')!);
+
+        expect(api.updateMovement).not.toHaveBeenCalled();
+        expect(text(root().querySelector('h2'))).toBe('Registrar pago · Expensas');
+        expect(root().querySelector('[data-testid="editing-banner"]')).toBeNull();
+        expect(form().controls['date'].value).toBe('2026-11-20');
+      });
+
+      it('con la ventana sin abrir se puede corregir un movimiento existente', async () => {
+        await open(
+          { entry: PARTIAL },
+          { movements: TWO, dates: { earliestDate: '2026-12-01', latestDate: '2026-11-20', earlyDays: 10 } },
+        );
+        expect(button('Registrar pago').disabled).toBe(true);
+
+        await click(action(1, 'edit-movement'));
+
+        expect(button('Guardar cambios').disabled).toBe(false);
+      });
+    });
+
+    describe('eliminar', () => {
+      it('pide la confirmación con el movimiento exacto y, sin confirmar, no elimina nada', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO });
+
+        await click(action(2, 'delete-movement'));
+
+        const config = confirmDelete.mock.calls[0][1] as { data: { movement: Movement; entryName: string; isOnly: boolean } };
+        expect(config.data.movement.id).toBe(2);
+        expect(config.data.movement.date).toBe('2026-11-12');
+        expect(config.data.movement.amount).toBe(50000);
+        expect(config.data.movement.accountName).toBe('Billetera');
+        expect(config.data.entryName).toBe('Expensas');
+        expect(config.data.isOnly).toBe(false);
+        expect(refresh).not.toHaveBeenCalled();
+      });
+
+      it('al confirmar vuelve a pedir la lista y la partida, avisa y el foco pasa a la fila que ocupa el lugar', async () => {
+        await open(
+          { entry: PARTIAL },
+          { movements: TWO, deleteResult: { deleted: true }, refreshed: { ...PARTIAL, actualAmount: 50000, pendingAmount: 70000 } },
+        );
+        api.listMovements.mockImplementation(() => of([TWO[1]]));
+        document.body.appendChild(root());
+
+        await click(action(1, 'delete-movement'));
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(refresh).toHaveBeenCalled();
+        expect(root().querySelectorAll('[data-testid="movement-row"]').length).toBe(1);
+        expect(text(root().querySelector('[data-testid="change-notice"]'))).toBe('Pago de $ 70.000,00 eliminado.');
+        expect(text(root().querySelector('[data-testid="actual"]'))).toBe('$ 50.000,00');
+        expect(document.activeElement).toBe(action(2, 'edit-movement'));
+        root().remove();
+      });
+
+      it('al eliminar el último, la partida vuelve a Estimada con lo que informa el backend y el foco va al formulario', async () => {
+        await open(
+          { entry: { ...PARTIAL, actualAmount: 70000, pendingAmount: 50000 } },
+          {
+            movements: [TWO[0]],
+            deleteResult: { deleted: true },
+            refreshed: { ...ENTRY, status: 'ESTIMATED', actualAmount: 0, pendingAmount: 120000 },
+          },
+        );
+        api.listMovements.mockImplementation(() => of([]));
+        document.body.appendChild(root());
+
+        await click(action(1, 'delete-movement'));
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(text(root().querySelector('[data-testid="no-movements"]'))).toBe('Todavía no tiene movimientos.');
+        expect(text(root().querySelector('[data-testid="actual"]'))).toBe('$ 0,00');
+        expect(text(root().querySelector('[data-testid="pending"]'))).toBe('$ 120.000,00');
+        expect(form().controls['amount'].value).toBe('120000,00');
+        expect(document.activeElement).toBe(root().querySelector('[formcontrolname="date"]'));
+        root().remove();
+      });
+
+      it('cuando es el único movimiento, la confirmación lo dice', async () => {
+        await open({ entry: { ...PARTIAL, actualAmount: 70000, pendingAmount: 50000 } }, { movements: [TWO[0]] });
+
+        await click(action(1, 'delete-movement'));
+
+        expect((confirmDelete.mock.calls[0][1] as { data: { isOnly: boolean } }).data.isOnly).toBe(true);
+      });
+
+      it('si la confirmación dice que la pantalla estaba desactualizada, vuelve a pedir y al cerrar avisa', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO, deleteResult: { stale: true } });
+
+        await click(action(1, 'delete-movement'));
+        root().querySelector<HTMLButtonElement>('mat-dialog-actions button')!.click();
+
+        expect(refresh).toHaveBeenCalled();
+        expect(ref.close).toHaveBeenCalledWith({ stale: true });
+      });
+
+      it('si la partida ya no está en el mes, cierra avisando que la pantalla está desactualizada', async () => {
+        await open({ entry: PARTIAL }, { movements: TWO, deleteResult: { deleted: true }, refreshed: null });
+
+        await click(action(1, 'delete-movement'));
+
+        expect(ref.close).toHaveBeenCalledWith({ stale: true });
+      });
     });
   });
 });

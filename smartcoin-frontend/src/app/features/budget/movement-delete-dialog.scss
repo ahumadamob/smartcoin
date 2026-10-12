@@ -1,0 +1,52 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.content p {
+  margin: 0;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  dt {
+    font: var(--mat-sys-label-large);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    font: var(--mat-sys-title-medium);
+  }
+}
+
+.note {
+  padding: 12px 16px;
+  border-left: 4px solid var(--mat-sys-primary);
+  background: var(--mat-sys-surface-container);
+}
+
+.error {
+  color: var(--mat-sys-error);
+}
+
+.confirm {
+  --mat-button-filled-container-color: var(--mat-sys-error);
+  --mat-button-filled-label-text-color: var(--mat-sys-on-error);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

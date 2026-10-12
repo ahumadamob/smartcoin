@@ -35,3 +35,12 @@ export function canDeleteEntry(entry: PeriodEntry): boolean {
 export function canRegisterMovement(entry: PeriodEntry): boolean {
   return entry.status !== 'CONSOLIDATED';
 }
+
+/**
+ * Si el diálogo de una partida ofrece «Editar» y «Eliminar» en sus movimientos (HU-21, RN-22): solo con la partida
+ * pendiente en un período no cerrado. Es solo lo que la pantalla ofrece: quien decide es el backend, que además mira
+ * el mes de la fecha del movimiento.
+ */
+export function canChangeMovements(entry: PeriodEntry, readonly: boolean): boolean {
+  return !readonly && entry.status !== 'CONSOLIDATED';
+}

@@ -17,7 +17,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, EMPTY, map, switchMap, tap } from 'rxjs';
+import { catchError, EMPTY, map, Observable, switchMap, tap } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
@@ -157,7 +157,12 @@ export class BudgetMonth implements OnInit {
     }
     this.dialog
       .open<MovementDialog, MovementDialogData, MovementDialogResult>(MovementDialog, {
-        data: { entry, period },
+        data: {
+          entry,
+          period,
+          readonly: this.readonly(),
+          refresh: () => this.refreshEntry(period, entry.id),
+        },
         width: '640px',
         maxWidth: '95vw',
       })
@@ -309,6 +314,23 @@ export class BudgetMonth implements OnInit {
         },
         error: (e: unknown) => this.snackBar.open(messageFor(e), undefined, { duration: 6000 }),
       });
+  }
+
+  /**
+   * Para el diálogo de movimientos (HU-21): vuelve a pedir el mes, deja la vista de atrás con los valores del backend
+   * y devuelve la partida ya actualizada, o `null` si ya no está en el mes.
+   */
+  private refreshEntry(period: string, entryId: number): Observable<PeriodEntry | null> {
+    return this.api.getPeriod(period).pipe(
+      tap((view) => {
+        if (this.period() !== view.period) {
+          return;
+        }
+        this.view.set(view);
+        this.range.set({ startPeriod: view.startPeriod, currentPeriod: view.currentPeriod, horizon: view.horizon });
+      }),
+      map((view) => [...view.incomes, ...view.expenses].find((candidate) => candidate.id === entryId) ?? null),
+    );
   }
 
   /** Las partidas que quedan en la sección de `entry`, de la que viene después a la más lejana (HU-18). */

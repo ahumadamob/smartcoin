@@ -65,3 +65,22 @@ export function windowNotice(earlyDays: number, period: string, earliest: string
 export function notOpenYetNotice(earliest: string): string {
   return `Todavía no se pueden registrar movimientos de esta partida: se admiten desde el ${earliest}.`;
 }
+
+/** «Corregir cobro» o «Corregir pago»: el título del diálogo mientras se edita un movimiento (HU-21). */
+export function correctLabel(kind: PeriodEntry.KindEnum): string {
+  return `Corregir ${movementWord(kind)}`;
+}
+
+function capitalWord(kind: PeriodEntry.KindEnum): string {
+  return movementWord(kind) === 'cobro' ? 'Cobro' : 'Pago';
+}
+
+/** Mensaje al guardar una corrección. El monto es el que informa el backend. */
+export function correctedMessage(kind: PeriodEntry.KindEnum, amount: number, currency: CurrencyCode, money: FormatMoney): string {
+  return `${capitalWord(kind)} corregido: ahora es de ${money(amount, currency)}.`;
+}
+
+/** Mensaje al eliminar un movimiento. */
+export function deletedMessage(kind: PeriodEntry.KindEnum, amount: number, currency: CurrencyCode, money: FormatMoney): string {
+  return `${capitalWord(kind)} de ${money(amount, currency)} eliminado.`;
+}

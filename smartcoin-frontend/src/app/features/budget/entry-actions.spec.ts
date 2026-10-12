@@ -1,5 +1,5 @@
 import { PeriodEntry } from '../../api';
-import { canDeleteEntry, canEditAmount, canEditEntry, canRegisterMovement } from './entry-actions';
+import { canChangeMovements, canDeleteEntry, canEditAmount, canEditEntry, canRegisterMovement } from './entry-actions';
 
 const entry = (overrides: Partial<PeriodEntry>): PeriodEntry =>
   ({ id: 1, budgetItemId: null, status: 'ESTIMATED', ...overrides }) as PeriodEntry;
@@ -37,5 +37,12 @@ describe('acciones de una partida', () => {
         expect(canRegisterMovement(entry({ budgetItemId, kind, status: 'CONSOLIDATED' }))).toBe(false);
       }
     }
+  });
+
+  it('«Editar» y «Eliminar» de un movimiento: solo con la partida pendiente y el período abierto (HU-21)', () => {
+    expect(canChangeMovements(entry({ status: 'ESTIMATED' }), false)).toBe(true);
+    expect(canChangeMovements(entry({ status: 'PARTIAL' }), false)).toBe(true);
+    expect(canChangeMovements(entry({ status: 'CONSOLIDATED' }), false)).toBe(false);
+    expect(canChangeMovements(entry({ status: 'PARTIAL' }), true)).toBe(false);
   });
 });

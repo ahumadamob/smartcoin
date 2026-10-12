@@ -954,7 +954,37 @@ describe('BudgetMonth', () => {
 
       expect(dialog.open).toHaveBeenCalledTimes(1);
       const data = dialog.open.mock.calls[0][1].data as MovementDialogData;
-      expect(data).toEqual({ entry: entryToPay, period: '2026-11' });
+      expect(data).toMatchObject({ entry: entryToPay, period: '2026-11', readonly: false });
+      expect(typeof data.refresh).toBe('function');
+    });
+
+    it('el diálogo pide `refresh` para corregir o eliminar: vuelve a pedir el mes, lo deja actualizado atrás y devuelve la partida (HU-21)', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      const after = expensas({ status: 'PARTIAL', actualAmount: 30000, pendingAmount: 90000, forecastAmount: 120000 });
+      const getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [], [after])));
+      api.getPeriod = getPeriod;
+      registerButtons()[0].click();
+      const data = dialog.open.mock.calls[0][1].data as MovementDialogData;
+
+      let refreshed: PeriodEntry | null | undefined;
+      data.refresh().subscribe((row) => (refreshed = row));
+      await refresh();
+
+      expect(getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(refreshed).toEqual(after);
+      expect(text(section('Gastos').querySelector('[data-entry-id="30"]'))).toContain('$ 30.000,00');
+    });
+
+    it('`refresh` devuelve null si la partida ya no está en el mes (HU-21)', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [], [expensas()])) });
+      api.getPeriod = vi.fn().mockReturnValue(of(withEntries('OPEN', [], [])));
+      registerButtons()[0].click();
+      const data = dialog.open.mock.calls[0][1].data as MovementDialogData;
+
+      let refreshed: PeriodEntry | null | undefined;
+      data.refresh().subscribe((row) => (refreshed = row));
+
+      expect(refreshed).toBeNull();
     });
 
     it('al guardar vuelve a pedir el mes, muestra real y pendiente del backend y no desmonta las tablas', async () => {

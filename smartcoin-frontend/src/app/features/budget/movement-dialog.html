@@ -1,28 +1,28 @@
 <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="dialog">
-  <h2 mat-dialog-title>{{ title }} · {{ entry.name }}</h2>
+  <h2 mat-dialog-title>{{ title() }} · {{ entry().name }}</h2>
 
   <mat-dialog-content class="content">
     <p class="context" data-testid="movement-context">
-      {{ data.period | period }} · vence el {{ entry.dueDate | date: dateFormat }} · {{ entry.accountName }}
+      {{ data.period | period }} · vence el {{ entry().dueDate | date: dateFormat }} · {{ entry().accountName }}
     </p>
 
     <dl class="amounts" data-testid="movement-amounts">
       <div>
         <dt>Presupuestado</dt>
-        <dd data-testid="budgeted">{{ entry.budgetedAmount | money: entry.currency }}</dd>
+        <dd data-testid="budgeted">{{ entry().budgetedAmount | money: entry().currency }}</dd>
       </div>
       <div>
         <dt>Real</dt>
-        <dd data-testid="actual">{{ entry.actualAmount | money: entry.currency }}</dd>
+        <dd data-testid="actual">{{ entry().actualAmount | money: entry().currency }}</dd>
       </div>
       <div>
         <dt>Pendiente</dt>
-        <dd data-testid="pending">{{ entry.pendingAmount | money: entry.currency }}</dd>
+        <dd data-testid="pending">{{ entry().pendingAmount | money: entry().currency }}</dd>
       </div>
     </dl>
 
-    @if (notice) {
-      <p class="notice" role="status" data-testid="covered-notice">{{ notice }}</p>
+    @if (notice(); as covered) {
+      <p class="notice" role="status" data-testid="covered-notice">{{ covered }}</p>
     }
 
     @if (loading()) {
@@ -42,15 +42,42 @@
                 <th scope="col">Cuenta</th>
                 <th scope="col" class="number">Monto</th>
                 <th scope="col">Nota</th>
+                @if (canChange()) {
+                  <th scope="col">Acciones</th>
+                }
               </tr>
             </thead>
             <tbody>
               @for (movement of movements(); track movement.id) {
-                <tr data-testid="movement-row">
+                <tr data-testid="movement-row" [attr.data-movement-id]="movement.id">
                   <td class="nowrap">{{ movement.date | date: dateFormat }}</td>
                   <td>{{ movement.accountName }}</td>
                   <td class="number">{{ movement.amount | money: movement.currency }}</td>
                   <td>{{ movement.note ?? '—' }}</td>
+                  @if (canChange()) {
+                    <td class="row-actions">
+                      <button
+                        mat-button
+                        type="button"
+                        data-testid="edit-movement"
+                        [attr.aria-label]="'Editar ' + word + ' del ' + (movement.date | date: dateFormat) + ' por ' + (movement.amount | money: movement.currency)"
+                        [disabled]="submitting()"
+                        (click)="startEdit(movement)"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        mat-button
+                        type="button"
+                        data-testid="delete-movement"
+                        [attr.aria-label]="'Eliminar ' + word + ' del ' + (movement.date | date: dateFormat) + ' por ' + (movement.amount | money: movement.currency)"
+                        [disabled]="submitting()"
+                        (click)="remove(movement)"
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  }
                 </tr>
               }
             </tbody>
@@ -58,19 +85,35 @@
         }
       </section>
 
+      @if (changeNotice(); as changed) {
+        <p class="notice" role="status" data-testid="change-notice">{{ changed }}</p>
+      }
+
       @if (windowText(); as window) {
         <p class="notice" role="status" data-testid="window-notice">{{ window }}</p>
       }
 
       @if (accounts().length === 0) {
         <p role="status" data-testid="no-accounts">
-          No tenés una cuenta en {{ entry.currency === 'USD' ? 'dólares' : 'pesos' }} para registrar el {{ word }}.
+          No tenés una cuenta en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }} para registrar el {{ word }}.
           <a routerLink="/cuentas" mat-dialog-close>Cargá una cuenta</a>
           y volvé a intentar.
         </p>
       } @else {
         @if (error(); as message) {
           <p class="error" role="alert">{{ message }}</p>
+        }
+
+        @if (editing(); as current) {
+          <div class="editing" data-testid="editing-banner">
+            <p>
+              Corregís el {{ word }} del {{ current.date | date: dateFormat }} por
+              {{ current.amount | money: current.currency }} en {{ current.accountName }}.
+            </p>
+            <button mat-button type="button" data-testid="cancel-edit" (click)="cancelEdit()">
+              Cancelar corrección
+            </button>
+          </div>
         }
 
         <div class="pair">
@@ -109,7 +152,7 @@
               <mat-option [value]="account.id">{{ account.name }}</mat-option>
             }
           </mat-select>
-          <mat-hint>Solo cuentas en {{ entry.currency === 'USD' ? 'dólares' : 'pesos' }}, la moneda de la partida.</mat-hint>
+          <mat-hint>Solo cuentas en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }}, la moneda de la partida.</mat-hint>
           @if (form.controls.accountId.hasError('required')) {
             <mat-error>Elegí la cuenta.</mat-error>
           } @else if (form.controls.accountId.hasError('server')) {
@@ -132,7 +175,7 @@
   <mat-dialog-actions align="end">
     <button mat-button type="button" (click)="cancel()">Cancelar</button>
     <button mat-flat-button type="submit" data-testid="submit-movement" [disabled]="!ready() || submitting()">
-      {{ title }}
+      {{ submitLabel() }}
     </button>
   </mat-dialog-actions>
 </form>

@@ -1,6 +1,9 @@
 import { MovementDates, PeriodEntry } from '../../api';
 import {
+  correctedMessage,
+  correctLabel,
   coveredNotice,
+  deletedMessage,
   movementWord,
   notOpenYetNotice,
   registeredMessage,
@@ -85,5 +88,19 @@ describe('fecha sugerida y ventana de anticipación (HU-20)', () => {
     expect(notOpenYetNotice('21/11/2026')).toBe(
       'Todavía no se pueden registrar movimientos de esta partida: se admiten desde el 21/11/2026.',
     );
+  });
+});
+
+describe('corregir y eliminar un movimiento (HU-21)', () => {
+  it('el título dice «Corregir pago» en un gasto y «Corregir cobro» en un ingreso', () => {
+    expect(correctLabel('EXPENSE')).toBe('Corregir pago');
+    expect(correctLabel('INCOME')).toBe('Corregir cobro');
+  });
+
+  it('los mensajes dicen qué se hizo, con el monto en la moneda de la partida', () => {
+    expect(correctedMessage('EXPENSE', 30000, 'ARS', money)).toBe('Pago corregido: ahora es de $ 30000,00.');
+    expect(correctedMessage('INCOME', 150, 'USD', money)).toBe('Cobro corregido: ahora es de US$ 150,00.');
+    expect(deletedMessage('EXPENSE', 70000, 'ARS', money)).toBe('Pago de $ 70000,00 eliminado.');
+    expect(deletedMessage('INCOME', 150, 'USD', money)).toBe('Cobro de US$ 150,00 eliminado.');
   });
 });

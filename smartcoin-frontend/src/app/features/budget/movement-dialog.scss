@@ -89,6 +89,26 @@ thead th {
   white-space: nowrap;
 }
 
+.row-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.editing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 16px;
+  border-left: 4px solid var(--mat-sys-tertiary);
+  background: var(--mat-sys-surface-container);
+
+  p {
+    margin: 0;
+  }
+}
+
 .pair {
   display: grid;
   // Dos columnas cuando entran; en un ancho angosto, una debajo de la otra.
