@@ -6,7 +6,10 @@ import java.util.Optional;
 
 import com.smartcoin.budgetitem.domain.BudgetItem;
 
+import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -56,4 +59,13 @@ public interface BudgetItemRepository extends JpaRepository<BudgetItem, Long> {
 	@Modifying
 	@Query("delete from BudgetItem i where i.userId = :userId and i.id = :id")
 	int deleteByUserIdAndId(@Param("userId") Long userId, @Param("id") Long id);
+
+	/**
+	 * HU-23 (RN-26): el Concepto de una partida del usuario, con bloqueo de escritura, para que dos consolidaciones
+	 * del mismo Concepto no se pisen. Es la primera lectura de la consolidación: así la instantánea de la transacción
+	 * se toma después de tener el bloqueo. Vacío si la partida no existe, es de otro usuario o no tiene Concepto.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select i from BudgetEntry e join e.budgetItem i where e.id = :entryId and e.userId = :userId")
+	Optional<BudgetItem> lockByUserIdAndEntryId(@Param("userId") Long userId, @Param("entryId") Long entryId);
 }
