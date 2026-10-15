@@ -26,6 +26,12 @@ import { MovementRegistered } from '../model/movementRegistered';
 import { MovementRequest } from '../model/movementRequest';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { QuickSettle } from '../model/quickSettle';
+// @ts-ignore
+import { QuickSettlePreview } from '../model/quickSettlePreview';
+// @ts-ignore
+import { QuickSettleRequest } from '../model/quickSettleRequest';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -178,6 +184,67 @@ export class MovimientosService extends BaseService {
     }
 
     /**
+     * Vista previa del pago rápido de una partida
+     * Informa, sin modificar nada, qué pasaría al pagar o cobrar todo lo pendiente: el monto del movimiento (el pendiente) y la consolidación que le sigue, con su nueva estimación y las partidas de destino. Sale del mismo plan que &#x60;POST /api/entries/{id}/quick-settle&#x60;. Si no se puede responde 200 con &#x60;allowed&#x60; en falso y el motivo.
+     * @endpoint get /api/entries/{id}/quick-settle-preview
+     * @param id 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getQuickSettlePreview(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<QuickSettlePreview>;
+    public getQuickSettlePreview(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<QuickSettlePreview>>;
+    public getQuickSettlePreview(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<QuickSettlePreview>>;
+    public getQuickSettlePreview(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling getQuickSettlePreview.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/entries/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}/quick-settle-preview`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<QuickSettlePreview>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Listar los movimientos de una partida
      * Los movimientos de la partida, por fecha y, a igual fecha, por orden de registro, cada uno con su cuenta. Sin paginación. Se pueden ver también los de una partida consolidada o de un período cerrado.
      * @endpoint get /api/entries/{entryId}/movements
@@ -228,6 +295,78 @@ export class MovimientosService extends BaseService {
         return this.httpClient.request<Array<Movement>>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Pagar o cobrar todo lo pendiente de una partida
+     * Registra un movimiento por exactamente el pendiente y consolida la partida, todo en una sola transacción (RN-24): con un error no queda ni el movimiento ni la consolidación. El movimiento cumple RN-21 y la consolidación RN-25 y RN-26, incluida la política para partidas editadas. Sin fecha, hoy; sin cuenta, la de la partida. Orden en que se evalúa, y se informa el primero que falla: formato del cuerpo (400), partida inexistente o ajena (404), período cerrado (409 PERIOD_CLOSED), partida consolidada (409 ENTRY_NOT_PENDING), sin pendiente (409 NOTHING_PENDING), cuenta inexistente o ajena (400 en &#x60;accountId&#x60;), moneda distinta (409 CURRENCY_MISMATCH), fecha (409 DATE_OUT_OF_RANGE, y 409 PERIOD_CLOSED si el mes está cerrado) y política faltante (409 MANUAL_POLICY_REQUIRED).
+     * @endpoint post /api/entries/{id}/quick-settle
+     * @param id 
+     * @param quickSettleRequest 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public quickSettleEntry(id: number, quickSettleRequest?: QuickSettleRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<QuickSettle>;
+    public quickSettleEntry(id: number, quickSettleRequest?: QuickSettleRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<QuickSettle>>;
+    public quickSettleEntry(id: number, quickSettleRequest?: QuickSettleRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<QuickSettle>>;
+    public quickSettleEntry(id: number, quickSettleRequest?: QuickSettleRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling quickSettleEntry.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/entries/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}/quick-settle`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<QuickSettle>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: quickSettleRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

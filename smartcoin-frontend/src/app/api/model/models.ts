@@ -37,5 +37,8 @@ export * from './periodEntry';
 export * from './periodSideTotals';
 export * from './periodView';
 export * from './problemDetail';
+export * from './quickSettle';
+export * from './quickSettlePreview';
+export * from './quickSettleRequest';
 export * from './resetPasswordRequest';
 export * from './userResponse';

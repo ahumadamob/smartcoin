@@ -53,6 +53,9 @@ model/periodEntry.ts
 model/periodSideTotals.ts
 model/periodView.ts
 model/problemDetail.ts
+model/quickSettle.ts
+model/quickSettlePreview.ts
+model/quickSettleRequest.ts
 model/resetPasswordRequest.ts
 model/userResponse.ts
 param.ts
