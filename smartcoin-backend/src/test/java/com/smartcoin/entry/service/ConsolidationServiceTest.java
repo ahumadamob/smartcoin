@@ -23,6 +23,7 @@ import com.smartcoin.budgetitem.domain.EstimationRule;
 import com.smartcoin.budgetitem.repository.BudgetItemRepository;
 import com.smartcoin.entry.domain.BudgetEntry;
 import com.smartcoin.entry.domain.ClosingResolution;
+import com.smartcoin.entry.domain.EstimationCalculator;
 import com.smartcoin.entry.domain.ConsolidationBlockReason;
 import com.smartcoin.entry.domain.EntryOrigin;
 import com.smartcoin.entry.domain.EntryStatus;
@@ -174,6 +175,47 @@ class ConsolidationServiceTest {
 
 		assertThat(light.getCurrentAmount()).isEqualByComparingTo("41753.33");
 		assertThat(november.getBudgetedAmount()).isEqualByComparingTo("41753.33");
+	}
+
+	@Test
+	void thePreviewOfTheAverageReportsTheConsolidationsThatEnterAndMatchesTheConsolidation() {
+		BudgetItem light = item(32, EstimationRule.AVERAGE_LAST_3, "45000.00");
+		salary = light;
+		// la de julio y la de cierre de septiembre no entran: el promedio es de agosto, octubre y noviembre
+		consolidatedEntry("2026-07", "50000.00");
+		consolidatedEntry("2026-08", "41200.00");
+		BudgetEntry closing = consolidatedEntry("2026-09", "0.00");
+		closing.setClosingResolution(ClosingResolution.CLOSE_AS_IS);
+		consolidatedEntry("2026-10", "38750.00");
+		BudgetEntry november = entry(light, "2026-11", "45000.00");
+		BudgetEntry december = entry(light, "2026-12", "45000.00");
+		given(november, "45310.00");
+
+		Preview preview = service.preview(USER_ID, november.getId());
+
+		assertThat(preview.estimateBasis()).extracting(EstimationCalculator.BaseEntry::period)
+				.containsExactly(YearMonth.of(2026, 11), YearMonth.of(2026, 10), YearMonth.of(2026, 8));
+		assertThat(preview.estimateBasis().get(0).amount()).isEqualByComparingTo("45310.00");
+		assertThat(preview.estimate()).isEqualByComparingTo("41753.33");
+
+		Result result = service.consolidate(USER_ID, november.getId(), null);
+
+		assertThat(result.estimate()).isEqualByComparingTo(preview.estimate());
+		assertThat(december.getBudgetedAmount()).isEqualByComparingTo(preview.targets().get(0).newBudgeted());
+	}
+
+	@Test
+	void theBasisHasAsManyConsolidationsAsThereAreUpToThree() {
+		BudgetItem light = item(32, EstimationRule.AVERAGE_LAST_3, "45000.00");
+		salary = light;
+		consolidatedEntry("2026-09", "100.00");
+		BudgetEntry october = entry(light, "2026-10", "45000.00");
+		given(october, "200.00");
+
+		Preview preview = service.preview(USER_ID, october.getId());
+
+		assertThat(preview.estimateBasis()).hasSize(2);
+		assertThat(preview.estimate()).isEqualByComparingTo("150.00");
 	}
 
 	@Test

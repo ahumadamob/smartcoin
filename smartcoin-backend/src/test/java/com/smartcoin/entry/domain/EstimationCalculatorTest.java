@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import com.smartcoin.budgetitem.domain.EstimationRule;
+import com.smartcoin.entry.domain.EstimationCalculator.BaseEntry;
 import com.smartcoin.entry.domain.EstimationCalculator.Change;
 import com.smartcoin.entry.domain.EstimationCalculator.EntryFacts;
 import com.smartcoin.entry.domain.EstimationCalculator.Plan;
@@ -103,6 +104,35 @@ class EstimationCalculatorTest {
 		assertThat(EstimationCalculator.plan(rule, entries).estimate()).isEqualByComparingTo(expected);
 		// consolidar fuera de orden da el mismo resultado (S-05)
 		assertThat(EstimationCalculator.plan(rule, shuffled).estimate()).isEqualByComparingTo(expected);
+	}
+
+	@Test
+	void aClosingConsolidationInTheMiddleLetsTheFourthMostRecentEnter() {
+		// base por período: 2026-10, (2026-09 de cierre, fuera), 2026-08, 2026-07 y 2026-06: entran octubre, agosto y julio
+		Plan plan = EstimationCalculator.plan(EstimationRule.AVERAGE_LAST_3,
+				List.of(consolidated("2026-06", "1000.00"), consolidated("2026-07", "30.00"),
+						consolidated("2026-08", "60.00"), consolidatedByClosing("2026-09", "0.00"),
+						consolidated("2026-10", "90.00")));
+
+		assertThat(plan.estimate()).isEqualByComparingTo("60.00");
+		assertThat(plan.basis()).extracting(BaseEntry::period)
+				.containsExactly(ym("2026-10"), ym("2026-08"), ym("2026-07"));
+	}
+
+	@Test
+	void theBasisAreTheConsolidationsThatEnteredEstimateInOrderOfPeriod() {
+		List<EntryFacts> entries = List.of(consolidated("2026-08", "30.00"), consolidated("2026-10", "90.00"),
+				consolidated("2026-09", "60.00"));
+
+		Plan average = EstimationCalculator.plan(EstimationRule.AVERAGE_LAST_3, entries);
+		Plan last = EstimationCalculator.plan(EstimationRule.LAST_VALUE, entries);
+
+		assertThat(average.basis()).extracting(BaseEntry::period)
+				.containsExactly(ym("2026-10"), ym("2026-09"), ym("2026-08"));
+		assertThat(average.basis()).extracting(BaseEntry::amount)
+				.usingComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+				.containsExactly(amount("90.00"), amount("60.00"), amount("30.00"));
+		assertThat(last.basis()).extracting(BaseEntry::period).containsExactly(ym("2026-10"));
 	}
 
 	@Test

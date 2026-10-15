@@ -54,12 +54,18 @@ public final class EstimationCalculator {
 	public record Change(long entryId, BigDecimal budgeted, boolean manual) {
 	}
 
+	/** Una consolidación que entró en E: su período y su monto consolidado. */
+	public record BaseEntry(YearMonth period, BigDecimal amount) {
+	}
+
 	/**
 	 * @param estimate    E, que pasa a ser el monto vigente del Concepto
 	 * @param basePeriod  período de la primera de la base: el destino es posterior
+	 * @param basis       las consolidaciones que entraron en E, de la más reciente a la más antigua: una con el
+	 *                    último valor, hasta 3 con el promedio
 	 * @param targets     partidas de destino, por período
 	 */
-	public record Plan(BigDecimal estimate, YearMonth basePeriod, List<Target> targets) {
+	public record Plan(BigDecimal estimate, YearMonth basePeriod, List<BaseEntry> basis, List<Target> targets) {
 
 		/** Si hay editadas en el destino: hay que elegir política, aunque su monto ya sea E. */
 		public boolean manualPolicyRequired() {
@@ -89,9 +95,10 @@ public final class EstimationCalculator {
 			throw new IllegalArgumentException("No hay partidas consolidadas en las que basar la estimación.");
 		}
 		YearMonth basePeriod = base.getFirst().period();
+		List<EntryFacts> used = base.stream().limit(rule == EstimationRule.LAST_VALUE ? 1 : AVERAGE_SIZE).toList();
 		BigDecimal estimate = switch (rule) {
-			case LAST_VALUE -> base.getFirst().consolidatedAmount().setScale(2, RoundingMode.HALF_UP);
-			case AVERAGE_LAST_3 -> average(base.stream().limit(AVERAGE_SIZE).toList());
+			case LAST_VALUE -> used.getFirst().consolidatedAmount().setScale(2, RoundingMode.HALF_UP);
+			case AVERAGE_LAST_3 -> average(used);
 		};
 		List<Target> targets = entries.stream()
 				.filter(entry -> !entry.consolidated() && entry.periodOpen() && entry.period().isAfter(basePeriod))
@@ -99,7 +106,9 @@ public final class EstimationCalculator {
 				.map(entry -> new Target(entry.id(), entry.period(), entry.budgeted(), estimate, entry.manual(),
 						entry.budgeted().compareTo(estimate) != 0))
 				.toList();
-		return new Plan(estimate, basePeriod, targets);
+		List<BaseEntry> basis = used.stream()
+				.map(entry -> new BaseEntry(entry.period(), entry.consolidatedAmount())).toList();
+		return new Plan(estimate, basePeriod, basis, targets);
 	}
 
 	private static BigDecimal average(List<EntryFacts> entries) {

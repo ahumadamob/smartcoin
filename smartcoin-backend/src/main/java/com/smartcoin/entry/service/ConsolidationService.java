@@ -15,6 +15,7 @@ import com.smartcoin.budgetitem.repository.BudgetItemRepository;
 import com.smartcoin.entry.domain.BudgetEntry;
 import com.smartcoin.entry.domain.ConsolidationBlockReason;
 import com.smartcoin.entry.domain.EstimationCalculator;
+import com.smartcoin.entry.domain.EstimationCalculator.BaseEntry;
 import com.smartcoin.entry.domain.EstimationCalculator.Change;
 import com.smartcoin.entry.domain.EstimationCalculator.EntryFacts;
 import com.smartcoin.entry.domain.EstimationCalculator.Plan;
@@ -53,10 +54,12 @@ public class ConsolidationService {
 	 *
 	 * @param actualAmount real: la suma de sus movimientos; es lo que quedaría consolidado
 	 * @param currentAmount monto vigente del Concepto antes de consolidar
+	 * @param estimateBasis las consolidaciones que entran en {@code estimate}, de la más reciente a la más antigua
 	 */
 	public record Preview(long entryId, YearMonth period, boolean recurring, ConsolidationBlockReason blockedBy,
 			String blockedDetail, BigDecimal actualAmount, EstimationRule estimationRule, BigDecimal estimate,
-			BigDecimal currentAmount, List<Target> targets, boolean manualPolicyRequired) {
+			BigDecimal currentAmount, List<BaseEntry> estimateBasis, List<Target> targets,
+			boolean manualPolicyRequired) {
 
 		public boolean allowed() {
 			return blockedBy == null;
@@ -195,10 +198,10 @@ public class ConsolidationService {
 		Plan plan = evaluation.plan();
 		if (plan == null) {
 			return new Preview(entry.getId(), period, recurring, evaluation.blockedBy(), evaluation.blockedDetail(),
-					evaluation.actual(), null, null, null, List.of(), false);
+					evaluation.actual(), null, null, null, List.of(), List.of(), false);
 		}
 		BudgetItem item = entry.getBudgetItem();
 		return new Preview(entry.getId(), period, true, null, null, evaluation.actual(), item.getEstimationRule(),
-				plan.estimate(), item.getCurrentAmount(), plan.targets(), plan.manualPolicyRequired());
+				plan.estimate(), item.getCurrentAmount(), plan.basis(), plan.targets(), plan.manualPolicyRequired());
 	}
 }

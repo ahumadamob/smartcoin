@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.smartcoin.budgetitem.domain.EstimationRule;
 import com.smartcoin.entry.domain.ConsolidationBlockReason;
+import com.smartcoin.entry.domain.EstimationCalculator.BaseEntry;
 import com.smartcoin.entry.domain.EstimationCalculator.Target;
 import com.smartcoin.entry.service.ConsolidationService.Preview;
 
@@ -56,6 +57,12 @@ public record ConsolidationPreviewResponse(
 		BigDecimal currentAmount,
 
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+				description = "Las consolidaciones que entran en `estimate`, de la más reciente a la más antigua: "
+						+ "una con «Último valor» y hasta 3 con «Promedio de los últimos 3» (las que haya si son "
+						+ "menos). Incluye la partida que se consolida, con su monto real. Vacía si no hay plan.")
+		List<EstimationBasis> estimateBasis,
+
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 				description = "Partidas de destino, por período: pendientes de períodos abiertos posteriores al de "
 						+ "la primera consolidada de la base. Incluye las que ya valen E.")
 		List<ConsolidationTarget> targets,
@@ -64,6 +71,21 @@ public record ConsolidationPreviewResponse(
 				description = "Hay partidas editadas en el destino: hay que elegir `manualEntriesPolicy` para "
 						+ "consolidar (409 MANUAL_POLICY_REQUIRED si no).")
 		boolean manualPolicyRequired) {
+
+	@Schema(name = "EstimationBasis", description = "Una consolidación que entra en la nueva estimación.")
+	public record EstimationBasis(
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, type = "string", example = "2026-10")
+			YearMonth period,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "45310.00",
+					description = "Monto consolidado de esa partida.")
+			BigDecimal amount) {
+
+		static EstimationBasis from(BaseEntry entry) {
+			return new EstimationBasis(entry.period(), entry.amount());
+		}
+	}
 
 	@Schema(name = "ConsolidationTarget", description = "Una partida de destino de la propagación.")
 	public record ConsolidationTarget(
@@ -101,6 +123,7 @@ public record ConsolidationPreviewResponse(
 		return new ConsolidationPreviewResponse(preview.entryId(), preview.period(), preview.recurring(),
 				preview.allowed(), preview.blockedBy(), preview.blockedDetail(), preview.actualAmount(),
 				preview.estimationRule(), preview.estimate(), preview.currentAmount(),
+				preview.estimateBasis().stream().map(EstimationBasis::from).toList(),
 				preview.targets().stream().map(ConsolidationTarget::from).toList(), preview.manualPolicyRequired());
 	}
 }

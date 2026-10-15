@@ -30,6 +30,7 @@ import com.smartcoin.entry.domain.EstimationCalculator.Target;
 import com.smartcoin.entry.domain.ManualEntriesPolicy;
 import com.smartcoin.entry.domain.StoredEntryStatus;
 import com.smartcoin.entry.service.ConsolidationService;
+import com.smartcoin.entry.domain.EstimationCalculator.BaseEntry;
 import com.smartcoin.entry.service.ConsolidationService.Preview;
 import com.smartcoin.entry.service.ConsolidationService.Result;
 import com.smartcoin.period.service.PeriodViewService.EntryRow;
@@ -117,6 +118,7 @@ class ConsolidationControllerTest {
 	void previewAnswersRealEstimateCurrentAmountAndTargets() throws Exception {
 		Preview preview = new Preview(512, YearMonth.of(2026, 12), true, null, null, new BigDecimal("1850000.00"),
 				EstimationRule.LAST_VALUE, new BigDecimal("1850000.00"), new BigDecimal("1800000.00"),
+				List.of(new BaseEntry(YearMonth.of(2026, 12), new BigDecimal("1850000.00"))),
 				List.of(new Target(513, YearMonth.of(2027, 1), new BigDecimal("1800000.00"),
 						new BigDecimal("1850000.00"), false, true),
 						new Target(514, YearMonth.of(2027, 2), new BigDecimal("1850000.00"),
@@ -135,6 +137,9 @@ class ConsolidationControllerTest {
 				.andExpect(jsonPath("$.currentAmount").value(1800000.00))
 				.andExpect(jsonPath("$.estimationRule").value("LAST_VALUE"))
 				.andExpect(jsonPath("$.manualPolicyRequired").value(true))
+				.andExpect(jsonPath("$.estimateBasis.length()").value(1))
+				.andExpect(jsonPath("$.estimateBasis[0].period").value("2026-12"))
+				.andExpect(jsonPath("$.estimateBasis[0].amount").value(1850000.00))
 				.andExpect(jsonPath("$.targets[0].entryId").value(513))
 				.andExpect(jsonPath("$.targets[0].period").value("2027-01"))
 				.andExpect(jsonPath("$.targets[0].currentBudgetedAmount").value(1800000.00))
@@ -149,7 +154,7 @@ class ConsolidationControllerTest {
 	void previewOfAnEntryThatCannotBeConsolidatedAnswers200WithTheReason() throws Exception {
 		Preview preview = new Preview(512, YearMonth.of(2026, 12), true,
 				ConsolidationBlockReason.CONSOLIDATION_REQUIRES_MOVEMENT, "No tiene movimientos.",
-				new BigDecimal("0.00"), null, null, null, List.of(), false);
+				new BigDecimal("0.00"), null, null, null, List.of(), List.of(), false);
 		when(consolidation.preview(USER_ID, 512L)).thenReturn(preview);
 
 		mvc.perform(get("/api/entries/512/consolidation-preview").header("Authorization", bearer()))
@@ -158,6 +163,7 @@ class ConsolidationControllerTest {
 				.andExpect(jsonPath("$.blockedBy").value("CONSOLIDATION_REQUIRES_MOVEMENT"))
 				.andExpect(jsonPath("$.blockedDetail").value("No tiene movimientos."))
 				.andExpect(jsonPath("$.estimate").doesNotExist())
+				.andExpect(jsonPath("$.estimateBasis.length()").value(0))
 				.andExpect(jsonPath("$.targets.length()").value(0));
 	}
 
