@@ -177,6 +177,17 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **`closing_resolution`** solo lo escribe HU-31 y en un período cerrado, que esta acción rechaza antes: no se lee ni se limpia.
 - **Frontend**: «Desconsolidar» (`canUnconsolidate`: consolidada y período abierto) y `UnconsolidateDialog`. Al confirmar, `BudgetMonth` vuelve a pedir el mes y la partida se ve Parcial, con real, pendiente y sus acciones. Ante `PERIOD_CLOSED`, `ENTRY_NOT_CONSOLIDATED` o `NOT_FOUND` muestra el motivo y, al cancelar, avisa que la pantalla estaba desactualizada. El aviso de `ConsolidationOutcome` (que comparten `ConsolidationDialog` y `QuickSettleDialog`) pasó de «no se puede deshacer por ahora» a «Podés desconsolidarla mientras el mes esté abierto». Una fila consolidada de un período abierto ya no queda sin acciones.
 
+**D-39. Transferencias entre cuentas.** *Confirmada* (HU-27): las dudas (rango por defecto de la lista, orden de los errores y huecos de RN-36) se resolvieron con el usuario antes de escribir código, todas por la opción recomendada. Depende de **S-09**, **sin confirmar**.
+
+- **Endpoints**: `POST /api/transfers` (201) y `GET /api/transfers?from=&to=`, ambos con la forma de HU-27. Sin edición ni eliminación (HU-29) ni tipo de cambio (HU-28).
+- **Orden de evaluación del alta** (se informa el primero que falla): token (401); formato del cuerpo (400: faltantes, montos mayores que 0 con hasta 2 decimales, nota de hasta 200); origen igual a destino (400 `VALIDATION_ERROR` en `targetAccountId`); cuenta de origen y de destino inexistentes o ajenas (400 en `sourceAccountId` y `targetAccountId`, D-24, el origen primero); montos distintos con la misma moneda (409 `TRANSFER_AMOUNTS_MISMATCH`); y la fecha: posterior a hoy, anterior a la apertura del origen, anterior a la apertura del destino (409 `DATE_OUT_OF_RANGE`) y, por último, mes cerrado (409 `PERIOD_CLOSED`). Mismo criterio que D-37: primero lo que existe y las monedas, al final la fecha.
+- **Un mes sin período** (anterior al período inicial) responde `DATE_OUT_OF_RANGE`, como en RN-21. Por la API no se produce, porque la apertura de una cuenta nunca es anterior al primer día del período inicial (RN-33).
+- **No hay ventana de anticipación**: la fecha no puede ser posterior a hoy.
+- **La lista**: de la más reciente a la más antigua y, a igual fecha, la última registrada primero. Sin `to`, hoy; sin `from`, el primer día del mes de `to`, de modo que sin ninguno es el mes actual. `from` posterior a `to`: 400 `VALIDATION_ERROR` en `from`. Una fecha mal formada también es 400. Sin paginación.
+- **La nota** se guarda sin espacios en los extremos; en blanco, sin nota (como en los movimientos).
+- **El alta responde solo la transferencia**, sin saldos: el frontend vuelve a pedir `/api/accounts`.
+- **Monedas distintas**: se aceptan con los dos montos y sin relación entre ellos; el tipo de cambio es de HU-28 (RN-37).
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
