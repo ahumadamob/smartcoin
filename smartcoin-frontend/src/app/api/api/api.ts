@@ -16,4 +16,6 @@ export * from './partidas.service';
 import { PartidasService } from './partidas.service';
 export * from './perodos.service';
 import { PerodosService } from './perodos.service';
-export const APIS = [AdministracinDeUsuariosService, AutenticacinService, CategorasService, ConceptosService, ConsolidacinService, CuentasService, MovimientosService, PartidasService, PerodosService];
+export * from './transferencias.service';
+import { TransferenciasService } from './transferencias.service';
+export const APIS = [AdministracinDeUsuariosService, AutenticacinService, CategorasService, ConceptosService, ConsolidacinService, CuentasService, MovimientosService, PartidasService, PerodosService, TransferenciasService];

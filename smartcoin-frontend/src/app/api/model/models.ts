@@ -41,4 +41,6 @@ export * from './quickSettle';
 export * from './quickSettlePreview';
 export * from './quickSettleRequest';
 export * from './resetPasswordRequest';
+export * from './transfer';
+export * from './transferRequest';
 export * from './userResponse';
