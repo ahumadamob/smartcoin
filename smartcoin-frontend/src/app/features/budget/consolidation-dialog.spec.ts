@@ -60,6 +60,7 @@ const preview = (overrides: Partial<ConsolidationPreview> = {}): ConsolidationPr
   estimationRule: 'LAST_VALUE',
   estimate: 1850000,
   currentAmount: 1800000,
+  estimateBasis: [{ period: '2026-12', amount: 1850000 }],
   targets: [
     target({ entryId: 600, period: '2027-01' }),
     target({ entryId: 601, period: '2027-02' }),
@@ -123,6 +124,34 @@ describe('ConsolidationDialog (HU-23)', () => {
     expect(text(byId('current-amount'))).toBe('$ 1.800.000,00');
     expect(text(byId('estimate'))).toBe('$ 1.850.000,00');
     expect(text(byId('rule'))).toBe('Regla de estimación del Concepto: Último valor.');
+  });
+
+  describe('Concepto con promedio (HU-24)', () => {
+    const average = (periods: string[]) =>
+      preview({
+        estimationRule: 'AVERAGE_LAST_3',
+        estimate: 41753.33,
+        estimateBasis: periods.map((period) => ({ period, amount: 100 })),
+      });
+
+    it('explica en una línea qué consolidaciones entraron en el promedio', async () => {
+      await open([of(average(['2026-12', '2026-11', '2026-10']))]);
+
+      expect(text(byId('average-basis'))).toBe('Promedio de octubre, noviembre y diciembre.');
+      expect(text(byId('rule'))).toBe('Regla de estimación del Concepto: Promedio de los últimos 3.');
+    });
+
+    it('con una o dos consolidaciones aclara que promedia las que hay', async () => {
+      await open([of(average(['2026-12', '2026-11']))]);
+
+      expect(text(byId('average-basis'))).toContain('Promedio de noviembre y diciembre: las únicas consolidadas');
+    });
+
+    it('con «Último valor» no muestra la línea del promedio', async () => {
+      await open([of(preview())]);
+
+      expect(byId('average-basis')).toBeNull();
+    });
   });
 
   it('lista las partidas futuras que cambian con su mes, el monto actual y el nuevo', async () => {

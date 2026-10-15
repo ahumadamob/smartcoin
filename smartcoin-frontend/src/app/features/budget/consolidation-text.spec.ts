@@ -1,5 +1,5 @@
-import { Consolidation, PeriodEntry } from '../../api';
-import { consolidatedMessage, manualPolicyText, noChangesText, RULE_LABELS } from './consolidation-text';
+import { Consolidation, EstimationBasis, PeriodEntry } from '../../api';
+import { averageBasisText, consolidatedMessage, manualPolicyText, noChangesText, RULE_LABELS } from './consolidation-text';
 
 const money = (amount: number) => `$ ${amount.toFixed(2).replace('.', ',')}`;
 
@@ -40,5 +40,49 @@ describe('textos de la consolidación (HU-23)', () => {
     expect(manualPolicyText(1)).toContain('Hay 1 partida editada a mano');
     expect(manualPolicyText(2)).toContain('Hay 2 partidas editadas a mano');
     expect(manualPolicyText(2)).toContain('no se puede consolidar esta partida por ahora');
+  });
+});
+
+describe('texto del promedio (HU-24)', () => {
+  const names: Record<string, string> = {
+    '2026-08': 'agosto 2026',
+    '2026-09': 'septiembre 2026',
+    '2026-10': 'octubre 2026',
+    '2026-11': 'noviembre 2026',
+    '2026-12': 'diciembre 2026',
+    '2027-01': 'enero 2027',
+  };
+  const format = (period: string) => names[period];
+  const basis = (...periods: string[]): EstimationBasis[] => periods.map((period) => ({ period, amount: 100 }));
+
+  it('con 3 consolidaciones nombra los tres meses, del más antiguo al más reciente', () => {
+    // el backend los informa del más reciente al más antiguo
+    expect(averageBasisText(basis('2026-10', '2026-09', '2026-08'), format)).toBe(
+      'Promedio de agosto, septiembre y octubre.',
+    );
+  });
+
+  it('con 2 consolidaciones aclara que promedia las que hay', () => {
+    expect(averageBasisText(basis('2026-10', '2026-09'), format)).toBe(
+      'Promedio de septiembre y octubre: las únicas consolidadas hasta ahora. ' +
+        'Se promedian las que hay y, con más consolidaciones, las 3 más recientes.',
+    );
+  });
+
+  it('con 1 consolidación aclara que promedia la que hay', () => {
+    expect(averageBasisText(basis('2026-10'), format)).toBe(
+      'Promedio de octubre: la única consolidada hasta ahora. ' +
+        'Se promedian las que hay y, con más consolidaciones, las 3 más recientes.',
+    );
+  });
+
+  it('si los meses son de años distintos, nombra el año', () => {
+    expect(averageBasisText(basis('2027-01', '2026-12', '2026-11'), format)).toBe(
+      'Promedio de noviembre 2026, diciembre 2026 y enero 2027.',
+    );
+  });
+
+  it('sin consolidaciones no dice nada', () => {
+    expect(averageBasisText([], format)).toBe('');
   });
 });

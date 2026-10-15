@@ -16,7 +16,7 @@ import { ConsolidacinService, ConsolidationPreview, ConsolidationTarget, PeriodE
 import { detailFor, messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
-import { consolidatedMessage, manualPolicyText, noChangesText, RULE_LABELS } from './consolidation-text';
+import { averageBasisText, consolidatedMessage, manualPolicyText, noChangesText, RULE_LABELS } from './consolidation-text';
 
 /** Qué se consolida: la partida (la fila de la vista del mes) y el mes que se está viendo. */
 export interface ConsolidationDialogData {
@@ -53,6 +53,7 @@ export class ConsolidationDialog implements OnInit {
   private readonly api = inject(ConsolidacinService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly periodPipe = new PeriodPipe();
   private readonly ref = inject<MatDialogRef<ConsolidationDialog, ConsolidationDialogResult>>(MatDialogRef);
   private readonly money = new MoneyPipe();
   protected readonly data = inject<ConsolidationDialogData>(MAT_DIALOG_DATA);
@@ -79,6 +80,14 @@ export class ConsolidationDialog implements OnInit {
   protected readonly ruleLabel = computed(() => {
     const rule = this.preview()?.estimationRule;
     return rule ? RULE_LABELS[rule] : null;
+  });
+  /** Cómo se obtuvo el promedio, con las consolidaciones que informa el backend; `null` con otra regla. */
+  protected readonly averageText = computed(() => {
+    const preview = this.preview();
+    if (preview?.estimationRule !== 'AVERAGE_LAST_3') {
+      return null;
+    }
+    return averageBasisText(preview.estimateBasis, (period) => this.periodPipe.transform(period)) || null;
   });
   protected readonly blockedByPolicy = computed(() => this.preview()?.manualPolicyRequired === true);
   protected readonly manualText = computed(() => manualPolicyText(this.edited().length));

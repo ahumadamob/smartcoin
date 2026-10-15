@@ -42,6 +42,9 @@
         @if (ruleLabel(); as rule) {
           <p class="note" data-testid="rule">Regla de estimación del Concepto: {{ rule }}.</p>
         }
+        @if (averageText(); as basis) {
+          <p class="note" data-testid="average-basis">{{ basis }}</p>
+        }
 
         @if (blockedByPolicy()) {
           <p class="note" role="status" data-testid="policy-required">{{ manualText() }}</p>
