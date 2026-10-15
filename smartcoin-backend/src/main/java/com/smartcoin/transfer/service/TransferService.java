@@ -6,7 +6,10 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import com.smartcoin.account.domain.Account;
 import com.smartcoin.account.repository.AccountRepository;
@@ -26,9 +29,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Transferencias entre cuentas propias: alta y lista (HU-27, RN-36). Toda consulta lleva el {@code userId} del
- * usuario actual. Una transferencia no es ingreso ni gasto: no toca partidas ni períodos; solo cambia los saldos de
- * las dos cuentas (RN-35, D-20). Editar y eliminar son de HU-29.
+ * Transferencias entre cuentas propias: alta, lista, edición y eliminación (HU-27, HU-29, RN-36). Toda consulta lleva
+ * el {@code userId} del usuario actual. Una transferencia no es ingreso ni gasto: no toca partidas ni períodos; solo
+ * cambia los saldos de las dos cuentas (RN-35, D-20), que se calculan en vivo.
  */
 @Service
 public class TransferService {
@@ -40,17 +43,20 @@ public class TransferService {
 			BigDecimal targetAmount, String note) {
 	}
 
-	/** Una transferencia con sus dos cuentas. Se arma dentro de la transacción: la respuesta no lee diferidos. */
+	/**
+	 * Una transferencia con sus dos cuentas. Se arma dentro de la transacción: la respuesta no lee diferidos.
+	 * {@code editable} es informativo (D-41): el mes de su fecha es un período abierto.
+	 */
 	public record TransferRow(Long id, LocalDate date, Long sourceAccountId, String sourceAccountName,
 			Currency sourceCurrency, BigDecimal sourceAmount, Long targetAccountId, String targetAccountName,
-			Currency targetCurrency, BigDecimal targetAmount, String note) {
+			Currency targetCurrency, BigDecimal targetAmount, String note, boolean editable) {
 
-		static TransferRow of(Transfer transfer) {
+		static TransferRow of(Transfer transfer, boolean editable) {
 			Account source = transfer.getSourceAccount();
 			Account target = transfer.getTargetAccount();
 			return new TransferRow(transfer.getId(), transfer.getTransferDate(), source.getId(), source.getName(),
 					source.getCurrency(), transfer.getSourceAmount(), target.getId(), target.getName(),
-					target.getCurrency(), transfer.getTargetAmount(), transfer.getNote());
+					target.getCurrency(), transfer.getTargetAmount(), transfer.getNote(), editable);
 		}
 
 		/** Tipo de cambio (RN-37): nulo entre cuentas de la misma moneda. No se guarda. */
@@ -80,6 +86,51 @@ public class TransferService {
 	 */
 	@Transactional
 	public TransferRow create(long userId, NewTransfer values) {
+		Resolved resolved = resolve(userId, values);
+
+		Transfer transfer = new Transfer();
+		transfer.setUserId(userId);
+		apply(transfer, resolved, values);
+		// El mes de la fecha se verificó abierto: la transferencia nace editable.
+		return TransferRow.of(transfers.save(transfer), true);
+	}
+
+	/**
+	 * Corrige una transferencia (RN-36, D-41). Orden en que se evalúa, y se informa el primero que falla: inexistente
+	 * o ajena (404); mes de la fecha actual cerrado (409 {@code PERIOD_CLOSED}); y los valores nuevos con las mismas
+	 * reglas y el mismo orden que el alta. Si no cambia nada, responde igual sin guardar. Un pedido rechazado no
+	 * guarda nada.
+	 */
+	@Transactional
+	public TransferRow update(long userId, long id, NewTransfer values) {
+		Transfer transfer = find(userId, id);
+		verifyCurrentMonthOpen(userId, transfer);
+		Resolved resolved = resolve(userId, values);
+		if (!isUnchanged(transfer, resolved, values)) {
+			apply(transfer, resolved, values);
+			transfers.save(transfer);
+		}
+		return TransferRow.of(transfer, true);
+	}
+
+	/** Elimina una transferencia si el mes de su fecha es un período abierto (RN-36). Sus saldos se recalculan solos. */
+	@Transactional
+	public void delete(long userId, long id) {
+		Transfer transfer = find(userId, id);
+		verifyCurrentMonthOpen(userId, transfer);
+		transfers.delete(transfer);
+	}
+
+	/** Origen, destino y montos ya controlados; la fecha se verifica al resolver. */
+	private record Resolved(Account source, Account target, BigDecimal sourceAmount, BigDecimal targetAmount) {
+	}
+
+	/**
+	 * Las reglas de los valores de RN-36, en el orden de D-39, compartidas por el alta y la edición: origen igual a
+	 * destino (400 en {@code targetAccountId}); cuentas inexistentes o ajenas (400 en su campo, D-24); montos
+	 * distintos con la misma moneda (409 {@code TRANSFER_AMOUNTS_MISMATCH}); y la fecha ({@link TransferDateValidator}).
+	 */
+	private Resolved resolve(long userId, NewTransfer values) {
 		if (values.sourceAccountId().equals(values.targetAccountId())) {
 			throw BusinessException.invalidField("targetAccountId",
 					"La cuenta de destino tiene que ser distinta de la de origen.");
@@ -95,16 +146,43 @@ public class TransferService {
 					+ source.getCurrency() + ": el monto de origen y el de destino tienen que ser iguales.");
 		}
 		verifyDate(userId, source, target, values.date());
+		return new Resolved(source, target, sourceAmount, targetAmount);
+	}
 
-		Transfer transfer = new Transfer();
-		transfer.setUserId(userId);
-		transfer.setSourceAccount(source);
-		transfer.setTargetAccount(target);
+	private static void apply(Transfer transfer, Resolved resolved, NewTransfer values) {
+		transfer.setSourceAccount(resolved.source());
+		transfer.setTargetAccount(resolved.target());
 		transfer.setTransferDate(values.date());
-		transfer.setSourceAmount(sourceAmount);
-		transfer.setTargetAmount(targetAmount);
+		transfer.setSourceAmount(resolved.sourceAmount());
+		transfer.setTargetAmount(resolved.targetAmount());
 		transfer.setNote(normalize(values.note()));
-		return TransferRow.of(transfers.save(transfer));
+	}
+
+	private static boolean isUnchanged(Transfer transfer, Resolved resolved, NewTransfer values) {
+		return transfer.getSourceAccount().getId().equals(resolved.source().getId())
+				&& transfer.getTargetAccount().getId().equals(resolved.target().getId())
+				&& transfer.getTransferDate().equals(values.date())
+				&& transfer.getSourceAmount().compareTo(resolved.sourceAmount()) == 0
+				&& transfer.getTargetAmount().compareTo(resolved.targetAmount()) == 0
+				&& Objects.equals(transfer.getNote(), normalize(values.note()));
+	}
+
+	private Transfer find(long userId, long id) {
+		return transfers.findByIdAndUserId(id, userId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "La transferencia no existe."));
+	}
+
+	/** RN-36: se edita o elimina solo si el mes de su fecha actual es un período abierto. */
+	private void verifyCurrentMonthOpen(long userId, Transfer transfer) {
+		YearMonth month = YearMonth.from(transfer.getTransferDate());
+		switch (monthState(userId, month)) {
+			case OPEN -> {
+			}
+			case CLOSED -> throw new BusinessException(ErrorCode.PERIOD_CLOSED, "La transferencia tiene fecha en "
+					+ month + ", un período cerrado: no se puede corregir ni eliminar.");
+			case NO_PERIOD -> throw new BusinessException(ErrorCode.DATE_OUT_OF_RANGE, "El mes " + month
+					+ " es anterior al período inicial: no hay presupuesto para ese mes.");
+		}
 	}
 
 	/**
@@ -120,8 +198,11 @@ public class TransferService {
 		if (effectiveFrom.isAfter(effectiveTo)) {
 			throw BusinessException.invalidField("from", "La fecha desde no puede ser posterior a la fecha hasta.");
 		}
+		Map<YearMonth, Boolean> openMonths = new HashMap<>();
 		return transfers.findByUserIdAndDateBetween(userId, effectiveFrom, effectiveTo).stream()
-				.map(TransferRow::of).toList();
+				.map(t -> TransferRow.of(t, openMonths.computeIfAbsent(YearMonth.from(t.getTransferDate()),
+						month -> monthState(userId, month) == MonthState.OPEN)))
+				.toList();
 	}
 
 	private void verifyDate(long userId, Account source, Account target, LocalDate date) {

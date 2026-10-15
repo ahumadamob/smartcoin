@@ -2,6 +2,7 @@ package com.smartcoin.transfer.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import com.smartcoin.account.domain.AccountTotal;
 import com.smartcoin.transfer.domain.Transfer;
@@ -11,6 +12,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TransferRepository extends JpaRepository<Transfer, Long> {
+
+	/** HU-29 (RN-01): una transferencia del usuario; vacío si no existe o es de otro. */
+	Optional<Transfer> findByIdAndUserId(Long id, Long userId);
 
 	/** HU-07 (RN-33): ¿hay transferencias del usuario que salgan de esta cuenta o entren a ella? */
 	@Query("""

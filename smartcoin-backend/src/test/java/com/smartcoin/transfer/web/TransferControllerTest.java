@@ -4,11 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -56,7 +59,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-/** HU-27: códigos HTTP, forma de la respuesta y formato de errores de {@code POST} y {@code GET /api/transfers}. */
+/** HU-27 y HU-29: códigos HTTP, forma de la respuesta y formato de errores de {@code /api/transfers}. */
 @WebMvcTest(TransferController.class)
 @Import({ SecurityConfig.class, GlobalExceptionHandler.class, CurrentUser.class })
 @TestPropertySource(properties = "app.security.jwt-secret=" + TransferControllerTest.SECRET)
@@ -102,7 +105,7 @@ class TransferControllerTest {
 
 	private static TransferRow row() {
 		return new TransferRow(31L, LocalDate.of(2026, 10, 15), 1L, "Banco", Currency.ARS,
-				new BigDecimal("50000.00"), 2L, "Efectivo", Currency.ARS, new BigDecimal("50000.00"), "Extracción");
+				new BigDecimal("50000.00"), 2L, "Efectivo", Currency.ARS, new BigDecimal("50000.00"), "Extracción", true);
 	}
 
 	@Test
@@ -128,7 +131,7 @@ class TransferControllerTest {
 
 	private static TransferRow purchase() {
 		return new TransferRow(32L, LocalDate.of(2026, 10, 15), 1L, "Banco", Currency.ARS,
-				new BigDecimal("1250000.00"), 3L, "Caja en dólares", Currency.USD, new BigDecimal("1000.00"), null);
+				new BigDecimal("1250000.00"), 3L, "Caja en dólares", Currency.USD, new BigDecimal("1000.00"), null, true);
 	}
 
 	@Test
@@ -277,5 +280,88 @@ class TransferControllerTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 		verifyNoInteractions(transfers);
+	}
+
+	private ResultActions update(long id, String json) throws Exception {
+		return mvc.perform(put("/api/transfers/" + id).header("Authorization", bearer())
+				.contentType(MediaType.APPLICATION_JSON).content(json));
+	}
+
+	@Test
+	void updateRespondsOkWithTheTransferAndItsRate() throws Exception {
+		when(transfers.update(eq(USER_ID), eq(32L), any(NewTransfer.class))).thenReturn(purchase());
+
+		update(32, VALID)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(32))
+				.andExpect(jsonPath("$.exchangeRate").value(1250.00))
+				.andExpect(jsonPath("$.editable").value(true));
+
+		ArgumentCaptor<NewTransfer> values = ArgumentCaptor.forClass(NewTransfer.class);
+		verify(transfers).update(eq(USER_ID), eq(32L), values.capture());
+		assertThat(values.getValue().sourceAmount()).isEqualByComparingTo("50000.00");
+	}
+
+	@Test
+	void updateWithAnInvalidBodyIsAValidationErrorAndReachesNoService() throws Exception {
+		update(31, "{}")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors[?(@.field=='sourceAmount')]").exists());
+		verifyNoInteractions(transfers);
+	}
+
+	@Test
+	void updateErrorsKeepTheirStatusAndCode() throws Exception {
+		when(transfers.update(anyLong(), anyLong(), any()))
+				.thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "La transferencia no existe."))
+				.thenThrow(new BusinessException(ErrorCode.PERIOD_CLOSED, "El período está cerrado."))
+				.thenThrow(new BusinessException(ErrorCode.DATE_OUT_OF_RANGE, "No puede ser posterior a hoy."))
+				.thenThrow(new BusinessException(ErrorCode.TRANSFER_AMOUNTS_MISMATCH, "Deben ser iguales."))
+				.thenThrow(BusinessException.invalidField("targetAccountId", "La cuenta de destino no existe."));
+
+		update(31, VALID).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+		update(31, VALID).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PERIOD_CLOSED"));
+		update(31, VALID).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DATE_OUT_OF_RANGE"));
+		update(31, VALID).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("TRANSFER_AMOUNTS_MISMATCH"));
+		update(31, VALID).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("targetAccountId"));
+	}
+
+	@Test
+	void deleteRespondsNoContentAndPassesTheUserOfTheToken() throws Exception {
+		mvc.perform(delete("/api/transfers/31").header("Authorization", bearer()))
+				.andExpect(status().isNoContent());
+
+		verify(transfers).delete(USER_ID, 31L);
+	}
+
+	@Test
+	void deleteErrorsAreNotFoundAndConflict() throws Exception {
+		doThrow(new BusinessException(ErrorCode.NOT_FOUND, "La transferencia no existe."))
+				.doThrow(new BusinessException(ErrorCode.PERIOD_CLOSED, "El período está cerrado."))
+				.when(transfers).delete(anyLong(), anyLong());
+
+		mvc.perform(delete("/api/transfers/31").header("Authorization", bearer()))
+				.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+		mvc.perform(delete("/api/transfers/31").header("Authorization", bearer()))
+				.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PERIOD_CLOSED"));
+	}
+
+	@Test
+	void updateAndDeleteWithoutTokenAreUnauthorized() throws Exception {
+		mvc.perform(put("/api/transfers/31").contentType(MediaType.APPLICATION_JSON).content(VALID))
+				.andExpect(status().isUnauthorized());
+		mvc.perform(delete("/api/transfers/31")).andExpect(status().isUnauthorized());
+		verifyNoInteractions(transfers);
+	}
+
+	@Test
+	void listCarriesTheEditableFlag() throws Exception {
+		when(transfers.list(eq(USER_ID), any(), any())).thenReturn(List.of(row()));
+
+		mvc.perform(get("/api/transfers").header("Authorization", bearer()))
+				.andExpect(jsonPath("$[0].editable").value(true));
 	}
 }

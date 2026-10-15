@@ -328,4 +328,240 @@ class TransferServiceTest {
 				});
 		verifyNoInteractions(transfers);
 	}
+
+	// --- HU-29: corregir o eliminar (RN-36, D-41) ---
+
+	static final long EXISTING_ID = 31;
+
+	/** Una transferencia ya guardada del usuario: 1 → 2 por 50.000,00 el 10/10, con nota. */
+	Transfer existing() {
+		Transfer t = saved(1, 2, "50000.00", "50000.00");
+		ReflectionTestUtils.setField(t, "id", EXISTING_ID);
+		t.setTransferDate(LocalDate.parse("2026-10-10"));
+		t.setNote("Extracción");
+		when(transfers.findByIdAndUserId(EXISTING_ID, USER_ID)).thenReturn(Optional.of(t));
+		return t;
+	}
+
+	void assertUpdateRejected(NewTransfer values, ErrorCode code, String field) {
+		assertThatThrownBy(() -> service.update(USER_ID, EXISTING_ID, values))
+				.isInstanceOfSatisfying(BusinessException.class, e -> {
+					assertThat(e.code()).isEqualTo(code);
+					assertThat(e.field()).isEqualTo(field);
+				});
+		verify(transfers, never()).save(any());
+	}
+
+	@Test
+	void updateCorrectsTheAmountOfBothSides() {
+		Transfer t = existing();
+
+		TransferRow row = service.update(USER_ID, EXISTING_ID,
+				transfer(1, 2, "2026-10-10", "45000.00", "45000.00", "Extracción"));
+
+		assertThat(t.getSourceAmount()).isEqualByComparingTo("45000.00");
+		assertThat(t.getTargetAmount()).isEqualByComparingTo("45000.00");
+		assertThat(row.sourceAmount()).isEqualByComparingTo("45000.00");
+		assertThat(row.id()).isEqualTo(EXISTING_ID);
+		assertThat(row.editable()).isTrue();
+		verify(transfers).save(t);
+	}
+
+	@Test
+	void updateChangesTheDateAndTheNote() {
+		Transfer t = existing();
+
+		service.update(USER_ID, EXISTING_ID, transfer(1, 2, "2026-10-12", "50000.00", "50000.00", "  Otra  "));
+
+		assertThat(t.getTransferDate()).isEqualTo(LocalDate.parse("2026-10-12"));
+		assertThat(t.getNote()).isEqualTo("Otra");
+		verify(transfers).save(t);
+	}
+
+	@Test
+	void updateRemovesTheNoteWhenBlank() {
+		Transfer t = existing();
+
+		service.update(USER_ID, EXISTING_ID, transfer(1, 2, "2026-10-10", "50000.00", "50000.00", " "));
+
+		assertThat(t.getNote()).isNull();
+	}
+
+	@Test
+	void updateMovesTheTransferToAnotherAccount() {
+		Account other = account(4, "Billetera", Currency.ARS, "2026-08-01");
+		when(accounts.findByIdAndUserId(4L, USER_ID)).thenReturn(Optional.of(other));
+		Transfer t = existing();
+
+		TransferRow row = service.update(USER_ID, EXISTING_ID,
+				transfer(1, 4, "2026-10-10", "50000.00", "50000.00", "Extracción"));
+
+		assertThat(t.getTargetAccount()).isSameAs(other);
+		assertThat(row.targetAccountName()).isEqualTo("Billetera");
+		verify(transfers).save(t);
+	}
+
+	@Test
+	void updateAcceptsDifferentAmountsBetweenDifferentCurrenciesAndRecalculatesTheRate() {
+		Transfer t = saved(1, 3, "1250000.00", "1000.00");
+		ReflectionTestUtils.setField(t, "id", EXISTING_ID);
+		when(transfers.findByIdAndUserId(EXISTING_ID, USER_ID)).thenReturn(Optional.of(t));
+
+		TransferRow row = service.update(USER_ID, EXISTING_ID,
+				transfer(1, 3, "2026-10-15", "1300000.00", "1000.00", null));
+
+		assertThat(row.exchangeRate()).isEqualByComparingTo("1300.00");
+		assertThat(t.getSourceAmount()).isEqualByComparingTo("1300000.00");
+	}
+
+	@Test
+	void updateCanTurnASameCurrencyTransferIntoAPurchaseOfDollars() {
+		Transfer t = existing();
+
+		TransferRow row = service.update(USER_ID, EXISTING_ID,
+				transfer(1, 3, "2026-10-10", "1250000.00", "1000.00", null));
+
+		assertThat(row.sourceCurrency()).isEqualTo(Currency.ARS);
+		assertThat(row.targetCurrency()).isEqualTo(Currency.USD);
+		assertThat(row.exchangeRate()).isEqualByComparingTo("1250.00");
+		verify(transfers).save(t);
+	}
+
+	@Test
+	void updateCanTurnAPurchaseOfDollarsIntoASameCurrencyTransferOnlyWithEqualAmounts() {
+		Transfer t = saved(1, 3, "1250000.00", "1000.00");
+		ReflectionTestUtils.setField(t, "id", EXISTING_ID);
+		when(transfers.findByIdAndUserId(EXISTING_ID, USER_ID)).thenReturn(Optional.of(t));
+
+		assertUpdateRejected(transfer(1, 2, "2026-10-15", "1250000.00", "1000.00", null),
+				ErrorCode.TRANSFER_AMOUNTS_MISMATCH, null);
+
+		TransferRow row = service.update(USER_ID, EXISTING_ID, transfer(1, 2, "2026-10-15", "1000.00", "1000.00", null));
+		assertThat(row.exchangeRate()).isNull();
+	}
+
+	@Test
+	void updateWithDifferentAmountsInTheSameCurrencyIsRejected() {
+		existing();
+
+		assertUpdateRejected(transfer(1, 2, "2026-10-10", "50000.00", "49999.99", null),
+				ErrorCode.TRANSFER_AMOUNTS_MISMATCH, null);
+	}
+
+	@Test
+	void updateWithNothingChangedRespondsTheSameAndSavesNothing() {
+		Transfer t = existing();
+
+		TransferRow row = service.update(USER_ID, EXISTING_ID,
+				transfer(1, 2, "2026-10-10", "50000", "50000.00", " Extracción "));
+
+		assertThat(row.id()).isEqualTo(EXISTING_ID);
+		assertThat(row.note()).isEqualTo("Extracción");
+		verify(transfers, never()).save(any());
+		assertThat(t.getSourceAmount()).isEqualByComparingTo("50000.00");
+	}
+
+	@Test
+	void updateWithAFutureDateIsOutOfRange() {
+		existing();
+
+		assertUpdateRejected(transfer(1, 2, "2026-10-16", "50000.00", "50000.00", null), ErrorCode.DATE_OUT_OF_RANGE,
+				null);
+	}
+
+	@Test
+	void updateWithADateBeforeTheOpeningOfOneOfTheAccountsIsOutOfRange() {
+		existing();
+
+		assertUpdateRejected(transfer(1, 2, "2026-09-19", "50000.00", "50000.00", null), ErrorCode.DATE_OUT_OF_RANGE,
+				null);
+		assertUpdateRejected(transfer(2, 1, "2026-09-19", "50000.00", "50000.00", null), ErrorCode.DATE_OUT_OF_RANGE,
+				null);
+	}
+
+	@Test
+	void updateWithANewDateInAClosedMonthIsPeriodClosed() {
+		period(YearMonth.of(2026, 9), PeriodStatus.CLOSED);
+		existing();
+
+		assertUpdateRejected(transfer(1, 2, "2026-09-25", "50000.00", "50000.00", null), ErrorCode.PERIOD_CLOSED,
+				null);
+	}
+
+	@Test
+	void updateAndDeleteOfATransferInAClosedMonthArePeriodClosed() {
+		period(YearMonth.of(2026, 9), PeriodStatus.CLOSED);
+		Transfer t = existing();
+		t.setTransferDate(LocalDate.parse("2026-09-25"));
+
+		assertUpdateRejected(transfer(1, 2, "2026-10-10", "50000.00", "50000.00", null), ErrorCode.PERIOD_CLOSED,
+				null);
+		assertThatThrownBy(() -> service.delete(USER_ID, EXISTING_ID)).isInstanceOfSatisfying(
+				BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.PERIOD_CLOSED));
+		verify(transfers, never()).delete(any(Transfer.class));
+	}
+
+	@Test
+	void theClosedCurrentMonthIsReportedBeforeAnythingAboutTheNewValues() {
+		period(YearMonth.of(2026, 9), PeriodStatus.CLOSED);
+		Transfer t = existing();
+		t.setTransferDate(LocalDate.parse("2026-09-25"));
+		when(accounts.findByIdAndUserId(OTHER_USERS_ACCOUNT, USER_ID)).thenReturn(Optional.empty());
+
+		// Mes actual cerrado, mes nuevo cerrado, cuenta ajena y montos distintos a la vez: gana el mes actual.
+		assertUpdateRejected(transfer(1, OTHER_USERS_ACCOUNT, "2026-09-26", "10.00", "20.00", null),
+				ErrorCode.PERIOD_CLOSED, null);
+		verifyNoMoreInteractions(accounts);
+	}
+
+	@Test
+	void updateAppliesTheSameOrderAsTheCreate() {
+		existing();
+		when(accounts.findByIdAndUserId(OTHER_USERS_ACCOUNT, USER_ID)).thenReturn(Optional.empty());
+
+		assertUpdateRejected(transfer(1, 1, "2026-10-16", "10.00", "20.00", null), ErrorCode.VALIDATION_ERROR,
+				"targetAccountId");
+		assertUpdateRejected(transfer(1, OTHER_USERS_ACCOUNT, "2026-10-16", "10.00", "20.00", null),
+				ErrorCode.VALIDATION_ERROR, "targetAccountId");
+		assertUpdateRejected(transfer(1, 2, "2026-10-16", "10.00", "20.00", null),
+				ErrorCode.TRANSFER_AMOUNTS_MISMATCH, null);
+	}
+
+	@Test
+	void updateAndDeleteOfAnotherUsersTransferAreNotFound() {
+		when(transfers.findByIdAndUserId(EXISTING_ID, OTHER_USER_ID)).thenReturn(Optional.empty());
+		when(transfers.findByIdAndUserId(EXISTING_ID, USER_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.update(OTHER_USER_ID, EXISTING_ID,
+				transfer(1, 2, "2026-10-10", "10.00", "10.00", null)))
+				.isInstanceOfSatisfying(BusinessException.class,
+						e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+		assertThatThrownBy(() -> service.delete(USER_ID, EXISTING_ID)).isInstanceOfSatisfying(
+				BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+		verify(transfers, never()).save(any());
+		verify(transfers, never()).delete(any(Transfer.class));
+		verifyNoInteractions(accounts);
+	}
+
+	@Test
+	void deleteRemovesTheTransferOfAnOpenMonth() {
+		Transfer t = existing();
+
+		service.delete(USER_ID, EXISTING_ID);
+
+		verify(transfers).delete(t);
+	}
+
+	@Test
+	void listMarksAsEditableOnlyTheOnesInAnOpenMonth() {
+		period(YearMonth.of(2026, 9), PeriodStatus.CLOSED);
+		Transfer inOpen = saved(1, 2, "10.00", "10.00");
+		Transfer inClosed = saved(1, 2, "20.00", "20.00");
+		inClosed.setTransferDate(LocalDate.parse("2026-09-25"));
+		when(transfers.findByUserIdAndDateBetween(eq(USER_ID), any(), any())).thenReturn(List.of(inOpen, inClosed));
+
+		List<TransferRow> rows = service.list(USER_ID, LocalDate.parse("2026-09-01"), null);
+
+		assertThat(rows).extracting(TransferRow::editable).containsExactly(true, false);
+	}
 }

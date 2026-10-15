@@ -48,11 +48,16 @@ public record TransferResponse(
 
 		@Schema(nullable = true, example = "1250.00", description = "Monto en ARS dividido por monto en USD, con 2 "
 				+ "decimales (RN-37). Nulo si las dos cuentas son de la misma moneda. No se guarda.")
-		BigDecimal exchangeRate) {
+		BigDecimal exchangeRate,
+
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Informativo (D-41): el mes de la fecha "
+				+ "es un período abierto, así que se puede corregir o eliminar (RN-36). El backend lo decide al "
+				+ "intentarlo.")
+		boolean editable) {
 
 	public static TransferResponse from(TransferRow row) {
 		return new TransferResponse(row.id(), row.date(), row.sourceAccountId(), row.sourceAccountName(),
 				row.sourceCurrency(), row.sourceAmount(), row.targetAccountId(), row.targetAccountName(),
-				row.targetCurrency(), row.targetAmount(), row.note(), row.exchangeRate());
+				row.targetCurrency(), row.targetAmount(), row.note(), row.exchangeRate(), row.editable());
 	}
 }
