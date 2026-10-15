@@ -44,11 +44,15 @@ public record TransferResponse(
 		BigDecimal targetAmount,
 
 		@Schema(nullable = true, example = "Extracción para gastos de la semana")
-		String note) {
+		String note,
+
+		@Schema(nullable = true, example = "1250.00", description = "Monto en ARS dividido por monto en USD, con 2 "
+				+ "decimales (RN-37). Nulo si las dos cuentas son de la misma moneda. No se guarda.")
+		BigDecimal exchangeRate) {
 
 	public static TransferResponse from(TransferRow row) {
 		return new TransferResponse(row.id(), row.date(), row.sourceAccountId(), row.sourceAccountName(),
 				row.sourceCurrency(), row.sourceAmount(), row.targetAccountId(), row.targetAccountName(),
-				row.targetCurrency(), row.targetAmount(), row.note());
+				row.targetCurrency(), row.targetAmount(), row.note(), row.exchangeRate());
 	}
 }

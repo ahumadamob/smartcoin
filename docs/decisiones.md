@@ -186,7 +186,16 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **La lista**: de la más reciente a la más antigua y, a igual fecha, la última registrada primero. Sin `to`, hoy; sin `from`, el primer día del mes de `to`, de modo que sin ninguno es el mes actual. `from` posterior a `to`: 400 `VALIDATION_ERROR` en `from`. Una fecha mal formada también es 400. Sin paginación.
 - **La nota** se guarda sin espacios en los extremos; en blanco, sin nota (como en los movimientos).
 - **El alta responde solo la transferencia**, sin saldos: el frontend vuelve a pedir `/api/accounts`.
-- **Monedas distintas**: se aceptan con los dos montos y sin relación entre ellos; el tipo de cambio es de HU-28 (RN-37).
+- **Monedas distintas**: se aceptan con los dos montos y sin relación entre ellos; el tipo de cambio es de HU-28 (RN-37, D-40).
+
+**D-40. Tipo de cambio de una transferencia.** *Confirmada* (HU-28): el usuario aprobó el redondeo antes de escribir código; las dudas (vista previa, palabras «Compra» y «Venta» y huecos de RN-37) se resolvieron con él, todas por la opción recomendada. Complementa a **D-06**.
+
+- **Redondeo**: el tipo de cambio es ARS ÷ USD a 2 decimales con `HALF_UP`, sin importar cuál es el origen. Es el segundo cálculo que redondea, junto con el promedio de RN-26 (RN-03, S-16).
+- **Solo se muestra**: `exchangeRate` en las respuestas de `POST` y `GET /api/transfers`, nulo entre cuentas de la misma moneda. No hay columna ni se guarda ninguna cotización. Los saldos y subtotales siguen separados por moneda.
+- **Sin vista previa**: el formulario no lo muestra antes de guardar (el frontend no hace cuentas con montos y un endpoint aparte no lo pide ningún criterio de HU-28). Se ve al guardar y en la lista.
+- **Compra y venta**: textos de la interfaz derivados de las monedas, no un campo: de ARS a USD, «Compra de dólares»; de USD a ARS, «Venta de dólares».
+- **Sin tope**: con montos de USD muy chicos el tipo de cambio puede ser muy alto (1.250,00 ARS por 0,01 USD dan 125.000,00); RN-36 no lo limita.
+- **Cálculo con el redondeo**: el tipo de cambio mostrado puede no reproducir los montos cargados; los montos son los que valen para los saldos.
 
 ## Supuestos tomados al redactar
 
@@ -220,7 +229,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-15. El administrador puede restablecer contraseñas** con la misma clave especial del alta. Sin envío de emails, es la única forma de recuperar el acceso.
 
-**S-16. Montos con 2 decimales y redondeo `HALF_UP`.** Solo el promedio necesita redondeo.
+**S-16. Montos con 2 decimales y redondeo `HALF_UP`.** Solo el promedio (RN-26) y el tipo de cambio (RN-37, D-40) necesitan redondeo.
 
 **S-17. Categorías opcionales**, sin tipo (sirven para ingresos y gastos).
 

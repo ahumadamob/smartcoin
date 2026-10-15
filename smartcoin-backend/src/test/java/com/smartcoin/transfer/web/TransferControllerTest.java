@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -123,6 +124,29 @@ class TransferControllerTest {
 				.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
 
 		assertThat(body).contains("\"sourceAmount\":50000.00").contains("\"targetAmount\":50000.00");
+	}
+
+	private static TransferRow purchase() {
+		return new TransferRow(32L, LocalDate.of(2026, 10, 15), 1L, "Banco", Currency.ARS,
+				new BigDecimal("1250000.00"), 3L, "Caja en dólares", Currency.USD, new BigDecimal("1000.00"), null);
+	}
+
+	@Test
+	void createRespondsTheExchangeRateBetweenDifferentCurrenciesAndNullInTheSame() throws Exception {
+		when(transfers.create(eq(USER_ID), any(NewTransfer.class))).thenReturn(purchase()).thenReturn(row());
+
+		create(VALID).andExpect(status().isCreated()).andExpect(jsonPath("$.exchangeRate").value(1250.00));
+		create(VALID).andExpect(status().isCreated()).andExpect(jsonPath("$.exchangeRate").value(nullValue()));
+	}
+
+	@Test
+	void listCarriesTheExchangeRateOnlyInTheOnesBetweenDifferentCurrencies() throws Exception {
+		when(transfers.list(eq(USER_ID), any(), any())).thenReturn(List.of(purchase(), row()));
+
+		mvc.perform(get("/api/transfers").header("Authorization", bearer()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].exchangeRate").value(1250.00))
+				.andExpect(jsonPath("$[1].exchangeRate").value(nullValue()));
 	}
 
 	@Test

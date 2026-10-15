@@ -15,6 +15,7 @@ import com.smartcoin.period.repository.BudgetPeriodRepository;
 import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.error.BusinessException;
 import com.smartcoin.shared.error.ErrorCode;
+import com.smartcoin.transfer.domain.ExchangeRate;
 import com.smartcoin.transfer.domain.Transfer;
 import com.smartcoin.transfer.domain.TransferDateValidator;
 import com.smartcoin.transfer.domain.TransferDateValidator.MonthState;
@@ -50,6 +51,11 @@ public class TransferService {
 			return new TransferRow(transfer.getId(), transfer.getTransferDate(), source.getId(), source.getName(),
 					source.getCurrency(), transfer.getSourceAmount(), target.getId(), target.getName(),
 					target.getCurrency(), transfer.getTargetAmount(), transfer.getNote());
+		}
+
+		/** Tipo de cambio (RN-37): nulo entre cuentas de la misma moneda. No se guarda. */
+		public BigDecimal exchangeRate() {
+			return ExchangeRate.of(sourceCurrency, sourceAmount, targetCurrency, targetAmount).orElse(null);
 		}
 	}
 

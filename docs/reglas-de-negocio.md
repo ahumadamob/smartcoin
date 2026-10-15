@@ -18,7 +18,7 @@ Cada regla tiene un ID estable (RN-xx) que citan las historias de usuario y los 
 
 **RN-02. Hoy.** "Hoy" es la fecha actual en la zona `America/Argentina/Mendoza`.
 
-**RN-03. Montos.** Todos los montos tienen 2 decimales. Presupuestados y monto vigente: ≥ 0. Movimientos y transferencias: > 0. Saldos iniciales y reales: pueden ser negativos. El único cálculo que redondea es el promedio (RN-26), a 2 decimales con `HALF_UP`.
+**RN-03. Montos.** Todos los montos tienen 2 decimales. Presupuestados y monto vigente: ≥ 0. Movimientos y transferencias: > 0. Saldos iniciales y reales: pueden ser negativos. Los únicos cálculos que redondean son el promedio (RN-26) y el tipo de cambio (RN-37), ambos a 2 decimales con `HALF_UP`.
 
 **RN-04. Monedas.** La moneda de una partida es la de su cuenta, y la de un Concepto, la de su cuenta por defecto. Montos de distinta moneda nunca se suman: todo total se informa por moneda.
 
@@ -292,7 +292,7 @@ Cuenta la **fecha del movimiento**, no el período de su partida. El saldo actua
 - Se editan o eliminan si el mes de su fecha actual es un período abierto; los valores nuevos cumplen las mismas condiciones.
 - No son ingreso ni gasto: no aparecen en la vista del mes ni en sus totales.
 
-**RN-37. Compra y venta de dólares.** Es una transferencia entre una cuenta en ARS y una en USD. El tipo de cambio es el monto en ARS dividido por el monto en USD, con 2 decimales, y solo se muestra.
+**RN-37. Compra y venta de dólares.** Es una transferencia entre una cuenta en ARS y una en USD. El tipo de cambio es el monto en ARS dividido por el monto en USD, sin importar cuál cuenta es el origen, redondeado a 2 decimales con `HALF_UP` (D-40). Solo se calcula entre cuentas de distinta moneda, solo se muestra y no se guarda. Como está redondeado, no siempre reproduce los montos cargados (100.000,00 ARS por 83,00 USD dan 1.204,82); los montos son lo que vale para los saldos.
 
 > Compra: del banco en pesos salen 1.250.000,00 ARS y a la cuenta en dólares entran 1.000,00 USD → tipo de cambio 1.250,00.
 > Venta: de la cuenta en dólares salen 500,00 USD y al banco entran 610.000,00 ARS → tipo de cambio 1.220,00.

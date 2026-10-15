@@ -3,6 +3,7 @@ package com.smartcoin.transfer.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import com.smartcoin.account.domain.Account;
@@ -190,6 +192,44 @@ class TransferServiceTest {
 		assertThat(saved.getValue().getTargetAmount()).isEqualByComparingTo("1000.00");
 		assertThat(row.sourceCurrency()).isEqualTo(Currency.ARS);
 		assertThat(row.targetCurrency()).isEqualTo(Currency.USD);
+		assertThat(row.exchangeRate()).isEqualByComparingTo("1250.00");
+	}
+
+	@Test
+	void aSaleOfDollarsHasTheRateOfArsOverUsdWhateverTheSource() {
+		TransferRow row = service.create(USER_ID, transfer(3, 1, "2026-10-15", "500.00", "610000.00", null));
+
+		assertThat(row.exchangeRate()).isEqualByComparingTo("1220.00");
+	}
+
+	@Test
+	void aTransferInTheSameCurrencyHasNoExchangeRate() {
+		TransferRow row = service.create(USER_ID, transfer(1, 2, "2026-10-15", "50000.00", "50000.00", null));
+
+		assertThat(row.exchangeRate()).isNull();
+	}
+
+	@Test
+	void listCarriesTheRateOnlyInTheOnesBetweenDifferentCurrencies() {
+		when(transfers.findByUserIdAndDateBetween(eq(USER_ID), any(), any())).thenReturn(List.of(
+				saved(1, 3, "1250000.00", "1000.00"), saved(1, 2, "10.00", "10.00")));
+
+		List<TransferRow> rows = service.list(USER_ID, null, null);
+
+		assertThat(rows.get(0).exchangeRate()).isEqualByComparingTo("1250.00");
+		assertThat(rows.get(1).exchangeRate()).isNull();
+	}
+
+	private Transfer saved(long source, long target, String sourceAmount, String targetAmount) {
+		Map<Long, Account> byId = Map.of(1L, bank, 2L, cash, 3L, dollars);
+		Transfer t = new Transfer();
+		t.setUserId(USER_ID);
+		t.setSourceAccount(byId.get(source));
+		t.setTargetAccount(byId.get(target));
+		t.setTransferDate(LocalDate.parse("2026-10-15"));
+		t.setSourceAmount(new BigDecimal(sourceAmount));
+		t.setTargetAmount(new BigDecimal(targetAmount));
+		return t;
 	}
 
 	@Test
