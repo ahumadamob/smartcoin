@@ -176,6 +176,13 @@ Aclaraciones (HU-21, D-35):
 
 **RN-24. Pago rápido.** Si el pendiente es mayor que 0, registra un movimiento por el pendiente (fecha de hoy salvo que se indique otra, cuenta de la partida salvo que se indique otra; RN-21) y consolida (RN-25), todo en una sola transacción. Acepta la misma política para partidas editadas que la consolidación (RN-26). Si el pendiente es 0: 409 `NOTHING_PENDING`.
 
+Aclaraciones (HU-22, D-37):
+
+- **Orden de evaluación** (se informa el primero que falla): formato del cuerpo (400); la partida (404, RN-01); el período (`PERIOD_CLOSED`); el estado (`ENTRY_NOT_PENDING`); el pendiente (`NOTHING_PENDING`); la cuenta (400 en `accountId`), la moneda (`CURRENCY_MISMATCH`) y la fecha (RN-21: `DATE_OUT_OF_RANGE` y después `PERIOD_CLOSED` por el mes); y las editadas del destino sin política (`MANUAL_POLICY_REQUIRED`, RN-26).
+- **El movimiento y la consolidación se validan juntos antes de guardar**: el movimiento todavía no existe al validar, así que la consolidación se evalúa con el real de hoy más el pendiente (con pendiente mayor que 0, el monto consolidado es el presupuestado) y `CONSOLIDATION_REQUIRES_MOVEMENT` no puede ocurrir. Un pedido rechazado no guarda nada: ni el movimiento, ni la consolidación, ni el Concepto, ni las partidas de destino.
+- **Sin nada pendiente**: una Estimada con presupuestado 0 y una Parcial cubierta responden `NOTHING_PENDING`. La pantalla no ofrece la acción en ninguna de las dos.
+- **Vista previa**: se informa sin modificar nada y sale del mismo plan que el pago rápido (`GET /api/entries/{id}/quick-settle-preview`). La política se ignora si no hace falta, como en RN-26.
+
 ## 6. Consolidación
 
 **RN-25. Consolidar.** Condiciones: la partida está pendiente, su período está abierto y tiene al menos un movimiento (si no, `CONSOLIDATION_REQUIRES_MOVEMENT`). Efecto: monto consolidado = real, estado `CONSOLIDATED`, fecha de consolidación. Si la partida es recurrente, a continuación se propaga (RN-26).
