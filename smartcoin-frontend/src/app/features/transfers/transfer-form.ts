@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
@@ -14,7 +25,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { AccountResponse, Transfer, TransferenciasService } from '../../api';
 import { detailFor, messageFor } from '../../core/error-messages';
-import { parseAmount } from '../../shared/amount';
+import { formatAmountInput, parseAmount } from '../../shared/amount';
 import { isoDate } from '../budget/iso-date';
 import { exchangeKind } from './transfer-kind';
 import { targetAccounts } from './transfer-targets';
@@ -38,7 +49,8 @@ export function todayIso(now = new Date()): string {
 }
 
 /**
- * Alta de una transferencia entre cuentas (HU-27, HU-28). Entre cuentas de la misma moneda, un solo monto, con coma
+ * Alta o edición de una transferencia entre cuentas (HU-27, HU-28, HU-29). Con `transfer` carga sus valores, incluidos
+ * uno o dos montos según las monedas, y guarda con `PUT`; es el mismo formulario y el backend aplica las mismas reglas. Entre cuentas de la misma moneda, un solo monto, con coma
  * decimal: la API recibe los dos iguales. Entre monedas distintas, dos: el de pesos y el de dólares, cada uno con su
  * símbolo; el tipo de cambio lo calcula el backend y se ve al guardar (D-40). Solo valida formato; las reglas (RN-36) las decide el backend y su error se muestra sin
  * perder lo cargado.
@@ -56,6 +68,9 @@ export class TransferForm {
 
   /** Las cuentas del usuario. */
   readonly accounts = input.required<AccountResponse[]>();
+
+  /** La transferencia que se corrige; sin ella, es un alta. */
+  readonly transfer = input<Transfer | null>(null);
 
   /** La transferencia se guardó. */
   readonly saved = output<Transfer>();
@@ -101,6 +116,12 @@ export class TransferForm {
   });
 
   constructor() {
+    effect(() => {
+      const transfer = this.transfer();
+      if (transfer !== null) {
+        untracked(() => this.load(transfer));
+      }
+    });
     this.form.controls.sourceAccountId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => {
       this.sourceId.set(id);
       const target = this.form.controls.targetAccountId;
@@ -114,6 +135,22 @@ export class TransferForm {
       // Al volverse a la misma moneda, el campo de dólares deja de pedirse y de contar para la validez.
       this.syncUsdAmount();
     });
+  }
+
+  /** Carga los valores de la transferencia: en monedas distintas, el de pesos va a `amount` y el de dólares a `usdAmount`. */
+  private load(transfer: Transfer): void {
+    const { controls } = this.form;
+    this.error.set(null);
+    controls.sourceAccountId.setValue(transfer.sourceAccountId);
+    controls.targetAccountId.setValue(transfer.targetAccountId);
+    controls.date.setValue(transfer.date);
+    const cross = transfer.sourceCurrency !== transfer.targetCurrency;
+    const sourceIsArs = transfer.sourceCurrency !== 'USD';
+    controls.amount.setValue(
+      formatAmountInput(cross && !sourceIsArs ? transfer.targetAmount : transfer.sourceAmount),
+    );
+    controls.usdAmount.setValue(cross ? formatAmountInput(sourceIsArs ? transfer.targetAmount : transfer.sourceAmount) : '');
+    controls.note.setValue(transfer.note ?? '');
   }
 
   private syncUsdAmount(): void {
@@ -145,23 +182,26 @@ export class TransferForm {
     const note = raw.note.trim();
     this.error.set(null);
     this.submitting.set(true);
-    this.api
-      .createTransfer({
-        sourceAccountId: raw.sourceAccountId!,
-        targetAccountId: raw.targetAccountId!,
-        date: raw.date,
-        sourceAmount,
-        targetAmount,
-        ...(note === '' ? {} : { note }),
-      })
+    const request = {
+      sourceAccountId: raw.sourceAccountId!,
+      targetAccountId: raw.targetAccountId!,
+      date: raw.date,
+      sourceAmount,
+      targetAmount,
+      ...(note === '' ? {} : { note }),
+    };
+    const editing = this.transfer();
+    (editing === null ? this.api.createTransfer(request) : this.api.updateTransfer(editing.id, request))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (transfer) => {
           this.submitting.set(false);
-          this.form.controls.amount.reset('');
-          this.form.controls.usdAmount.reset('');
-          this.form.controls.note.reset('');
-          this.form.controls.amount.markAsUntouched();
+          if (editing === null) {
+            this.form.controls.amount.reset('');
+            this.form.controls.usdAmount.reset('');
+            this.form.controls.note.reset('');
+            this.form.controls.amount.markAsUntouched();
+          }
           this.saved.emit(transfer);
         },
         error: (e: unknown) => {

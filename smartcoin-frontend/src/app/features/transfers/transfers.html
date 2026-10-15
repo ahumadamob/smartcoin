@@ -2,7 +2,7 @@
   <header class="header">
     <h1 class="title">Transferencias</h1>
     @if (!formOpen() && !loading()) {
-      <button mat-flat-button type="button" (click)="openForm()">Nueva transferencia</button>
+      <button #newButton mat-flat-button type="button" (click)="openForm()">Nueva transferencia</button>
     }
   </header>
 
@@ -13,10 +13,10 @@
   @if (formOpen()) {
     <mat-card appearance="outlined" class="form-card">
       <mat-card-header>
-        <h2 class="subtitle">Nueva transferencia</h2>
+        <h2 class="subtitle">{{ editing() ? 'Editar transferencia' : 'Nueva transferencia' }}</h2>
       </mat-card-header>
       <mat-card-content>
-        <app-transfer-form [accounts]="accounts()" (saved)="onSaved($event)" (cancelled)="closeForm()" />
+        <app-transfer-form [accounts]="accounts()" [transfer]="editing()" (saved)="onSaved($event)" (cancelled)="closeForm()" />
       </mat-card-content>
     </mat-card>
   }
@@ -63,6 +63,14 @@
               → {{ transfer.targetAmount | money: transfer.targetCurrency }}
             }
           </span>
+          @if (transfer.editable) {
+            <span class="actions">
+              <button mat-button type="button" (click)="edit(transfer)"
+                [attr.aria-label]="'Editar la transferencia del ' + (transfer.date | date: dateFormat)">Editar</button>
+              <button mat-button type="button" (click)="confirmDelete(transfer)"
+                [attr.aria-label]="'Eliminar la transferencia del ' + (transfer.date | date: dateFormat)">Eliminar</button>
+            </span>
+          }
         </li>
       }
     </ul>

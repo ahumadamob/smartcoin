@@ -74,3 +74,8 @@
 .amount {
   font: var(--mat-sys-title-medium);
 }
+
+.actions {
+  display: flex;
+  gap: 4px;
+}

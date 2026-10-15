@@ -3,6 +3,7 @@ import { registerLocaleData } from '@angular/common';
 import localeEsAr from '@angular/common/locales/es-AR';
 import { LOCALE_ID } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of, throwError } from 'rxjs';
 import { CuentasService, Transfer, TransferenciasService } from '../../api';
@@ -21,17 +22,28 @@ function transfer(overrides: Partial<Transfer> = {}): Transfer {
     targetCurrency: 'ARS',
     targetAmount: 50000,
     note: 'Extracción',
+    editable: true,
     ...overrides,
   };
 }
 
 describe('Transfers', () => {
   let fixture: ComponentFixture<Transfers>;
-  let transfersApi: { listTransfers: ReturnType<typeof vi.fn>; createTransfer: ReturnType<typeof vi.fn> };
+  let transfersApi: {
+    listTransfers: ReturnType<typeof vi.fn>;
+    createTransfer: ReturnType<typeof vi.fn>;
+    deleteTransfer: ReturnType<typeof vi.fn>;
+  };
+  let dialogOpen: ReturnType<typeof vi.fn>;
 
   async function setup(list: Transfer[]) {
     registerLocaleData(localeEsAr, 'es-AR');
-    transfersApi = { listTransfers: vi.fn().mockReturnValue(of(list)), createTransfer: vi.fn() };
+    transfersApi = {
+      listTransfers: vi.fn().mockReturnValue(of(list)),
+      createTransfer: vi.fn(),
+      deleteTransfer: vi.fn().mockReturnValue(of(undefined)),
+    };
+    dialogOpen = vi.fn().mockReturnValue({ afterClosed: () => of(true) });
     await TestBed.configureTestingModule({
       imports: [Transfers],
       providers: [
@@ -39,6 +51,7 @@ describe('Transfers', () => {
         { provide: TransferenciasService, useValue: transfersApi },
         { provide: CuentasService, useValue: { listAccounts: () => of({ accounts: [], subtotals: [] }) } },
         { provide: MatSnackBar, useValue: { open: vi.fn() } },
+        { provide: MatDialog, useValue: { open: dialogOpen } },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(Transfers);
@@ -139,5 +152,97 @@ describe('Transfers', () => {
     fixture.detectChanges();
 
     expect(text()).toContain('La fecha desde es posterior.');
+  });
+
+  describe('acciones por fila (HU-29)', () => {
+    const buttons = (label: string) =>
+      Array.from(root().querySelectorAll('button')).filter((b) => b.textContent!.trim() === label);
+
+    it('ofrece Editar y Eliminar solo en las filas editables', async () => {
+      await setup([transfer({ id: 1 }), transfer({ id: 2, editable: false })]);
+
+      expect(buttons('Editar')).toHaveLength(1);
+      expect(buttons('Eliminar')).toHaveLength(1);
+      const rows = root().querySelectorAll('[data-testid="transfer"]');
+      expect(rows[0].textContent).toContain('Editar');
+      expect(rows[1].textContent).not.toContain('Editar');
+    });
+
+    it('Editar abre el formulario con la transferencia cargada', async () => {
+      await setup([transfer()]);
+
+      buttons('Editar')[0].click();
+      fixture.detectChanges();
+
+      expect(text()).toContain('Editar transferencia');
+      expect(fixture.componentInstance['editing']()?.id).toBe(31);
+      expect(root().querySelector('app-transfer-form')).not.toBeNull();
+      expect(text()).toContain('Guardar cambios');
+    });
+
+    it('Eliminar pide confirmar con fecha, cuentas y monto, y recién entonces elimina', async () => {
+      await setup([transfer()]);
+      dialogOpen.mockReturnValue({ afterClosed: () => of(false) });
+
+      buttons('Eliminar')[0].click();
+      const message = dialogOpen.mock.calls[0][1].data.message as string;
+      expect(message).toContain('15/10/2026');
+      expect(message).toContain('Banco → Efectivo');
+      expect(message).toContain('50.000,00');
+      expect(message).not.toContain('Tipo de cambio');
+      expect(transfersApi.deleteTransfer).not.toHaveBeenCalled();
+
+      dialogOpen.mockReturnValue({ afterClosed: () => of(true) });
+      buttons('Eliminar')[0].click();
+      expect(transfersApi.deleteTransfer).toHaveBeenCalledWith(31);
+    });
+
+    it('en una compra de dólares la confirmación trae los dos montos y el tipo de cambio', async () => {
+      await setup([
+        transfer({ sourceAmount: 1250000, targetCurrency: 'USD', targetAmount: 1000, exchangeRate: 1250 }),
+      ]);
+
+      buttons('Eliminar')[0].click();
+
+      const message = dialogOpen.mock.calls[0][1].data.message as string;
+      expect(message).toContain('1.250.000,00');
+      expect(message).toContain('US$');
+      expect(message).toContain('1.000,00');
+      expect(message).toContain('tipo de cambio');
+      expect(message).toContain('1.250,00');
+    });
+
+    it('después de eliminar vuelve a pedir la lista y deja el foco en Nueva transferencia', async () => {
+      await setup([transfer()]);
+      transfersApi.listTransfers.mockClear();
+      transfersApi.listTransfers.mockReturnValue(of([]));
+
+      buttons('Eliminar')[0].click();
+      fixture.detectChanges();
+
+      expect(transfersApi.listTransfers).toHaveBeenCalledTimes(1);
+      expect(text()).toContain('No hay transferencias en ese rango.');
+      expect(document.activeElement?.textContent).toContain('Nueva transferencia');
+    });
+
+    it('si el backend rechaza la eliminación muestra su mensaje y refresca la lista', async () => {
+      await setup([transfer()]);
+      transfersApi.deleteTransfer.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { code: 'PERIOD_CLOSED', detail: 'El período 2026-10 está cerrado.' },
+            }),
+        ),
+      );
+      transfersApi.listTransfers.mockClear();
+
+      buttons('Eliminar')[0].click();
+      fixture.detectChanges();
+
+      expect(root().querySelector('[role="alert"]')).not.toBeNull();
+      expect(transfersApi.listTransfers).toHaveBeenCalledTimes(1);
+    });
   });
 });

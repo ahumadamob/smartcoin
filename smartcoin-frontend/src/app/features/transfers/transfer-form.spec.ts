@@ -32,6 +32,7 @@ const CREATED: Transfer = {
   targetAccountName: 'Efectivo',
   targetCurrency: 'ARS',
   targetAmount: 50000,
+  editable: true,
 };
 
 describe('todayIso', () => {
@@ -43,11 +44,11 @@ describe('todayIso', () => {
 
 describe('TransferForm', () => {
   let fixture: ComponentFixture<TransferForm>;
-  let api: { createTransfer: ReturnType<typeof vi.fn> };
+  let api: { createTransfer: ReturnType<typeof vi.fn>; updateTransfer: ReturnType<typeof vi.fn> };
   let saved: ReturnType<typeof vi.fn<(t: Transfer) => void>>;
 
   beforeEach(async () => {
-    api = { createTransfer: vi.fn().mockReturnValue(of(CREATED)) };
+    api = { createTransfer: vi.fn().mockReturnValue(of(CREATED)), updateTransfer: vi.fn().mockReturnValue(of(CREATED)) };
     await TestBed.configureTestingModule({
       imports: [TransferForm],
       providers: [{ provide: TransferenciasService, useValue: api }],
@@ -261,5 +262,109 @@ describe('TransferForm', () => {
     expect(form().controls.note.value).toBe('');
     expect(form().controls.sourceAccountId.value).toBe(1);
     expect(form().controls.date.value).toBe('2026-10-15');
+  });
+
+  describe('edición (HU-29)', () => {
+    const form = () => fixture.componentInstance['form'];
+
+    function edit(transfer: Transfer) {
+      fixture.componentRef.setInput('transfer', transfer);
+      fixture.detectChanges();
+    }
+
+    it('carga los valores de la transferencia y guarda con PUT sin crear', () => {
+      edit({ ...CREATED, note: 'Extracción' });
+
+      expect(form().getRawValue()).toMatchObject({
+        sourceAccountId: 1,
+        targetAccountId: 2,
+        date: '2026-10-15',
+        amount: '50000,00',
+        note: 'Extracción',
+      });
+
+      form().controls.amount.setValue('45000,00');
+      fixture.componentInstance['submit']();
+
+      expect(api.createTransfer).not.toHaveBeenCalled();
+      expect(api.updateTransfer).toHaveBeenCalledWith(31, {
+        sourceAccountId: 1,
+        targetAccountId: 2,
+        date: '2026-10-15',
+        sourceAmount: 45000,
+        targetAmount: 45000,
+        note: 'Extracción',
+      });
+      expect(saved).toHaveBeenCalledWith(CREATED);
+    });
+
+    it('en una compra carga el monto de pesos y el de dólares, cada uno en su campo', () => {
+      edit({
+        ...CREATED,
+        targetAccountId: 3,
+        targetAccountName: 'Dólares',
+        targetCurrency: 'USD',
+        sourceAmount: 1250000,
+        targetAmount: 1000,
+      });
+
+      expect(form().controls.amount.value).toBe('1250000,00');
+      expect(form().controls.usdAmount.value).toBe('1000,00');
+      expect(form().controls.usdAmount.enabled).toBe(true);
+    });
+
+    it('en una venta el de pesos sale del destino y el de dólares del origen', () => {
+      edit({
+        ...CREATED,
+        sourceAccountId: 3,
+        sourceAccountName: 'Dólares',
+        sourceCurrency: 'USD',
+        sourceAmount: 500,
+        targetAccountId: 1,
+        targetAccountName: 'Banco',
+        targetAmount: 610000,
+      });
+
+      expect(form().controls.amount.value).toBe('610000,00');
+      expect(form().controls.usdAmount.value).toBe('500,00');
+
+      fixture.componentInstance['submit']();
+      expect(api.updateTransfer).toHaveBeenCalledWith(
+        31,
+        expect.objectContaining({ sourceAmount: 500, targetAmount: 610000 }),
+      );
+    });
+
+    it('al pasar a una cuenta de otra moneda pide el segundo monto', () => {
+      edit(CREATED);
+      expect(form().controls.usdAmount.disabled).toBe(true);
+
+      form().controls.targetAccountId.setValue(3);
+
+      expect(form().controls.usdAmount.enabled).toBe(true);
+      fixture.componentInstance['submit']();
+      expect(api.updateTransfer).not.toHaveBeenCalled();
+    });
+
+    it('muestra el error del backend y conserva lo cargado', () => {
+      api.updateTransfer.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { code: 'DATE_OUT_OF_RANGE', detail: 'La fecha no puede ser posterior a hoy (15/10/2026).' },
+            }),
+        ),
+      );
+      edit(CREATED);
+      form().controls.date.setValue('2026-10-20');
+
+      fixture.componentInstance['submit']();
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('no puede ser posterior a hoy');
+      expect(form().controls.date.value).toBe('2026-10-20');
+      expect(saved).not.toHaveBeenCalled();
+    });
   });
 });

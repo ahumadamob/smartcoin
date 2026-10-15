@@ -90,6 +90,8 @@
 
   <div class="actions">
     <button mat-button type="button" (click)="cancelled.emit()">Cancelar</button>
-    <button mat-flat-button type="submit" [disabled]="submitting()">Transferir</button>
+    <button mat-flat-button type="submit" [disabled]="submitting()">
+      {{ transfer() ? 'Guardar cambios' : 'Transferir' }}
+    </button>
   </div>
 </form>
