@@ -42,7 +42,7 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'CONSOLIDATION_REQUIR
  *
  * Si hay partidas editadas en los meses siguientes, la vista previa lo indica y el diálogo pide elegir «Respetar» o
  * «Pisar» (HU-25, `ManualPolicyChoice`): sin elección no se confirma, y la elegida se envía como
- * `manualEntriesPolicy`. Consolidar no se puede deshacer hasta HU-26, y el diálogo lo avisa.
+ * `manualEntriesPolicy`. Se puede desconsolidar mientras el mes esté abierto (HU-26), y el diálogo lo avisa.
  */
 @Component({
   selector: 'app-consolidation-dialog',

@@ -84,6 +84,17 @@
                       Consolidar
                     </button>
                   }
+                  @if (canUndo(entry)) {
+                    <button
+                      mat-button
+                      type="button"
+                      data-testid="unconsolidate-entry"
+                      [attr.aria-label]="'Desconsolidar ' + entry.name"
+                      (click)="unconsolidate.emit(entry)"
+                    >
+                      Desconsolidar
+                    </button>
+                  }
                   @if (canEdit(entry)) {
                     <button
                       mat-button

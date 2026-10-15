@@ -1,0 +1,38 @@
+<h2 mat-dialog-title>
+  Desconsolidar «{{ data.entry.name }}» de {{ data.period | period }}
+</h2>
+
+<mat-dialog-content class="content">
+  <p data-testid="unconsolidate-effect">
+    La partida vuelve a Parcial. Vas a poder corregir sus movimientos o su monto y consolidarla de nuevo.
+    Mientras el mes esté abierto se puede desconsolidar.
+  </p>
+
+  @if (recurring) {
+    <p class="note" data-testid="unconsolidate-kept">
+      <strong>Lo que se propagó no se deshace:</strong> el monto vigente del Concepto y los meses siguientes
+      conservan los valores que dejó esa consolidación hasta la próxima vez que consolides este Concepto.
+    </p>
+  } @else {
+    <p data-testid="unconsolidate-no-propagation">Esta partida no viene de un Concepto: no afecta otros meses.</p>
+  }
+
+  @if (error(); as message) {
+    <p class="error" role="alert" data-testid="unconsolidate-error">{{ message }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" cdkFocusInitial data-testid="cancel-unconsolidate" (click)="cancel()">
+    Cancelar
+  </button>
+  <button
+    mat-flat-button
+    type="button"
+    data-testid="confirm-unconsolidate"
+    [disabled]="submitting()"
+    (click)="confirm()"
+  >
+    Desconsolidar
+  </button>
+</mat-dialog-actions>

@@ -9,6 +9,7 @@ import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { provideLocale } from '../../core/locale';
 import { BudgetMonth } from './budget-month';
 import { ConsolidationDialogData, ConsolidationDialogResult } from './consolidation-dialog';
+import { UnconsolidateDialogData, UnconsolidateDialogResult } from './unconsolidate-dialog';
 import { QuickSettleDialogData, QuickSettleDialogResult } from './quick-settle-dialog';
 import { EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
@@ -159,6 +160,7 @@ describe('BudgetMonth', () => {
     | MovementDialogResult
     | ConsolidationDialogResult
     | QuickSettleDialogResult
+    | UnconsolidateDialogResult
     | undefined;
   let snackBar: { open: ReturnType<typeof vi.fn> };
   /** La acción del aviso («Consolidar»): se dispara con `snackAction.next()`. */
@@ -387,7 +389,7 @@ describe('BudgetMonth', () => {
         '$ 450.000,00',
         '$ 0,00',
         'Consolidada',
-        '',
+        'Desconsolidar',
       ]);
     });
 
@@ -550,15 +552,14 @@ describe('BudgetMonth', () => {
       ]);
     });
 
-    it('una sección sin ninguna acción posible (todo consolidado) no dibuja la columna de acciones vacía', async () => {
+    it('una sección de un período cerrado no dibuja la columna de acciones vacía', async () => {
       await open('/presupuesto/2026-11', {
-        '2026-11': of(withEntries('OPEN', [entry({ id: 10, status: 'CONSOLIDATED' }), oneOff({ id: 11, status: 'CONSOLIDATED' })])),
+        '2026-11': of(withEntries('CLOSED', [entry({ id: 10, status: 'CONSOLIDATED' }), oneOff({ id: 11, status: 'CONSOLIDATED' })])),
       });
 
       expect(header('Gastos')).not.toContain('Acciones');
       expect(editButtons()).toHaveLength(0);
-      // El botón del período sí está: no depende de las partidas.
-      expect(addButton()).not.toBeNull();
+      expect(root().querySelector('[data-testid="unconsolidate-entry"]')).toBeNull();
     });
 
     it('«Agregar partida» abre el diálogo con el mes que se ve y un vencimiento dentro de él', async () => {
@@ -1157,7 +1158,7 @@ describe('BudgetMonth', () => {
       expect(data).toEqual({ entry: partial, period: '2026-11' });
     });
 
-    it('al consolidar avisa lo que hizo el backend y vuelve a pedir el mes: la partida se ve Consolidada sin acciones', async () => {
+    it('al consolidar avisa lo que hizo el backend y vuelve a pedir el mes: la partida se ve Consolidada y solo ofrece desconsolidar', async () => {
       await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [luz()])) });
       const after = luz({ status: 'CONSOLIDATED', pendingAmount: 0, forecastAmount: 41000 });
       api.getPeriod = vi.fn().mockReturnValue(of(view('OPEN', [after])));
@@ -1176,7 +1177,10 @@ describe('BudgetMonth', () => {
       expect(cells(rows('Gastos')[0])[8]).toBe('Consolidada');
       expect(cells(rows('Gastos')[0])[7]).toBe('$ 0,00');
       expect(consolidateButtons()).toHaveLength(0);
-      expect(section('Gastos').querySelector('[data-testid="actions"]')).toBeNull();
+      // Lo único que ofrece una consolidada de un período abierto es desconsolidarla (HU-26).
+      expect(
+        Array.from(section('Gastos').querySelectorAll('[data-testid="actions"] button')).map((b) => text(b)),
+      ).toEqual(['Desconsolidar']);
       expect(section('Gastos').querySelector('table')).toBe(tableBefore);
     });
 
@@ -1297,6 +1301,102 @@ describe('BudgetMonth', () => {
       dialogResult = undefined;
 
       settleButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('desconsolidar (HU-26)', () => {
+    const luz = (overrides: Partial<PeriodEntry> = {}) =>
+      entry({
+        id: 40,
+        name: 'Luz',
+        status: 'CONSOLIDATED',
+        actualAmount: 41000,
+        pendingAmount: 0,
+        forecastAmount: 41000,
+        ...overrides,
+      });
+    const view = (status: 'OPEN' | 'CLOSED', expenses: PeriodEntry[]): PeriodView => ({
+      ...NOVEMBER,
+      status,
+      incomes: [],
+      expenses,
+      totals: [{ currency: 'ARS', income: side(0, 0, 0, 0, 0), expense: side(expenses.length, 0, 0, 0, 0), result: 0 }],
+    });
+    const undoButtons = () =>
+      Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="unconsolidate-entry"]'));
+
+    it('«Desconsolidar» está solo en las consolidadas de un período abierto', async () => {
+      await open('/presupuesto/2026-11', {
+        '2026-11': of(
+          view('OPEN', [
+            luz(),
+            entry({ id: 41, name: 'Agua', status: 'PARTIAL', actualAmount: 9000, pendingAmount: 100 }),
+            entry({ id: 42, name: 'Gas', status: 'ESTIMATED' }),
+          ]),
+        ),
+      });
+
+      expect(undoButtons().map((b) => [b.getAttribute('aria-label'), text(b)])).toEqual([
+        ['Desconsolidar Luz', 'Desconsolidar'],
+      ]);
+    });
+
+    it('un período cerrado no la ofrece', async () => {
+      await open('/presupuesto/2026-08', {
+        '2026-08': of({ ...view('CLOSED', [luz()]), period: '2026-08' }),
+      });
+
+      expect(undoButtons()).toHaveLength(0);
+    });
+
+    it('abre el diálogo con la partida y el mes que se ve', async () => {
+      const consolidated = luz();
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [consolidated])) });
+
+      undoButtons()[0].click();
+
+      const data = dialog.open.mock.calls[0][1].data as UnconsolidateDialogData;
+      expect(data).toEqual({ entry: consolidated, period: '2026-11' });
+    });
+
+    it('al confirmar vuelve a pedir el mes: la partida se ve Parcial con sus acciones de nuevo', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [luz()])) });
+      const after = luz({ status: 'PARTIAL', pendingAmount: 0, forecastAmount: 41000 });
+      api.getPeriod = vi.fn().mockReturnValue(of(view('OPEN', [after])));
+      dialogResult = { unconsolidated: true, message: '«Luz» volvió a Parcial: ya podés corregirla.' };
+
+      undoButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(snackBar.open.mock.calls[0][0]).toContain('volvió a Parcial');
+      expect(cells(rows('Gastos')[0])[8]).toBe('Parcial');
+      expect(undoButtons()).toHaveLength(0);
+      expect(root().querySelector('[data-testid="register-movement"]')).not.toBeNull();
+    });
+
+    it('si el diálogo avisa que la pantalla estaba desactualizada, vuelve a pedir el mes sin avisar nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [luz()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = { stale: true };
+
+      undoButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [luz()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = undefined;
+
+      undoButtons()[0].click();
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);

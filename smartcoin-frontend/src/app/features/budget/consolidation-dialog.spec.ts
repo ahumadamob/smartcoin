@@ -207,10 +207,11 @@ describe('ConsolidationDialog (HU-23, HU-25)', () => {
     expect(confirm().disabled).toBe(false);
   });
 
-  it('avisa que no se puede deshacer por ahora', async () => {
+  it('avisa que se puede desconsolidar mientras el mes esté abierto, sin decir que no se puede deshacer', async () => {
     await open([of(preview())]);
 
-    expect(text(byId('irreversible'))).toContain('no se puede deshacer');
+    expect(text(byId('irreversible'))).toContain('desconsolidarla mientras el mes esté abierto');
+    expect(text(root())).not.toContain('no se puede deshacer');
   });
 
   describe('con partidas editadas en los meses siguientes (HU-25)', () => {

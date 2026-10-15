@@ -17,6 +17,7 @@ const MESSAGES: Record<string, string> = {
   FIELD_NOT_EDITABLE: 'Ese dato ya no se puede editar. Actualizá la pantalla y probá de nuevo.',
   PERIOD_CLOSED: 'Ese mes ya está cerrado y no admite cambios.',
   ENTRY_NOT_PENDING: 'La partida ya está consolidada: no admite ese cambio.',
+  ENTRY_NOT_CONSOLIDATED: 'La partida no está consolidada: no hace falta desconsolidarla.',
   CONSOLIDATION_REQUIRES_MOVEMENT:
     'La partida no tiene movimientos: registrá al menos un cobro o pago antes de consolidarla.',
   MANUAL_POLICY_REQUIRED:

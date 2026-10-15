@@ -1,0 +1,24 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.content p {
+  margin: 0;
+}
+
+.note {
+  padding: 12px 16px;
+  border-left: 4px solid var(--mat-sys-primary);
+  background: var(--mat-sys-surface-container);
+}
+
+.error {
+  color: var(--mat-sys-error);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

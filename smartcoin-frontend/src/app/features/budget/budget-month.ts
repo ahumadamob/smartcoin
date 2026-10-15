@@ -27,6 +27,7 @@ import { EntryDeleteDialog, EntryDeleteDialogData, EntryDeleteDialogResult } fro
 import { EntryFormDialog, EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { EntryTable } from './entry-table';
 import { MovementDialog, MovementDialogData, MovementDialogResult } from './movement-dialog';
+import { UnconsolidateDialog, UnconsolidateDialogData, UnconsolidateDialogResult } from './unconsolidate-dialog';
 import { QuickSettleDialog, QuickSettleDialogData, QuickSettleDialogResult } from './quick-settle-dialog';
 import { registeredMessage } from './movement-text';
 import { isPeriod, nextPeriod, PeriodRange, periodsInRange, previousPeriod } from './period-nav';
@@ -232,6 +233,38 @@ export class BudgetMonth implements OnInit {
         this.snackBar.open(result.message, undefined, { duration: 8000 });
         // La fila consolidada ya no tiene acciones: el foco pasa a la de la fila que ocupa su lugar.
         this.reload(null, focus);
+      });
+  }
+
+  /**
+   * «Desconsolidar»: el diálogo explica lo que no se revierte y, al confirmar, se vuelve a pedir el mes: la partida
+   * se ve Parcial, con los valores del backend y sus acciones de nuevo disponibles (HU-26).
+   */
+  protected unconsolidateEntry(entry: PeriodEntry): void {
+    const period = this.period();
+    if (period === null || !isPeriod(period) || this.readonly()) {
+      return;
+    }
+    this.dialog
+      .open<UnconsolidateDialog, UnconsolidateDialogData, UnconsolidateDialogResult>(UnconsolidateDialog, {
+        data: { entry, period },
+        width: '560px',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result === undefined) {
+          return;
+        }
+        if ('stale' in result) {
+          // El período se cerró o la partida ya no está consolidada: lo que se ve ya no es lo que hay.
+          this.reload(null);
+          return;
+        }
+        this.snackBar.open(result.message, undefined, { duration: 8000 });
+        // Vuelve a admitir movimientos: el foco, si se perdió, pasa a «Registrar» de la misma fila.
+        this.reload(entry.id, null, 'register');
       });
   }
 

@@ -10,6 +10,7 @@ import {
   canEditAmount,
   canEditEntry,
   canQuickSettle,
+  canUnconsolidate,
   canRegisterMovement,
 } from './entry-actions';
 import { quickSettleLabel, registerLabel } from './movement-text';
@@ -58,6 +59,8 @@ export class EntryTable {
   readonly registerMovement = output<PeriodEntry>();
   /** El usuario pidió consolidar esta partida (HU-23). */
   readonly consolidate = output<PeriodEntry>();
+  /** El usuario pidió desconsolidar esta partida (HU-26). */
+  readonly unconsolidate = output<PeriodEntry>();
   /** El usuario pidió pagar o cobrar todo lo pendiente de esta partida (HU-22). */
   readonly quickSettle = output<PeriodEntry>();
   /** El usuario pidió editar esta partida. */
@@ -77,6 +80,11 @@ export class EntryTable {
   protected readonly canConsolidate = canConsolidate;
   protected readonly quickSettleLabel = quickSettleLabel;
 
+  /** «Desconsolidar»: las consolidadas de un período abierto (HU-26). */
+  protected canUndo(entry: PeriodEntry): boolean {
+    return canUnconsolidate(entry, this.readonly());
+  }
+
   /** «Pagar todo» o «Cobrar todo»: partidas con pendiente en un período abierto (HU-22). */
   protected canSettle(entry: PeriodEntry): boolean {
     return canQuickSettle(entry, this.readonly());
@@ -90,6 +98,7 @@ export class EntryTable {
         (entry) =>
           canRegisterMovement(entry) ||
           canConsolidate(entry) ||
+          canUnconsolidate(entry, false) ||
           canEditEntry(entry) ||
           canEditAmount(entry) ||
           canDeleteEntry(entry),

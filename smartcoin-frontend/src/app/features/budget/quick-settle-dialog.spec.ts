@@ -191,6 +191,13 @@ describe('QuickSettleDialog (HU-22)', () => {
     expect(text(byId('settle-amount'))).toContain('Se va a registrar un cobro de $ 4.000,00');
   });
 
+  it('avisa que se puede desconsolidar mientras el mes esté abierto, sin decir que no se puede deshacer', async () => {
+    await open();
+
+    expect(text(byId('irreversible'))).toContain('desconsolidarla mientras el mes esté abierto');
+    expect(text(root())).not.toContain('no se puede deshacer');
+  });
+
   it('muestra la nueva estimación y las partidas futuras que cambian, del mismo plan del backend', async () => {
     await open();
 

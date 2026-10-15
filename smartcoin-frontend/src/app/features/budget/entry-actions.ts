@@ -63,3 +63,11 @@ export function canChangeMovements(entry: PeriodEntry, readonly: boolean): boole
 export function canQuickSettle(entry: PeriodEntry, readonly: boolean): boolean {
   return !readonly && entry.status !== 'CONSOLIDATED' && entry.pendingAmount > 0;
 }
+
+/**
+ * Si una partida ofrece «Desconsolidar» (HU-26, RN-29): las consolidadas de un período abierto. Es solo lo que la
+ * pantalla ofrece: quien decide es el backend, que además mira el período.
+ */
+export function canUnconsolidate(entry: PeriodEntry, readonly: boolean): boolean {
+  return !readonly && entry.status === 'CONSOLIDATED';
+}

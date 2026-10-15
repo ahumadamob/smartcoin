@@ -6,6 +6,7 @@ import {
   canEditAmount,
   canEditEntry,
   canQuickSettle,
+  canUnconsolidate,
   canRegisterMovement,
 } from './entry-actions';
 
@@ -93,6 +94,22 @@ describe('acciones de una partida', () => {
 
     it('un período cerrado no la ofrece', () => {
       expect(canQuickSettle(entry({ status: 'PARTIAL', pendingAmount: 4000 }), true)).toBe(false);
+    });
+  });
+
+  describe('«Desconsolidar» (HU-26)', () => {
+    it('la ofrecen las consolidadas de un período abierto, con o sin Concepto', () => {
+      expect(canUnconsolidate(entry({ budgetItemId: 31, status: 'CONSOLIDATED' }), false)).toBe(true);
+      expect(canUnconsolidate(entry({ budgetItemId: null, status: 'CONSOLIDATED' }), false)).toBe(true);
+    });
+
+    it('las pendientes, Estimadas o Parciales, no la ofrecen', () => {
+      expect(canUnconsolidate(entry({ status: 'ESTIMATED' }), false)).toBe(false);
+      expect(canUnconsolidate(entry({ status: 'PARTIAL' }), false)).toBe(false);
+    });
+
+    it('un período cerrado no la ofrece', () => {
+      expect(canUnconsolidate(entry({ status: 'CONSOLIDATED' }), true)).toBe(false);
     });
   });
 });
