@@ -234,3 +234,127 @@ test.describe('HU-23 · consolidar una partida', () => {
     expect(view.incomes.find((e: { name: string }) => e.name === 'Sueldo').status).toBe('CONSOLIDATED');
   });
 });
+
+/**
+ * HU-24 (estimar con el promedio de los últimos 3). Un usuario propio, con el período inicial dos meses antes del
+ * actual: se pueden consolidar como máximo tres meses de un Concepto mensual (el actual y los dos anteriores). Los
+ * montos están elegidos para que el orden y el redondeo cambien el resultado: 100,00 (mes anterior), 200,01 (mes
+ * actual) y 400,00 (dos meses antes, consolidado último). El promedio de los dos primeros es 150,005 → 150,01 y el
+ * de los tres, 233,3366… → 233,34; el último valor por orden de consolidación daría 400,00.
+ *
+ * «Más de 3» solo se prueba con tests unitarios (no hay cuatro meses consolidables) y las consolidaciones de cierre,
+ * en HU-31.
+ */
+test.describe('HU-24 · estimar con el promedio de los últimos 3', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let accountId: number;
+
+  const months = [monthFrom(-2), monthFrom(-1), monthFrom(0)];
+  /** Un día de cada mes que ya pasó (el día 1) y, en el actual, hoy: nunca una fecha futura. */
+  const movementDate = (month: Date) => (periodOf(month) === periodOf(today) ? isoDate(today) : `${periodOf(month)}-01`);
+  /** Los meses como los nombra el diálogo: sin año si son todos del mismo. */
+  const names = (dates: Date[]) => {
+    const sameYear = new Set(dates.map((d) => d.getFullYear())).size === 1;
+    return [...dates]
+      .sort((a, b) => a.getTime() - b.getTime())
+      .map((d) => (sameYear ? MONTHS[d.getMonth()] : periodText(d)));
+  };
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = await api.post('/api/accounts', {
+      data: { name: 'Banco Nación', type: 'BANK', currency: 'ARS', openingDate: `${startPeriod()}-01`, initialBalance: 0 },
+    });
+    expect(account.status()).toBe(201);
+    accountId = (await account.json()).id;
+    const item = await api.post('/api/budget-items', {
+      data: {
+        name: 'Luz',
+        kind: 'EXPENSE',
+        defaultAccountId: accountId,
+        periodicity: 'MONTHLY',
+        dueDay: 10,
+        dueMonthOffset: 0,
+        startPeriod: periodOf(months[0]),
+        estimationRule: 'AVERAGE_LAST_3',
+        currentAmount: 50000,
+      },
+    });
+    expect(item.status(), 'alta del Concepto').toBe(201);
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const section = (name: string) => page.getByRole('region', { name, exact: true });
+  const row = () =>
+    section('Gastos')
+      .locator('tbody tr')
+      .filter({ has: page.getByRole('rowheader', { name: 'Luz', exact: true }) });
+  const dialog = () => page.getByRole('dialog');
+
+  async function pay(month: Date, amount: number) {
+    const view = await (await api.get(`/api/periods/${periodOf(month)}`)).json();
+    const id = (view.expenses as { name: string; id: number }[]).find((e) => e.name === 'Luz')!.id;
+    const response = await api.post(`/api/entries/${id}/movements`, {
+      data: { date: movementDate(month), amount, accountId },
+    });
+    expect(response.status(), 'movimiento').toBe(201);
+  }
+
+  /** Abre el diálogo de consolidación de la Luz del mes, comprueba lo que explica y confirma. */
+  async function consolidate(month: Date, estimate: string, basis: string | RegExp) {
+    await page.goto(`/presupuesto/${periodOf(month)}`);
+    await row().getByRole('button', { name: 'Consolidar Luz' }).click();
+    await expect(dialog().getByTestId('estimate')).toHaveText(estimate);
+    await expect(dialog().getByTestId('rule')).toContainText('Promedio de los últimos 3');
+    await expect(dialog().getByTestId('average-basis')).toHaveText(basis);
+    await dialog().getByTestId('confirm-consolidate').click();
+    await expect(dialog()).toBeHidden();
+    await expect(row().locator('th, td').nth(8)).toHaveText('Consolidada');
+  }
+
+  test('una consolidación: la estimación es ese monto y el diálogo aclara que promedia la que hay', async () => {
+    await pay(months[1], 100);
+
+    await consolidate(months[1], '$ 100,00', new RegExp(`^Promedio de ${names([months[1]])[0]}: la única consolidada`));
+  });
+
+  test('dos consolidaciones: el promedio de las dos, con medio centavo hacia arriba', async () => {
+    await pay(months[2], 200.01);
+
+    const [first, second] = names([months[1], months[2]]);
+    await consolidate(months[2], '$ 150,01', new RegExp(`^Promedio de ${first} y ${second}: las únicas consolidadas`));
+  });
+
+  test('tres consolidaciones, la más vieja al final: el promedio de las tres con redondeo', async () => {
+    await pay(months[0], 400);
+
+    const [a, b, c] = names(months);
+    await consolidate(months[0], '$ 233,34', `Promedio de ${a}, ${b} y ${c}.`);
+  });
+
+  test('el monto vigente es el promedio en el mes siguiente y en la lista de Conceptos', async () => {
+    await page.goto(`/presupuesto/${periodOf(monthFrom(1))}`);
+    const cells = row().locator('th, td');
+    await expect(cells.nth(5)).toContainText('$ 233,34');
+    await expect(cells.nth(8)).toHaveText('Estimada');
+
+    await page.goto('/conceptos');
+    await expect(page.getByRole('row').filter({ hasText: 'Luz' })).toContainText('$ 233,34');
+
+    // El mes actual, consolidado, conserva su monto real y no lo pisó el promedio.
+    await page.goto('/presupuesto');
+    await expect(row().locator('th, td').nth(6)).toHaveText('$ 200,01');
+  });
+});
