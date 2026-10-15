@@ -30,6 +30,10 @@ export interface Transfer {
      */
     targetAmount: number;
     note?: string | null;
+    /**
+     * Monto en ARS dividido por monto en USD, con 2 decimales (RN-37). Nulo si las dos cuentas son de la misma moneda. No se guarda.
+     */
+    exchangeRate?: number | null;
 }
 export namespace Transfer {
     export const SourceCurrencyEnum = {
