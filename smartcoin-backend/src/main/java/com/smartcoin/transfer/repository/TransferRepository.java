@@ -39,4 +39,14 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
 			where t.userId = :userId and t.transferDate <= :date
 			group by t.sourceAccount.id""")
 	List<AccountTotal> sumOutgoingByAccountUpTo(@Param("userId") Long userId, @Param("date") LocalDate date);
+
+	/** HU-27: transferencias del usuario con fecha entre {@code from} y {@code to} (inclusive), más recientes primero. */
+	@Query("""
+			select t from Transfer t
+			join fetch t.sourceAccount
+			join fetch t.targetAccount
+			where t.userId = :userId and t.transferDate >= :from and t.transferDate <= :to
+			order by t.transferDate desc, t.id desc""")
+	List<Transfer> findByUserIdAndDateBetween(@Param("userId") Long userId, @Param("from") LocalDate from,
+			@Param("to") LocalDate to);
 }

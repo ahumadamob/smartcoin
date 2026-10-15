@@ -48,4 +48,32 @@ class BalanceCalculatorTest {
 		assertThatThrownBy(() -> BalanceCalculator.balance(d("1.005"), Totals.none()))
 				.isInstanceOf(ArithmeticException.class);
 	}
+
+	/** HU-27, criterio 5: extraer 50.000,00 del banco al efectivo resta en uno, suma en el otro y el total no cambia. */
+	@Test
+	void aTransferBetweenAccountsOfTheSameCurrencyLeavesTheSubtotalUnchanged() {
+		BigDecimal bankBefore = BalanceCalculator.balance(d("100000.00"), Totals.none());
+		BigDecimal cashBefore = BalanceCalculator.balance(d("20000.00"), Totals.none());
+
+		BigDecimal bankAfter = BalanceCalculator.balance(d("100000.00"),
+				new Totals(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, d("50000.00")));
+		BigDecimal cashAfter = BalanceCalculator.balance(d("20000.00"),
+				new Totals(BigDecimal.ZERO, BigDecimal.ZERO, d("50000.00"), BigDecimal.ZERO));
+
+		assertThat(bankAfter).isEqualTo(d("50000.00"));
+		assertThat(cashAfter).isEqualTo(d("70000.00"));
+		assertThat(bankAfter.add(cashAfter)).isEqualTo(bankBefore.add(cashBefore));
+	}
+
+	/** RN-35: cada lado usa su propio monto, así que una compra de dólares resta pesos y suma dólares. */
+	@Test
+	void aTransferBetweenDifferentCurrenciesUsesEachSidesOwnAmount() {
+		BigDecimal pesos = BalanceCalculator.balance(d("2000000.00"),
+				new Totals(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, d("1250000.00")));
+		BigDecimal dollars = BalanceCalculator.balance(d("0.00"),
+				new Totals(BigDecimal.ZERO, BigDecimal.ZERO, d("1000.00"), BigDecimal.ZERO));
+
+		assertThat(pesos).isEqualTo(d("750000.00"));
+		assertThat(dollars).isEqualTo(d("1000.00"));
+	}
 }
