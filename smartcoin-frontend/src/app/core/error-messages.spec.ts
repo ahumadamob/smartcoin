@@ -33,6 +33,10 @@ describe('messageFor', () => {
     ['PERIOD_CLOSED', 'Ese mes ya está cerrado y no admite cambios.'],
     ['ENTRY_NOT_PENDING', 'La partida ya está consolidada: no admite ese cambio.'],
     [
+      'TRANSFER_AMOUNTS_MISMATCH',
+      'Las dos cuentas son de la misma moneda: el monto que sale y el que entra tienen que ser iguales.',
+    ],
+    [
       'CONSOLIDATION_REQUIRES_MOVEMENT',
       'La partida no tiene movimientos: registrá al menos un cobro o pago antes de consolidarla.',
     ],

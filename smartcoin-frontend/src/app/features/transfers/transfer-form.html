@@ -1,0 +1,65 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form">
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Cuenta de origen</mat-label>
+    <mat-select formControlName="sourceAccountId" required>
+      @for (account of accounts(); track account.id) {
+        <mat-option [value]="account.id">{{ label(account) }}</mat-option>
+      }
+    </mat-select>
+    @if (form.controls.sourceAccountId.hasError('required')) {
+      <mat-error>Elegí la cuenta de origen.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Cuenta de destino</mat-label>
+    <mat-select formControlName="targetAccountId" required>
+      @for (account of targets(); track account.id) {
+        <mat-option [value]="account.id">{{ label(account) }}</mat-option>
+      }
+    </mat-select>
+    @if (form.controls.targetAccountId.hasError('required')) {
+      <mat-error>Elegí la cuenta de destino.</mat-error>
+    } @else {
+      <mat-hint>Solo las cuentas de la misma moneda que el origen.</mat-hint>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Fecha</mat-label>
+    <input matInput type="date" formControlName="date" required />
+    @if (form.controls.date.hasError('required') || form.controls.date.hasError('date')) {
+      <mat-error>Ingresá una fecha válida.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Monto</mat-label>
+    <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
+    <mat-hint>Con coma decimal, por ejemplo 50000,00.</mat-hint>
+    @if (form.controls.amount.hasError('required')) {
+      <mat-error>Ingresá el monto.</mat-error>
+    } @else if (form.controls.amount.hasError('amount')) {
+      <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
+    } @else if (form.controls.amount.hasError('positive')) {
+      <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Nota (opcional)</mat-label>
+    <input matInput formControlName="note" maxlength="200" autocomplete="off" />
+    @if (form.controls.note.hasError('maxlength')) {
+      <mat-error>La nota no puede superar los 200 caracteres.</mat-error>
+    }
+  </mat-form-field>
+
+  <div class="actions">
+    <button mat-button type="button" (click)="cancelled.emit()">Cancelar</button>
+    <button mat-flat-button type="submit" [disabled]="submitting()">Transferir</button>
+  </div>
+</form>

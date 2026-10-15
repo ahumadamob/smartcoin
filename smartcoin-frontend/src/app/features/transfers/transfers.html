@@ -1,0 +1,62 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">Transferencias</h1>
+    @if (!formOpen() && !loading()) {
+      <button mat-flat-button type="button" (click)="openForm()">Nueva transferencia</button>
+    }
+  </header>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (formOpen()) {
+    <mat-card appearance="outlined" class="form-card">
+      <mat-card-header>
+        <h2 class="subtitle">Nueva transferencia</h2>
+      </mat-card-header>
+      <mat-card-content>
+        <app-transfer-form [accounts]="accounts()" (saved)="onSaved()" (cancelled)="closeForm()" />
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <form [formGroup]="range" (ngSubmit)="search()" class="range" aria-label="Rango de fechas">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Desde</mat-label>
+      <input matInput type="date" formControlName="from" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Hasta</mat-label>
+      <input matInput type="date" formControlName="to" />
+    </mat-form-field>
+    <button mat-stroked-button type="submit">Ver</button>
+    <span class="detail">Sin fechas, se muestra el mes actual.</span>
+  </form>
+
+  @if (loading()) {
+    <p>Cargando transferencias…</p>
+  } @else if (transfers().length === 0) {
+    <p class="empty">No hay transferencias en ese rango.</p>
+  } @else {
+    <ul class="list" aria-label="Transferencias">
+      @for (transfer of transfers(); track transfer.id) {
+        <li class="row" data-testid="transfer">
+          <span class="date">{{ transfer.date | date: dateFormat }}</span>
+          <div class="info">
+            <span class="name">{{ transfer.sourceAccountName }} → {{ transfer.targetAccountName }}</span>
+            @if (transfer.note) {
+              <span class="detail">{{ transfer.note }}</span>
+            }
+          </div>
+          <span class="amount">
+            {{ transfer.sourceAmount | money: transfer.sourceCurrency }}
+            @if (transfer.sourceCurrency !== transfer.targetCurrency) {
+              → {{ transfer.targetAmount | money: transfer.targetCurrency }}
+            }
+          </span>
+        </li>
+      }
+    </ul>
+  }
+</div>

@@ -72,9 +72,8 @@ export const routes: Routes = [
       },
       {
         path: 'transferencias',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/transfers/transfers').then((m) => m.Transfers),
         title: 'Transferencias',
-        data: { heading: 'Transferencias' },
       },
       {
         path: 'cierre/:period',

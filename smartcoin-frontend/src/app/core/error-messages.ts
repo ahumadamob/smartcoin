@@ -26,6 +26,8 @@ const MESSAGES: Record<string, string> = {
   ENTRY_HAS_MOVEMENTS: 'La partida tiene movimientos: no se puede eliminar.',
   DATE_OUT_OF_RANGE:
     'La fecha está fuera del rango permitido: no puede ser anterior a la ventana de la partida ni a la apertura de la cuenta, ni posterior a hoy.',
+  TRANSFER_AMOUNTS_MISMATCH:
+    'Las dos cuentas son de la misma moneda: el monto que sale y el que entra tienen que ser iguales.',
 };
 
 const VALIDATION_ERROR = 'VALIDATION_ERROR';
