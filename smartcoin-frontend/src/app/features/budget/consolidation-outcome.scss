@@ -1,0 +1,48 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lead,
+.note,
+.amounts {
+  margin: 0;
+}
+
+.note {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.875rem;
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 500;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    text-align: left;
+  }
+
+  .number {
+    text-align: right;
+    white-space: nowrap;
+  }
+}

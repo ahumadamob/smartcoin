@@ -12,12 +12,12 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { ConsolidacinService, ConsolidationPreview, ConsolidationTarget, PeriodEntry } from '../../api';
+import { ConsolidacinService, ConsolidationPreview, PeriodEntry } from '../../api';
 import { detailFor, messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
-import { averageBasisText, consolidatedMessage, ManualPolicy, noChangesText, RULE_LABELS } from './consolidation-text';
-import { ManualPolicyChoice } from './manual-policy-choice';
+import { ConsolidationOutcome } from './consolidation-outcome';
+import { consolidatedMessage, ManualPolicy } from './consolidation-text';
 
 /** Qué se consolida: la partida (la fila de la vista del mes) y el mes que se está viendo. */
 export interface ConsolidationDialogData {
@@ -47,7 +47,7 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'CONSOLIDATION_REQUIR
 @Component({
   selector: 'app-consolidation-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatDialogModule, ManualPolicyChoice, MoneyPipe, PeriodPipe],
+  imports: [MatButtonModule, MatDialogModule, ConsolidationOutcome, PeriodPipe],
   templateUrl: './consolidation-dialog.html',
   styleUrl: './consolidation-dialog.scss',
 })
@@ -55,7 +55,6 @@ export class ConsolidationDialog implements OnInit {
   private readonly api = inject(ConsolidacinService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
-  private readonly periodPipe = new PeriodPipe();
   private readonly ref = inject<MatDialogRef<ConsolidationDialog, ConsolidationDialogResult>>(MatDialogRef);
   private readonly money = new MoneyPipe();
   protected readonly data = inject<ConsolidationDialogData>(MAT_DIALOG_DATA);
@@ -71,26 +70,8 @@ export class ConsolidationDialog implements OnInit {
   protected readonly gone = signal(false);
   private stale = false;
 
-  /** Las partidas de los meses siguientes cuyo presupuestado cambia. */
-  protected readonly changing = computed<ConsolidationTarget[]>(() =>
-    (this.preview()?.targets ?? []).filter((target) => target.changes && !target.manual),
-  );
   /** Qué hacer con las editadas: sin elegir mientras el usuario no decida (HU-25). */
   protected readonly policy = signal<ManualPolicy | null>(null);
-  protected readonly ruleLabel = computed(() => {
-    const rule = this.preview()?.estimationRule;
-    return rule ? RULE_LABELS[rule] : null;
-  });
-  /** Cómo se obtuvo el promedio, con las consolidaciones que informa el backend; `null` con otra regla. */
-  protected readonly averageText = computed(() => {
-    const preview = this.preview();
-    if (preview?.estimationRule !== 'AVERAGE_LAST_3') {
-      return null;
-    }
-    return averageBasisText(preview.estimateBasis, (period) => this.periodPipe.transform(period)) || null;
-  });
-  protected readonly blockedByPolicy = computed(() => this.preview()?.manualPolicyRequired === true);
-  protected readonly noChanges = computed(() => noChangesText(this.preview()?.targets.length ?? 0));
   protected readonly canConfirm = computed(() => {
     const preview = this.preview();
     return (

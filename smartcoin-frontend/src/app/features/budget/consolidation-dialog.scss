@@ -5,11 +5,8 @@
   padding-top: 8px;
 }
 
-.lead,
 .note,
-.error,
-.amounts,
-.targets {
+.error {
   margin: 0;
 }
 
@@ -19,43 +16,6 @@
 
 .error {
   color: var(--mat-sys-error);
-}
-
-.amounts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-
-  dt {
-    color: var(--mat-sys-on-surface-variant);
-    font-size: 0.875rem;
-  }
-
-  dd {
-    margin: 0;
-    font-weight: 500;
-  }
-}
-
-.targets {
-  padding-left: 20px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-
-  th,
-  td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
-    text-align: left;
-  }
-
-  .number {
-    text-align: right;
-    white-space: nowrap;
-  }
 }
 
 button:focus-visible {

@@ -1,0 +1,64 @@
+<dl class="amounts" data-testid="consolidation-amounts">
+  <div>
+    <dt>{{ actualLabel() }}</dt>
+    <dd data-testid="actual">{{ preview().actualAmount | money: currency() }}</dd>
+  </div>
+  @if (preview().recurring) {
+    <div>
+      <dt>Monto vigente actual</dt>
+      <dd data-testid="current-amount">{{ preview().currentAmount! | money: currency() }}</dd>
+    </div>
+    <div>
+      <dt>Nueva estimación</dt>
+      <dd data-testid="estimate">{{ preview().estimate! | money: currency() }}</dd>
+    </div>
+  }
+</dl>
+
+<p class="note" data-testid="irreversible">
+  Consolidar no se puede deshacer por ahora: la partida queda cerrada con su monto real.
+</p>
+
+@if (!preview().recurring) {
+  <p data-testid="no-propagation">
+    Esta partida no viene de un Concepto: se consolida por su monto real y no afecta otros meses.
+  </p>
+} @else {
+  @if (ruleLabel(); as rule) {
+    <p class="note" data-testid="rule">Regla de estimación del Concepto: {{ rule }}.</p>
+  }
+  @if (averageText(); as basis) {
+    <p class="note" data-testid="average-basis">{{ basis }}</p>
+  }
+
+  @if (blockedByPolicy()) {
+    <app-manual-policy-choice [targets]="preview().targets" [currency]="currency()" [(policy)]="policy" />
+  }
+  @if (changing().length === 0) {
+    @if (!blockedByPolicy()) {
+      <p data-testid="no-changes">{{ noChanges() }}</p>
+    }
+  } @else {
+    <p id="targets-label" class="lead">
+      Estas partidas de los meses siguientes cambian{{ blockedByPolicy() ? ' con cualquiera de las dos opciones' : '' }}:
+    </p>
+    <table aria-labelledby="targets-label" data-testid="targets">
+      <thead>
+        <tr>
+          <th scope="col">Mes</th>
+          <th scope="col" class="number">Presupuestado actual</th>
+          <th scope="col" class="number">Presupuestado nuevo</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (target of changing(); track target.entryId) {
+          <tr data-testid="target">
+            <th scope="row">{{ target.period | period }}</th>
+            <td class="number">{{ target.currentBudgetedAmount | money: currency() }}</td>
+            <td class="number">{{ target.newBudgetedAmount | money: currency() }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+}
