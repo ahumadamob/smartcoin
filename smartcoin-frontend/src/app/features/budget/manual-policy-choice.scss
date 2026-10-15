@@ -1,0 +1,51 @@
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lead,
+.option-text,
+.note {
+  margin: 0;
+}
+
+.note,
+.option-text,
+.same {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.option {
+  padding: 8px 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+}
+
+.option-text {
+  // Alineado con el texto del botón de opción.
+  padding-left: 40px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    text-align: left;
+  }
+
+  .number {
+    text-align: right;
+    white-space: nowrap;
+  }
+}

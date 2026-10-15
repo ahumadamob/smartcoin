@@ -1,0 +1,53 @@
+<div class="choice" data-testid="policy-choice">
+  <p id="policy-label" class="lead" data-testid="policy-required">{{ intro() }}</p>
+
+  <table aria-label="Partidas editadas a mano" data-testid="edited-targets">
+    <thead>
+      <tr>
+        <th scope="col">Mes</th>
+        <th scope="col" class="number">Presupuestado actual</th>
+        <th scope="col" class="number">Si se pisa</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (target of edited(); track target.entryId) {
+        <tr data-testid="edited-target">
+          <th scope="row">{{ target.period | period }}</th>
+          <td class="number">{{ target.currentBudgetedAmount | money: currency() }}</td>
+          <td class="number">
+            {{ target.newBudgetedAmount | money: currency() }}
+            @if (!target.changes) {
+              <span class="same">(ya coincide)</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <mat-radio-group
+    class="options"
+    aria-labelledby="policy-label"
+    [value]="policy()"
+    (change)="choose($event)"
+  >
+    <div class="option">
+      <mat-radio-button value="KEEP" data-testid="policy-keep" aria-describedby="policy-keep-text"
+        >Respetar</mat-radio-button
+      >
+      <p id="policy-keep-text" class="option-text" data-testid="policy-keep-text">{{ keepDescription() }}</p>
+    </div>
+    <div class="option">
+      <mat-radio-button value="OVERWRITE" data-testid="policy-overwrite" aria-describedby="policy-overwrite-text"
+        >Pisar</mat-radio-button
+      >
+      <p id="policy-overwrite-text" class="option-text" data-testid="policy-overwrite-text">
+        {{ overwriteDescription() }}
+      </p>
+    </div>
+  </mat-radio-group>
+
+  @if (policy() === null) {
+    <p class="note" role="status" data-testid="policy-hint">Elegí una opción para poder consolidar.</p>
+  }
+</div>

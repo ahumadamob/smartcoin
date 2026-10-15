@@ -1,5 +1,14 @@
 import { Consolidation, EstimationBasis, PeriodEntry } from '../../api';
-import { averageBasisText, consolidatedMessage, manualPolicyText, noChangesText, RULE_LABELS } from './consolidation-text';
+import {
+  averageBasisText,
+  consolidatedMessage,
+  keepText,
+  manualPolicyText,
+  noChangesText,
+  overwriteText,
+  POLICY_LABELS,
+  RULE_LABELS,
+} from './consolidation-text';
 
 const money = (amount: number) => `$ ${amount.toFixed(2).replace('.', ',')}`;
 
@@ -36,10 +45,10 @@ describe('textos de la consolidación (HU-23)', () => {
     expect(noChangesText(3)).toContain('ya tienen ese valor');
   });
 
-  it('con editadas explica que no se puede consolidar todavía', () => {
+  it('con editadas pide elegir y dice que vale para todas', () => {
     expect(manualPolicyText(1)).toContain('Hay 1 partida editada a mano');
     expect(manualPolicyText(2)).toContain('Hay 2 partidas editadas a mano');
-    expect(manualPolicyText(2)).toContain('no se puede consolidar esta partida por ahora');
+    expect(manualPolicyText(2)).toContain('la elección vale para todas');
   });
 });
 
@@ -84,5 +93,33 @@ describe('texto del promedio (HU-24)', () => {
 
   it('sin consolidaciones no dice nada', () => {
     expect(averageBasisText([], format)).toBe('');
+  });
+});
+
+describe('opciones sobre las partidas editadas (HU-25)', () => {
+  it('las opciones se muestran con el vocabulario del glosario', () => {
+    expect(POLICY_LABELS).toEqual({ KEEP: 'Respetar', OVERWRITE: 'Pisar' });
+  });
+
+  it('Respetar conserva las editadas y cuenta las demás que cambian', () => {
+    expect(keepText(1, 0)).toBe(
+      'La partida editada conserva su monto y sigue editada. Ninguna otra partida cambia de monto.',
+    );
+    expect(keepText(2, 1)).toBe(
+      'Las 2 partidas editadas conservan su monto y siguen editadas. 1 otra partida cambia de monto.',
+    );
+    expect(keepText(2, 22)).toContain('22 otras partidas cambian de monto.');
+  });
+
+  it('Pisar les quita la marca y distingue las que ya tienen ese monto', () => {
+    expect(overwriteText(1, 1, 22)).toBe(
+      'La partida editada toma la nueva estimación y deja de estar editada. 22 otras partidas cambian de monto.',
+    );
+    expect(overwriteText(1, 0, 0)).toBe(
+      'La partida editada ya tiene ese monto: solo deja de estar editada. Ninguna otra partida cambia de monto.',
+    );
+    expect(overwriteText(3, 3, 0)).toContain('Las 3 partidas editadas toman la nueva estimación y dejan de estar editadas.');
+    expect(overwriteText(3, 2, 0)).toContain('(1 ya tiene ese monto y solo pierde la marca)');
+    expect(overwriteText(3, 0, 0)).toContain('(3 ya tienen ese monto y solo pierden la marca)');
   });
 });

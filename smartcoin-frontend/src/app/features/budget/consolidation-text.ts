@@ -1,4 +1,4 @@
-import { Consolidation, ConsolidationPreview, EstimationBasis, PeriodEntry } from '../../api';
+import { ConsolidateRequest, Consolidation, ConsolidationPreview, EstimationBasis, PeriodEntry } from '../../api';
 import { FormatMoney } from './movement-text';
 
 /** Texto en pantalla de cada regla de estimación (docs/glosario.md). */
@@ -7,14 +7,57 @@ export const RULE_LABELS: Record<NonNullable<ConsolidationPreview['estimationRul
   AVERAGE_LAST_3: 'Promedio de los últimos 3',
 };
 
-/** Lo que explica por qué el diálogo no deja confirmar cuando hay partidas editadas en los meses siguientes. */
+/** Elección que se envía como `manualEntriesPolicy` (glosario: Respetar → `KEEP`, Pisar → `OVERWRITE`). */
+export type ManualPolicy = NonNullable<ConsolidateRequest['manualEntriesPolicy']>;
+
+/** Texto en pantalla de cada opción (docs/glosario.md). */
+export const POLICY_LABELS: Record<ManualPolicy, string> = { KEEP: 'Respetar', OVERWRITE: 'Pisar' };
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/** Lo que pide el diálogo cuando hay partidas editadas a mano en los meses siguientes. */
 export function manualPolicyText(count: number): string {
   const edited = count === 1 ? 'Hay 1 partida editada a mano' : `Hay ${count} partidas editadas a mano`;
   return (
-    `${edited} en los meses siguientes y consolidar tendría que decidir qué hacer con ` +
-    `${count === 1 ? 'ella' : 'ellas'}. Todavía no se puede elegir desde esta pantalla, así que no se puede ` +
-    'consolidar esta partida por ahora.'
+    `${edited} en los meses siguientes. Elegí qué hacer con ${count === 1 ? 'ella' : 'ellas'}: ` +
+    'la elección vale para todas.'
   );
+}
+
+/**
+ * Qué hace «Respetar». Los recuentos salen de los indicadores del backend: `edited` son las editadas y
+ * `othersChanging` las no editadas cuyo presupuestado cambia (esas cambian con las dos opciones).
+ */
+export function keepText(edited: number, othersChanging: number): string {
+  const kept = edited === 1 ? 'La partida editada conserva su monto y sigue editada' : `Las ${edited} partidas editadas conservan su monto y siguen editadas`;
+  return `${kept}. ${othersCountText(othersChanging)}`;
+}
+
+/**
+ * Qué hace «Pisar». `editedChanging` son las editadas cuyo monto es distinto de la estimación: las demás ya tienen
+ * ese monto y solo pierden la marca (D-31).
+ */
+export function overwriteText(edited: number, editedChanging: number, othersChanging: number): string {
+  const sameAmount = edited - editedChanging;
+  let what: string;
+  if (edited === 1) {
+    what =
+      sameAmount === 0
+        ? 'La partida editada toma la nueva estimación y deja de estar editada'
+        : 'La partida editada ya tiene ese monto: solo deja de estar editada';
+  } else {
+    what = `Las ${edited} partidas editadas toman la nueva estimación y dejan de estar editadas`;
+    if (sameAmount > 0) {
+      what += ` (${plural(sameAmount, 'ya tiene ese monto y solo pierde', 'ya tienen ese monto y solo pierden')} la marca)`;
+    }
+  }
+  return `${what}. ${othersCountText(othersChanging)}`;
+}
+
+function othersCountText(othersChanging: number): string {
+  return othersChanging === 0
+    ? 'Ninguna otra partida cambia de monto.'
+    : `${plural(othersChanging, 'otra partida cambia', 'otras partidas cambian')} de monto.`;
 }
 
 /** Texto bajo la lista cuando ninguna partida de los meses siguientes cambia. */

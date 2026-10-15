@@ -71,7 +71,7 @@ const preview = (overrides: Partial<ConsolidationPreview> = {}): ConsolidationPr
 
 const problem = (status: number, body: object) => throwError(() => new HttpErrorResponse({ status, error: body }));
 
-describe('ConsolidationDialog (HU-23)', () => {
+describe('ConsolidationDialog (HU-23, HU-25)', () => {
   let fixture: ComponentFixture<ConsolidationDialog>;
   let api: { getConsolidationPreview: ReturnType<typeof vi.fn>; consolidateEntry: ReturnType<typeof vi.fn> };
   let ref: { close: ReturnType<typeof vi.fn<(result?: ConsolidationDialogResult) => void>> };
@@ -213,32 +213,112 @@ describe('ConsolidationDialog (HU-23)', () => {
     expect(text(byId('irreversible'))).toContain('no se puede deshacer');
   });
 
-  describe('con partidas editadas en los meses siguientes', () => {
+  describe('con partidas editadas en los meses siguientes (HU-25)', () => {
     const withEdited = preview({
       manualPolicyRequired: true,
       targets: [
-        target({ entryId: 600, period: '2027-01', currentBudgetedAmount: 300000, manual: true, changes: false }),
+        target({ entryId: 600, period: '2027-01', currentBudgetedAmount: 300000, manual: true, changes: true }),
         target({ entryId: 601, period: '2027-02' }),
+        target({ entryId: 602, period: '2027-03' }),
       ],
     });
+    const radio = (id: string) => byId(id)?.querySelector<HTMLInputElement>('input') as HTMLInputElement;
+    const choose = async (id: string) => {
+      radio(id).click();
+      await refresh();
+    };
 
-    it('explica que no se puede confirmar todavía, lista las editadas y no ofrece elegir', async () => {
+    it('ofrece Respetar y Pisar sin ninguna elegida, con una línea que explica cada una', async () => {
       await open([of(withEdited)]);
 
       expect(text(byId('policy-required'))).toContain('Hay 1 partida editada a mano');
-      expect(text(byId('policy-required'))).toContain('no se puede consolidar esta partida por ahora');
-      expect(text(byId('edited-target'))).toBe('enero 2027: editada en $ 300.000,00');
-      expect(confirm().disabled).toBe(true);
-      expect(root().querySelector('mat-radio-group, [type="radio"]')).toBeNull();
+      expect(radio('policy-keep').checked).toBe(false);
+      expect(radio('policy-overwrite').checked).toBe(false);
+      expect(text(byId('policy-keep-text'))).toBe(
+        'La partida editada conserva su monto y sigue editada. 2 otras partidas cambian de monto.',
+      );
+      expect(text(byId('policy-overwrite-text'))).toBe(
+        'La partida editada toma la nueva estimación y deja de estar editada. 2 otras partidas cambian de monto.',
+      );
     });
 
-    it('aunque se apriete, no hace el pedido', async () => {
+    it('lista las editadas con su mes, el monto actual y el que tomarían si se pisan', async () => {
       await open([of(withEdited)]);
 
+      expect(text(byId('edited-target'))).toBe('enero 2027$ 300.000,00 $ 1.850.000,00');
+      // Las no editadas siguen en su propia lista.
+      expect(targetRows().map((row) => row[0])).toEqual(['febrero 2027', 'marzo 2027']);
+    });
+
+    it('no deja confirmar sin elegir y, aunque se apriete, no hace el pedido', async () => {
+      await open([of(withEdited)]);
+
+      expect(text(byId('policy-hint'))).toContain('Elegí una opción');
+      expect(confirm().disabled).toBe(true);
       confirm().click();
       await refresh();
 
       expect(api.consolidateEntry).not.toHaveBeenCalled();
+    });
+
+    it('con Respetar confirma y envía KEEP', async () => {
+      await open([of(withEdited)]);
+
+      await choose('policy-keep');
+      expect(confirm().disabled).toBe(false);
+      expect(byId('policy-hint')).toBeNull();
+      confirm().click();
+      await refresh();
+
+      expect(api.consolidateEntry).toHaveBeenCalledWith(512, { manualEntriesPolicy: 'KEEP' });
+      expect(ref.close).toHaveBeenCalled();
+    });
+
+    it('con Pisar confirma y envía OVERWRITE', async () => {
+      await open([of(withEdited)]);
+
+      await choose('policy-overwrite');
+      confirm().click();
+      await refresh();
+
+      expect(api.consolidateEntry).toHaveBeenCalledWith(512, { manualEntriesPolicy: 'OVERWRITE' });
+    });
+
+    it('es una sola elección para todas: cambiarla reemplaza la anterior', async () => {
+      await open([of(withEdited)]);
+
+      await choose('policy-keep');
+      await choose('policy-overwrite');
+      confirm().click();
+      await refresh();
+
+      expect(api.consolidateEntry).toHaveBeenCalledWith(512, { manualEntriesPolicy: 'OVERWRITE' });
+    });
+
+    it('una editada que ya vale la estimación obliga a elegir y aclara que solo pierde la marca', async () => {
+      await open([
+        of(
+          preview({
+            manualPolicyRequired: true,
+            targets: [target({ currentBudgetedAmount: 1850000, manual: true, changes: false })],
+          }),
+        ),
+      ]);
+
+      expect(text(byId('edited-target'))).toContain('(ya coincide)');
+      expect(text(byId('policy-overwrite-text'))).toContain('ya tiene ese monto: solo deja de estar editada');
+      expect(confirm().disabled).toBe(true);
+    });
+
+    it('sin editadas no pregunta nada y confirma sin enviar política', async () => {
+      await open([of(preview())]);
+
+      expect(byId('policy-choice')).toBeNull();
+      expect(confirm().disabled).toBe(false);
+      confirm().click();
+      await refresh();
+
+      expect(api.consolidateEntry).toHaveBeenCalledWith(512, undefined);
     });
   });
 
@@ -278,7 +358,7 @@ describe('ConsolidationDialog (HU-23)', () => {
       confirm().click();
       await refresh();
 
-      expect(api.consolidateEntry).toHaveBeenCalledWith(512);
+      expect(api.consolidateEntry).toHaveBeenCalledWith(512, undefined);
       expect(ref.close).toHaveBeenCalledWith({
         consolidated: true,
         entry: consolidated,
@@ -304,10 +384,10 @@ describe('ConsolidationDialog (HU-23)', () => {
       expect(ref.close).toHaveBeenCalledWith({ stale: true });
     });
 
-    it('si aparecen editadas desde la vista previa, vuelve a pedirla y pasa a explicar el bloqueo', async () => {
+    it('si aparecen editadas desde la vista previa, la vuelve a pedir, muestra la elección y el error', async () => {
       const edited = preview({
         manualPolicyRequired: true,
-        targets: [target({ manual: true, changes: false, currentBudgetedAmount: 300000 })],
+        targets: [target({ manual: true, changes: true, currentBudgetedAmount: 300000 })],
       });
       await open(
         [of(preview()), of(edited)],
@@ -317,10 +397,38 @@ describe('ConsolidationDialog (HU-23)', () => {
       confirm().click();
       await refresh();
 
+      expect(api.consolidateEntry).toHaveBeenCalledTimes(1);
       expect(api.getConsolidationPreview).toHaveBeenCalledTimes(2);
-      expect(byId('policy-required')).not.toBeNull();
+      expect(byId('policy-choice')).not.toBeNull();
+      expect(text(byId('consolidate-error'))).toBe('Hay 1 partida editada en los meses siguientes.');
       expect(confirm().disabled).toBe(true);
       expect(ref.close).not.toHaveBeenCalled();
+
+      // Elige y confirma: ahora sí viaja la política.
+      (byId('policy-keep')!.querySelector('input') as HTMLInputElement).click();
+      await refresh();
+      confirm().click();
+      await refresh();
+
+      expect(api.consolidateEntry).toHaveBeenLastCalledWith(512, { manualEntriesPolicy: 'KEEP' });
+    });
+
+    it('si ya había elegido y el backend lo vuelve a pedir, conserva la elección', async () => {
+      const edited = preview({
+        manualPolicyRequired: true,
+        targets: [target({ manual: true, changes: true, currentBudgetedAmount: 300000 })],
+      });
+      await open([of(edited), of(edited)], problem(409, { code: 'MANUAL_POLICY_REQUIRED', detail: 'Cambió.' }));
+
+      (byId('policy-overwrite')!.querySelector('input') as HTMLInputElement).click();
+      await refresh();
+      confirm().click();
+      await refresh();
+
+      expect(api.getConsolidationPreview).toHaveBeenCalledTimes(2);
+      expect((byId('policy-overwrite')!.querySelector('input') as HTMLInputElement).checked).toBe(true);
+      expect(confirm().disabled).toBe(false);
+      expect(text(byId('consolidate-error'))).toBe('Cambió.');
     });
 
     it('Cancelar cierra sin resultado', async () => {

@@ -47,18 +47,16 @@
         }
 
         @if (blockedByPolicy()) {
-          <p class="note" role="status" data-testid="policy-required">{{ manualText() }}</p>
-          <ul class="targets" data-testid="edited-targets">
-            @for (target of edited(); track target.entryId) {
-              <li data-testid="edited-target">
-                {{ target.period | period }}: editada en {{ target.currentBudgetedAmount | money: entry.currency }}
-              </li>
-            }
-          </ul>
-        } @else if (changing().length === 0) {
-          <p data-testid="no-changes">{{ noChanges() }}</p>
+          <app-manual-policy-choice [targets]="current.targets" [currency]="entry.currency" [(policy)]="policy" />
+        }
+        @if (changing().length === 0) {
+          @if (!blockedByPolicy()) {
+            <p data-testid="no-changes">{{ noChanges() }}</p>
+          }
         } @else {
-          <p id="targets-label" class="lead">Estas partidas de los meses siguientes cambian:</p>
+          <p id="targets-label" class="lead">
+            Estas partidas de los meses siguientes cambian{{ blockedByPolicy() ? ' con cualquiera de las dos opciones' : '' }}:
+          </p>
           <table aria-labelledby="targets-label" data-testid="targets">
             <thead>
               <tr>

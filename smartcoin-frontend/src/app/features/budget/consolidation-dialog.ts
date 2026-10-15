@@ -16,7 +16,8 @@ import { ConsolidacinService, ConsolidationPreview, ConsolidationTarget, PeriodE
 import { detailFor, messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
-import { averageBasisText, consolidatedMessage, manualPolicyText, noChangesText, RULE_LABELS } from './consolidation-text';
+import { averageBasisText, consolidatedMessage, ManualPolicy, noChangesText, RULE_LABELS } from './consolidation-text';
+import { ManualPolicyChoice } from './manual-policy-choice';
 
 /** Qué se consolida: la partida (la fila de la vista del mes) y el mes que se está viendo. */
 export interface ConsolidationDialogData {
@@ -39,13 +40,14 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'CONSOLIDATION_REQUIR
  * exactamente qué va a pasar: el monto real, el monto vigente actual y la nueva estimación, y las partidas de los
  * meses siguientes que cambian. El frontend no calcula nada.
  *
- * Si hay partidas editadas en los meses siguientes, la vista previa lo indica y el diálogo no deja confirmar: elegir
- * qué hacer con ellas llega con HU-25. Consolidar no se puede deshacer hasta HU-26, y el diálogo lo avisa.
+ * Si hay partidas editadas en los meses siguientes, la vista previa lo indica y el diálogo pide elegir «Respetar» o
+ * «Pisar» (HU-25, `ManualPolicyChoice`): sin elección no se confirma, y la elegida se envía como
+ * `manualEntriesPolicy`. Consolidar no se puede deshacer hasta HU-26, y el diálogo lo avisa.
  */
 @Component({
   selector: 'app-consolidation-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatDialogModule, MoneyPipe, PeriodPipe],
+  imports: [MatButtonModule, MatDialogModule, ManualPolicyChoice, MoneyPipe, PeriodPipe],
   templateUrl: './consolidation-dialog.html',
   styleUrl: './consolidation-dialog.scss',
 })
@@ -73,10 +75,8 @@ export class ConsolidationDialog implements OnInit {
   protected readonly changing = computed<ConsolidationTarget[]>(() =>
     (this.preview()?.targets ?? []).filter((target) => target.changes && !target.manual),
   );
-  /** Las editadas a mano: si hay, no se confirma. */
-  protected readonly edited = computed<ConsolidationTarget[]>(() =>
-    (this.preview()?.targets ?? []).filter((target) => target.manual),
-  );
+  /** Qué hacer con las editadas: sin elegir mientras el usuario no decida (HU-25). */
+  protected readonly policy = signal<ManualPolicy | null>(null);
   protected readonly ruleLabel = computed(() => {
     const rule = this.preview()?.estimationRule;
     return rule ? RULE_LABELS[rule] : null;
@@ -90,14 +90,13 @@ export class ConsolidationDialog implements OnInit {
     return averageBasisText(preview.estimateBasis, (period) => this.periodPipe.transform(period)) || null;
   });
   protected readonly blockedByPolicy = computed(() => this.preview()?.manualPolicyRequired === true);
-  protected readonly manualText = computed(() => manualPolicyText(this.edited().length));
   protected readonly noChanges = computed(() => noChangesText(this.preview()?.targets.length ?? 0));
   protected readonly canConfirm = computed(() => {
     const preview = this.preview();
     return (
       preview !== null &&
       preview.allowed &&
-      !preview.manualPolicyRequired &&
+      (!preview.manualPolicyRequired || this.policy() !== null) &&
       !this.submitting() &&
       !this.gone()
     );
@@ -130,7 +129,10 @@ export class ConsolidationDialog implements OnInit {
     }
     this.error.set(null);
     this.submitting.set(true);
-    this.api.consolidateEntry(this.entry.id).subscribe({
+    // La política solo viaja si hace falta: sin editadas en el destino no se pregunta ni se envía nada.
+    const policy = this.preview()?.manualPolicyRequired ? this.policy() : null;
+    const request = policy === null ? undefined : { manualEntriesPolicy: policy };
+    this.api.consolidateEntry(this.entry.id, request).subscribe({
       next: (result) =>
         this.ref.close({
           consolidated: true,
@@ -150,7 +152,7 @@ export class ConsolidationDialog implements OnInit {
     const body = e instanceof HttpErrorResponse && typeof e.error === 'object' ? e.error : null;
     this.markStaleIfNeeded(e);
     if (body?.code === 'MANUAL_POLICY_REQUIRED') {
-      // Cambió algo desde la vista previa: se vuelve a pedir y el diálogo pasa a explicar el bloqueo.
+      // Cambió algo desde la vista previa: se vuelve a pedir y el diálogo muestra la elección. Lo elegido se conserva.
       this.api.getConsolidationPreview(this.entry.id).subscribe({
         next: (preview) => this.preview.set(preview),
         error: () => undefined,
