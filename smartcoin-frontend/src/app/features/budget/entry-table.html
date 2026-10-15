@@ -62,6 +62,17 @@
                       {{ registerLabel(entry.kind) }}
                     </button>
                   }
+                  @if (canSettle(entry)) {
+                    <button
+                      mat-button
+                      type="button"
+                      data-testid="quick-settle"
+                      [attr.aria-label]="quickSettleLabel(entry.kind) + ' de ' + entry.name"
+                      (click)="quickSettle.emit(entry)"
+                    >
+                      {{ quickSettleLabel(entry.kind) }}
+                    </button>
+                  }
                   @if (canConsolidate(entry)) {
                     <button
                       mat-button

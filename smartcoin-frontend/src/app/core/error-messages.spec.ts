@@ -40,6 +40,7 @@ describe('messageFor', () => {
       'MANUAL_POLICY_REQUIRED',
       'Hay partidas editadas a mano en los meses siguientes: no se puede consolidar sin decidir qué hacer con ellas.',
     ],
+    ['NOTHING_PENDING', 'No hay nada pendiente en esta partida. Si ya tiene movimientos, consolidala.'],
     ['ENTRY_HAS_MOVEMENTS', 'La partida tiene movimientos: no se puede eliminar.'],
   ])('traduce %s', (code, expected) => {
     expect(messageFor(problem(409, { code, detail: 'texto del backend' }))).toBe(expected);

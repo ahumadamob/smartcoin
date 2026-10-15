@@ -4,8 +4,15 @@ import { MatButtonModule } from '@angular/material/button';
 import { PeriodCurrencyTotals, PeriodEntry, PeriodSideTotals } from '../../api';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
-import { canConsolidate, canDeleteEntry, canEditAmount, canEditEntry, canRegisterMovement } from './entry-actions';
-import { registerLabel } from './movement-text';
+import {
+  canConsolidate,
+  canDeleteEntry,
+  canEditAmount,
+  canEditEntry,
+  canQuickSettle,
+  canRegisterMovement,
+} from './entry-actions';
+import { quickSettleLabel, registerLabel } from './movement-text';
 
 /** Texto en pantalla del estado de una partida (docs/glosario.md). */
 export const ENTRY_STATUS_LABELS: Record<PeriodEntry.StatusEnum, string> = {
@@ -51,6 +58,8 @@ export class EntryTable {
   readonly registerMovement = output<PeriodEntry>();
   /** El usuario pidió consolidar esta partida (HU-23). */
   readonly consolidate = output<PeriodEntry>();
+  /** El usuario pidió pagar o cobrar todo lo pendiente de esta partida (HU-22). */
+  readonly quickSettle = output<PeriodEntry>();
   /** El usuario pidió editar esta partida. */
   readonly edit = output<PeriodEntry>();
   /** El usuario pidió editar solo el monto de esta partida recurrente (HU-17). */
@@ -66,6 +75,12 @@ export class EntryTable {
   protected readonly canEditAmount = canEditAmount;
   protected readonly canDelete = canDeleteEntry;
   protected readonly canConsolidate = canConsolidate;
+  protected readonly quickSettleLabel = quickSettleLabel;
+
+  /** «Pagar todo» o «Cobrar todo»: partidas con pendiente en un período abierto (HU-22). */
+  protected canSettle(entry: PeriodEntry): boolean {
+    return canQuickSettle(entry, this.readonly());
+  }
 
   /** La columna «Acciones» solo existe si alguna partida de la sección tiene una acción (y el período no está cerrado). */
   protected readonly showActions = computed(

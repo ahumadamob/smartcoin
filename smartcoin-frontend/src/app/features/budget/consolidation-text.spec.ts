@@ -1,4 +1,4 @@
-import { Consolidation, EstimationBasis, PeriodEntry } from '../../api';
+import { Consolidation, EstimationBasis, PeriodEntry, QuickSettle } from '../../api';
 import {
   averageBasisText,
   consolidatedMessage,
@@ -7,6 +7,7 @@ import {
   noChangesText,
   overwriteText,
   POLICY_LABELS,
+  quickSettledMessage,
   RULE_LABELS,
 } from './consolidation-text';
 
@@ -121,5 +122,32 @@ describe('opciones sobre las partidas editadas (HU-25)', () => {
     expect(overwriteText(3, 3, 0)).toContain('Las 3 partidas editadas toman la nueva estimación y dejan de estar editadas.');
     expect(overwriteText(3, 2, 0)).toContain('(1 ya tiene ese monto y solo pierde la marca)');
     expect(overwriteText(3, 0, 0)).toContain('(3 ya tienen ese monto y solo pierden la marca)');
+  });
+});
+
+describe('texto del pago rápido (HU-22)', () => {
+  const settled = (kind: 'INCOME' | 'EXPENSE', estimate: number | null, updated: number): QuickSettle => ({
+    movement: { amount: 4000, currency: 'ARS' } as QuickSettle['movement'],
+    entry: { kind, name: 'Luz', currency: 'ARS', forecastAmount: 45000 } as PeriodEntry,
+    estimate,
+    updatedEntries: updated,
+  });
+
+  it('un gasto dice el pago registrado y, a continuación, la consolidación', () => {
+    expect(quickSettledMessage(settled('EXPENSE', 45000, 3), money)).toBe(
+      'Pago de $ 4000,00 registrado. «Luz» consolidada por $ 45000,00. Se actualizaron 3 partidas de los meses siguientes.',
+    );
+  });
+
+  it('un ingreso dice el cobro registrado', () => {
+    expect(quickSettledMessage(settled('INCOME', 45000, 0), money)).toBe(
+      'Cobro de $ 4000,00 registrado. «Luz» consolidada por $ 45000,00. No cambió ningún mes siguiente.',
+    );
+  });
+
+  it('una partida sin Concepto no habla de los meses siguientes', () => {
+    expect(quickSettledMessage(settled('EXPENSE', null, 0), money)).toBe(
+      'Pago de $ 4000,00 registrado. «Luz» consolidada por $ 45000,00.',
+    );
   });
 });

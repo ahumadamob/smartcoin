@@ -53,3 +53,13 @@ export function canConsolidate(entry: PeriodEntry): boolean {
 export function canChangeMovements(entry: PeriodEntry, readonly: boolean): boolean {
   return !readonly && entry.status !== 'CONSOLIDATED';
 }
+
+/**
+ * Si una partida ofrece «Pagar todo» (gasto) o «Cobrar todo» (ingreso) (HU-22, RN-24): las pendientes con pendiente
+ * mayor que 0 en un período abierto. Una Estimada con presupuestado 0 y una Parcial cubierta no tienen pendiente: no
+ * la ofrecen (la segunda ofrece «Consolidar»). Es solo lo que la pantalla ofrece: quien decide es el backend, que
+ * además mira la cuenta, la fecha y el estado.
+ */
+export function canQuickSettle(entry: PeriodEntry, readonly: boolean): boolean {
+  return !readonly && entry.status !== 'CONSOLIDATED' && entry.pendingAmount > 0;
+}

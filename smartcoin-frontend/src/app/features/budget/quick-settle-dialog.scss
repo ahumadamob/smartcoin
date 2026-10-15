@@ -1,0 +1,51 @@
+.dialog {
+  display: block;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.context,
+.amount,
+.subheading,
+.error {
+  margin: 0;
+}
+
+.context {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.amount {
+  font: var(--mat-sys-body-large);
+}
+
+.subheading {
+  font: var(--mat-sys-title-small);
+}
+
+.error {
+  color: var(--mat-sys-error);
+}
+
+.notice {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--mat-sys-primary);
+  background: var(--mat-sys-surface-container);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}

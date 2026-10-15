@@ -27,6 +27,7 @@ import { EntryDeleteDialog, EntryDeleteDialogData, EntryDeleteDialogResult } fro
 import { EntryFormDialog, EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { EntryTable } from './entry-table';
 import { MovementDialog, MovementDialogData, MovementDialogResult } from './movement-dialog';
+import { QuickSettleDialog, QuickSettleDialogData, QuickSettleDialogResult } from './quick-settle-dialog';
 import { registeredMessage } from './movement-text';
 import { isPeriod, nextPeriod, PeriodRange, periodsInRange, previousPeriod } from './period-nav';
 import { suggestedDueDate } from './suggested-due-date';
@@ -215,6 +216,39 @@ export class BudgetMonth implements OnInit {
       .open<ConsolidationDialog, ConsolidationDialogData, ConsolidationDialogResult>(ConsolidationDialog, {
         data: { entry, period },
         width: '600px',
+        maxWidth: '95vw',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result === undefined) {
+          return;
+        }
+        if ('stale' in result) {
+          // El período se cerró o la partida ya no está pendiente: lo que se ve ya no es lo que hay.
+          this.reload(null);
+          return;
+        }
+        this.snackBar.open(result.message, undefined, { duration: 8000 });
+        // La fila consolidada ya no tiene acciones: el foco pasa a la de la fila que ocupa su lugar.
+        this.reload(null, focus);
+      });
+  }
+
+  /**
+   * «Pagar todo» o «Cobrar todo»: el diálogo muestra el movimiento y la consolidación que el backend va a hacer y,
+   * al confirmar, se vuelve a pedir el mes: la partida se ve Consolidada con los valores del backend (HU-22).
+   */
+  protected quickSettleEntry(entry: PeriodEntry): void {
+    const period = this.period();
+    if (period === null || !isPeriod(period) || this.readonly()) {
+      return;
+    }
+    const focus = this.removalFocus(entry);
+    this.dialog
+      .open<QuickSettleDialog, QuickSettleDialogData, QuickSettleDialogResult>(QuickSettleDialog, {
+        data: { entry, period },
+        width: '640px',
         maxWidth: '95vw',
       })
       .afterClosed()

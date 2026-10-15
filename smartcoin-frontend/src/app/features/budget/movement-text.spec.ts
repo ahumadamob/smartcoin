@@ -7,6 +7,7 @@ import {
   movementWord,
   notOpenYetNotice,
   registeredMessage,
+  quickSettleLabel,
   registerLabel,
   suggestedDate,
   windowNotice,
@@ -25,6 +26,8 @@ describe('textos de los movimientos (HU-19)', () => {
     expect(movementWord('EXPENSE')).toBe('pago');
     expect(registerLabel('INCOME')).toBe('Registrar cobro');
     expect(registerLabel('EXPENSE')).toBe('Registrar pago');
+    expect(quickSettleLabel('INCOME')).toBe('Cobrar todo');
+    expect(quickSettleLabel('EXPENSE')).toBe('Pagar todo');
   });
 
   it('el aviso de cubierta usa el monto que informa el backend y no promete una acción', () => {

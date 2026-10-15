@@ -9,6 +9,7 @@ import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { provideLocale } from '../../core/locale';
 import { BudgetMonth } from './budget-month';
 import { ConsolidationDialogData, ConsolidationDialogResult } from './consolidation-dialog';
+import { QuickSettleDialogData, QuickSettleDialogResult } from './quick-settle-dialog';
 import { EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
 import { EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { MovementDialogData, MovementDialogResult } from './movement-dialog';
@@ -157,6 +158,7 @@ describe('BudgetMonth', () => {
     | EntryDeleteDialogResult
     | MovementDialogResult
     | ConsolidationDialogResult
+    | QuickSettleDialogResult
     | undefined;
   let snackBar: { open: ReturnType<typeof vi.fn> };
   /** La acción del aviso («Consolidar»): se dispara con `snackAction.next()`. */
@@ -1196,6 +1198,105 @@ describe('BudgetMonth', () => {
       dialogResult = undefined;
 
       consolidateButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+  });
+  describe('pagar o cobrar todo (HU-22)', () => {
+    const luz = (overrides: Partial<PeriodEntry> = {}) =>
+      entry({ id: 40, name: 'Luz', status: 'PARTIAL', actualAmount: 41000, pendingAmount: 4000, ...overrides });
+    const view = (status: 'OPEN' | 'CLOSED', incomes: PeriodEntry[], expenses: PeriodEntry[]): PeriodView => ({
+      ...NOVEMBER,
+      status,
+      incomes,
+      expenses,
+      totals: [{ currency: 'ARS', income: side(0, 0, 0, 0, 0), expense: side(expenses.length, 0, 0, 0, 0), result: 0 }],
+    });
+    const settleButtons = () =>
+      Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="quick-settle"]'));
+
+    it('«Pagar todo» en los gastos y «Cobrar todo» en los ingresos, solo con pendiente mayor que 0', async () => {
+      await open('/presupuesto/2026-11', {
+        '2026-11': of(
+          view(
+            'OPEN',
+            [
+              entry({ id: 1, kind: 'INCOME', name: 'Sueldo A', status: 'ESTIMATED', pendingAmount: 1200000 }),
+              entry({ id: 2, kind: 'INCOME', name: 'Beca', status: 'ESTIMATED', budgetedAmount: 0, pendingAmount: 0 }),
+            ],
+            [
+              luz(),
+              entry({ id: 41, name: 'Agua', status: 'PARTIAL', actualAmount: 9000, pendingAmount: 0 }),
+              entry({ id: 42, name: 'Gas', status: 'CONSOLIDATED', actualAmount: 100, pendingAmount: 0 }),
+            ],
+          ),
+        ),
+      });
+
+      expect(settleButtons().map((b) => [b.getAttribute('aria-label'), text(b)])).toEqual([
+        ['Cobrar todo de Sueldo A', 'Cobrar todo'],
+        ['Pagar todo de Luz', 'Pagar todo'],
+      ]);
+    });
+
+    it('un período cerrado no la ofrece', async () => {
+      await open('/presupuesto/2026-08', {
+        '2026-08': of({ ...view('CLOSED', [], [luz()]), period: '2026-08' }),
+      });
+
+      expect(settleButtons()).toHaveLength(0);
+    });
+
+    it('abre el diálogo con la partida y el mes que se ve', async () => {
+      const partial = luz();
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [], [partial])) });
+
+      settleButtons()[0].click();
+
+      const data = dialog.open.mock.calls[0][1].data as QuickSettleDialogData;
+      expect(data).toEqual({ entry: partial, period: '2026-11' });
+    });
+
+    it('al confirmar avisa lo que hizo el backend y vuelve a pedir el mes: la partida se ve Consolidada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [], [luz()])) });
+      const after = luz({ status: 'CONSOLIDATED', actualAmount: 45000, pendingAmount: 0, forecastAmount: 45000 });
+      api.getPeriod = vi.fn().mockReturnValue(of(view('OPEN', [], [after])));
+      dialogResult = {
+        settled: true,
+        entry: after,
+        message: 'Pago de $ 4.000,00 registrado. «Luz» consolidada por $ 45.000,00.',
+      };
+
+      settleButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
+      expect(snackBar.open.mock.calls[0][0]).toContain('Pago de $ 4.000,00 registrado');
+      expect(cells(rows('Gastos')[0])[8]).toBe('Consolidada');
+      expect(cells(rows('Gastos')[0])[7]).toBe('$ 0,00');
+      expect(settleButtons()).toHaveLength(0);
+    });
+
+    it('si el diálogo avisa que la pantalla estaba desactualizada, vuelve a pedir el mes sin avisar nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [], [luz()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = { stale: true };
+
+      settleButtons()[0].click();
+      await refresh();
+
+      expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(view('OPEN', [], [luz()])) });
+      const calls = api.getPeriod.mock.calls.length;
+      dialogResult = undefined;
+
+      settleButtons()[0].click();
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);

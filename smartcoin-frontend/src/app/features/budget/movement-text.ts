@@ -16,6 +16,11 @@ export function registerLabel(kind: PeriodEntry.KindEnum): string {
   return `Registrar ${movementWord(kind)}`;
 }
 
+/** «Cobrar todo» o «Pagar todo» (HU-22): la acción del pago rápido y el botón de su diálogo. */
+export function quickSettleLabel(kind: PeriodEntry.KindEnum): string {
+  return kind === 'INCOME' ? 'Cobrar todo' : 'Pagar todo';
+}
+
 /**
  * Aviso cuando el pendiente llegó a 0 (HU-19, criterio 6, RN-23). La acción «Consolidar» la ofrece quien muestra el aviso
  * (HU-23). Dice únicamente lo que es cierto hoy: la partida está cubierta y sigue Parcial hasta que se consolide. El

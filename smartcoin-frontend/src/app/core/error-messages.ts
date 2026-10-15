@@ -21,6 +21,7 @@ const MESSAGES: Record<string, string> = {
     'La partida no tiene movimientos: registrá al menos un cobro o pago antes de consolidarla.',
   MANUAL_POLICY_REQUIRED:
     'Hay partidas editadas a mano en los meses siguientes: no se puede consolidar sin decidir qué hacer con ellas.',
+  NOTHING_PENDING: 'No hay nada pendiente en esta partida. Si ya tiene movimientos, consolidala.',
   ENTRY_HAS_MOVEMENTS: 'La partida tiene movimientos: no se puede eliminar.',
   DATE_OUT_OF_RANGE:
     'La fecha está fuera del rango permitido: no puede ser anterior a la ventana de la partida ni a la apertura de la cuenta, ni posterior a hoy.',

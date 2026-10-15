@@ -46,6 +46,7 @@ import { parseAmount, formatAmountInput } from '../../shared/amount';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
 import { canChangeMovements, canConsolidate } from './entry-actions';
+import { isoDate } from './iso-date';
 import { MovementDeleteDialog, MovementDeleteDialogData, MovementDeleteDialogResult } from './movement-delete-dialog';
 import {
   correctedMessage,
@@ -84,8 +85,6 @@ export type MovementDialogResult = MovementRegistered | { stale: true } | { cons
 /** Estos códigos significan que lo que muestra la pantalla ya no es lo que hay en el backend. */
 const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'NOT_FOUND'];
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
 /** Monto con coma decimal y mayor que 0. El formato lo valida el frontend; el resto, el backend. */
 function positiveAmount(control: AbstractControl): ValidationErrors | null {
   const text = (control.value as string).trim();
@@ -97,23 +96,6 @@ function positiveAmount(control: AbstractControl): ValidationErrors | null {
     return { amount: true };
   }
   return value > 0 ? null : { positive: true };
-}
-
-/** Fecha `YYYY-MM-DD` que existe en el calendario. Solo el formato: el rango lo decide el backend (RN-21). */
-function isoDate(control: AbstractControl): ValidationErrors | null {
-  const text = control.value as string;
-  if (text === '') {
-    return null;
-  }
-  const match = ISO_DATE.exec(text);
-  if (match) {
-    const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-    const date = new Date(year, month - 1, day);
-    if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
-      return null;
-    }
-  }
-  return { date: true };
 }
 
 type FieldName = 'date' | 'amount' | 'accountId' | 'note';

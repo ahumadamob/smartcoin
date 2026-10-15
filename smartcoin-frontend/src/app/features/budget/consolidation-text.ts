@@ -1,5 +1,12 @@
-import { ConsolidateRequest, Consolidation, ConsolidationPreview, EstimationBasis, PeriodEntry } from '../../api';
-import { FormatMoney } from './movement-text';
+import {
+  ConsolidateRequest,
+  Consolidation,
+  ConsolidationPreview,
+  EstimationBasis,
+  PeriodEntry,
+  QuickSettle,
+} from '../../api';
+import { FormatMoney, movementWord } from './movement-text';
 
 /** Texto en pantalla de cada regla de estimación (docs/glosario.md). */
 export const RULE_LABELS: Record<NonNullable<ConsolidationPreview['estimationRule']>, string> = {
@@ -77,6 +84,16 @@ export function consolidatedMessage(result: Consolidation, money: FormatMoney): 
   return result.updatedEntries === 0
     ? `${done} No cambió ningún mes siguiente.`
     : `${done} Se actualizaron ${result.updatedEntries} ${result.updatedEntries === 1 ? 'partida' : 'partidas'} de los meses siguientes.`;
+}
+
+/**
+ * Aviso al pagar o cobrar todo (HU-22): el movimiento que se registró y, a continuación, lo mismo que dice la
+ * consolidación. Los montos salen de la respuesta del backend.
+ */
+export function quickSettledMessage(result: QuickSettle, money: FormatMoney): string {
+  const entry: PeriodEntry = result.entry;
+  const word = movementWord(entry.kind) === 'cobro' ? 'Cobro' : 'Pago';
+  return `${word} de ${money(result.movement.amount, result.movement.currency)} registrado. ${consolidatedMessage(result, money)}`;
 }
 
 /** Cuántas consolidaciones promedia como máximo «Promedio de los últimos 3». */

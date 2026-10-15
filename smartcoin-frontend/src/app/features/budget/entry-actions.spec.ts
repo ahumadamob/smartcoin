@@ -5,6 +5,7 @@ import {
   canDeleteEntry,
   canEditAmount,
   canEditEntry,
+  canQuickSettle,
   canRegisterMovement,
 } from './entry-actions';
 
@@ -59,5 +60,39 @@ describe('acciones de una partida', () => {
     expect(canChangeMovements(entry({ status: 'PARTIAL' }), false)).toBe(true);
     expect(canChangeMovements(entry({ status: 'CONSOLIDATED' }), false)).toBe(false);
     expect(canChangeMovements(entry({ status: 'PARTIAL' }), true)).toBe(false);
+  });
+
+  describe('«Pagar todo» y «Cobrar todo» (HU-22)', () => {
+    it('las ofrecen las pendientes con pendiente mayor que 0, con o sin Concepto, de un período abierto', () => {
+      for (const budgetItemId of [null, 31]) {
+        for (const kind of ['INCOME', 'EXPENSE'] as const) {
+          expect(canQuickSettle(entry({ budgetItemId, kind, status: 'ESTIMATED', pendingAmount: 45000 }), false)).toBe(
+            true,
+          );
+          expect(canQuickSettle(entry({ budgetItemId, kind, status: 'PARTIAL', pendingAmount: 4000 }), false)).toBe(
+            true,
+          );
+        }
+      }
+    });
+
+    it('una Estimada con presupuestado 0 no tiene pendiente: no la ofrece', () => {
+      expect(canQuickSettle(entry({ status: 'ESTIMATED', pendingAmount: 0 }), false)).toBe(false);
+    });
+
+    it('una Parcial cubierta (pendiente 0) no la ofrece: corresponde consolidar', () => {
+      const covered = entry({ status: 'PARTIAL', pendingAmount: 0 });
+
+      expect(canQuickSettle(covered, false)).toBe(false);
+      expect(canConsolidate(covered)).toBe(true);
+    });
+
+    it('una Consolidada no la ofrece', () => {
+      expect(canQuickSettle(entry({ status: 'CONSOLIDATED', pendingAmount: 0 }), false)).toBe(false);
+    });
+
+    it('un período cerrado no la ofrece', () => {
+      expect(canQuickSettle(entry({ status: 'PARTIAL', pendingAmount: 4000 }), true)).toBe(false);
+    });
   });
 });
