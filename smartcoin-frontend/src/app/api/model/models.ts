@@ -23,6 +23,7 @@ export * from './deletionBlocker';
 export * from './deletionPlan';
 export * from './entryDeletionPreview';
 export * from './entryUpdateRequest';
+export * from './estimationBasis';
 export * from './fieldEditability';
 export * from './loginRequest';
 export * from './loginResponse';

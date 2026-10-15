@@ -38,6 +38,7 @@ model/deletionBlocker.ts
 model/deletionPlan.ts
 model/entryDeletionPreview.ts
 model/entryUpdateRequest.ts
+model/estimationBasis.ts
 model/fieldEditability.ts
 model/loginRequest.ts
 model/loginResponse.ts

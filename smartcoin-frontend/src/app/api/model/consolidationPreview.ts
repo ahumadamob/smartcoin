@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { EstimationBasis } from './estimationBasis';
 import { ConsolidationTarget } from './consolidationTarget';
 
 
@@ -51,6 +52,10 @@ export interface ConsolidationPreview {
      * Monto vigente actual del Concepto.
      */
     currentAmount?: number | null;
+    /**
+     * Las consolidaciones que entran en `estimate`, de la más reciente a la más antigua: una con «Último valor» y hasta 3 con «Promedio de los últimos 3» (las que haya si son menos). Incluye la partida que se consolida, con su monto real. Vacía si no hay plan.
+     */
+    estimateBasis: Array<EstimationBasis>;
     /**
      * Partidas de destino, por período: pendientes de períodos abiertos posteriores al de la primera consolidada de la base. Incluye las que ya valen E.
      */
