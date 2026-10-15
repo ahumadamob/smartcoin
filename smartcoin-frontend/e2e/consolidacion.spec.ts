@@ -2,7 +2,7 @@ import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { API_URL, startPeriod, startSession } from './support';
 
 /**
- * Épica 6 · Consolidación. HU-23 (consolidar una partida). Un usuario propio: se consolida siempre con un usuario de
+ * Épica 6 · Consolidación. HU-23 (consolidar una partida), HU-24 (promedio) y HU-25 (partidas editadas). Un usuario propio: se consolida siempre con un usuario de
  * prueba, nunca con el real. La cuenta y el Concepto se cargan por la API (sus pantallas las cubren otras épicas);
  * el cobro, la vista previa y la consolidación se hacen en la pantalla.
  *
@@ -356,5 +356,179 @@ test.describe('HU-24 · estimar con el promedio de los últimos 3', () => {
     // El mes actual, consolidado, conserva su monto real y no lo pisó el promedio.
     await page.goto('/presupuesto');
     await expect(row().locator('th, td').nth(6)).toHaveText('$ 200,01');
+  });
+});
+
+/**
+ * HU-25 (decidir sobre partidas editadas al consolidar): el ejemplo del Resumen Visa de RN-26. Un usuario propio y
+ * Conceptos mensuales con último valor desde el mes actual. En cada uno se edita el monto del mes siguiente, se
+ * paga el mes actual por otro monto y se consolida desde la pantalla. Todas las fechas salen de hoy.
+ */
+test.describe('HU-25 · elegir qué hacer con las partidas editadas', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let accountId: number;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = await api.post('/api/accounts', {
+      data: { name: 'Banco Nación', type: 'BANK', currency: 'ARS', openingDate: `${startPeriod()}-01`, initialBalance: 0 },
+    });
+    expect(account.status()).toBe(201);
+    accountId = (await account.json()).id;
+    for (const name of ['Resumen Visa', 'Resumen Master', 'Gas', 'Agua']) {
+      const item = await api.post('/api/budget-items', {
+        data: {
+          name,
+          kind: 'EXPENSE',
+          defaultAccountId: accountId,
+          periodicity: 'MONTHLY',
+          dueDay: 10,
+          dueMonthOffset: 0,
+          startPeriod: periodOf(today),
+          estimationRule: 'LAST_VALUE',
+          currentAmount: 200000,
+        },
+      });
+      expect(item.status(), `alta de ${name}`).toBe(201);
+    }
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const dialog = () => page.getByRole('dialog');
+  const row = (name: string) =>
+    page
+      .getByRole('region', { name: 'Gastos', exact: true })
+      .locator('tbody tr')
+      .filter({ has: page.getByRole('rowheader', { name, exact: true }) });
+
+  async function entryId(name: string, offset: number): Promise<number> {
+    const view = await (await api.get(`/api/periods/${periodOf(monthFrom(offset))}`)).json();
+    return (view.expenses as { name: string; id: number }[]).find((e) => e.name === name)!.id;
+  }
+
+  /** Edita el presupuestado de la partida del mes (la marca como editada, D-31). */
+  async function edit(name: string, offset: number, amount: number) {
+    const response = await api.patch(`/api/entries/${await entryId(name, offset)}`, { data: { budgetedAmount: amount } });
+    expect(response.status(), `edición de ${name}`).toBe(200);
+  }
+
+  async function payThisMonth(name: string, amount: number) {
+    const response = await api.post(`/api/entries/${await entryId(name, 0)}/movements`, {
+      data: { date: isoDate(today), amount, accountId },
+    });
+    expect(response.status(), `pago de ${name}`).toBe(201);
+  }
+
+  async function openDialog(name: string) {
+    await page.goto('/presupuesto');
+    await row(name).getByRole('button', { name: `Consolidar ${name}` }).click();
+    await expect(dialog().getByTestId('actual')).toBeVisible();
+  }
+
+  /** Lo que muestra la vista de un mes de la partida: su fila completa, con la marca «Editada» si la tiene. */
+  async function monthRow(name: string, offset: number) {
+    await page.goto(`/presupuesto/${periodOf(monthFrom(offset))}`);
+    await expect(row(name)).toBeVisible();
+    return row(name);
+  }
+
+  test('Respetar: el mes editado conserva su monto y su marca, y el de dos meses adelante toma el nuevo', async () => {
+    await edit('Resumen Visa', 1, 300000);
+    await payThisMonth('Resumen Visa', 210000);
+
+    await openDialog('Resumen Visa');
+
+    // La elección aparece con la editada (mes, monto actual y nuevo si se pisa) y ninguna opción elegida.
+    await expect(dialog().getByTestId('policy-required')).toContainText('Hay 1 partida editada a mano');
+    await expect(dialog().getByTestId('edited-target')).toHaveCount(1);
+    const edited = dialog().getByTestId('edited-target');
+    await expect(edited).toContainText(periodText(monthFrom(1)));
+    await expect(edited).toContainText('$ 300.000,00');
+    await expect(edited).toContainText('$ 210.000,00');
+    await expect(dialog().getByTestId('policy-keep').getByRole('radio')).not.toBeChecked();
+    await expect(dialog().getByTestId('policy-overwrite').getByRole('radio')).not.toBeChecked();
+    await expect(dialog().getByTestId('policy-keep-text')).toContainText('conserva su monto y sigue editada');
+    await expect(dialog().getByTestId('policy-overwrite-text')).toContainText('deja de estar editada');
+    await expect(dialog().getByTestId('confirm-consolidate')).toBeDisabled();
+
+    await dialog().getByTestId('policy-keep').getByRole('radio').check();
+    await expect(dialog().getByTestId('confirm-consolidate')).toBeEnabled();
+    await dialog().getByTestId('confirm-consolidate').click();
+    await expect(dialog()).toBeHidden();
+    await expect(page.getByText('«Resumen Visa» consolidada por $ 210.000,00.')).toBeVisible();
+
+    const next = await monthRow('Resumen Visa', 1);
+    await expect(next).toContainText('$ 300.000,00');
+    await expect(next.getByText('Editada', { exact: true })).toBeVisible();
+    const later = await monthRow('Resumen Visa', 2);
+    await expect(later).toContainText('$ 210.000,00');
+    await expect(later.getByText('Editada', { exact: true })).toHaveCount(0);
+  });
+
+  test('Pisar: todas toman el nuevo monto y el mes editado pierde la marca', async () => {
+    await edit('Resumen Master', 1, 150000);
+    await payThisMonth('Resumen Master', 210000);
+
+    await openDialog('Resumen Master');
+    await dialog().getByTestId('policy-overwrite').getByRole('radio').check();
+    await dialog().getByTestId('confirm-consolidate').click();
+    await expect(dialog()).toBeHidden();
+
+    for (const offset of [1, 2]) {
+      const month = await monthRow('Resumen Master', offset);
+      await expect(month).toContainText('$ 210.000,00');
+      await expect(month.getByText('Editada', { exact: true })).toHaveCount(0);
+    }
+    // El monto vigente del Concepto es el nuevo en la lista de Conceptos.
+    await page.goto('/conceptos');
+    await expect(page.getByRole('row').filter({ hasText: 'Resumen Master' })).toContainText('$ 210.000,00');
+  });
+
+  test('sin partidas editadas en el destino no aparece la elección', async () => {
+    await payThisMonth('Gas', 180000);
+
+    await openDialog('Gas');
+
+    await expect(dialog().getByTestId('policy-choice')).toHaveCount(0);
+    await expect(dialog().getByTestId('confirm-consolidate')).toBeEnabled();
+    await dialog().getByTestId('confirm-consolidate').click();
+    await expect(dialog()).toBeHidden();
+    await expect((await monthRow('Gas', 2))).toContainText('$ 180.000,00');
+  });
+
+  test('error: si alguien edita un mes después de la vista previa, el diálogo pide elegir y no pierde nada', async () => {
+    await payThisMonth('Agua', 90000);
+    await openDialog('Agua');
+    await expect(dialog().getByTestId('policy-choice')).toHaveCount(0);
+
+    // Otra pestaña (la API) edita el mes siguiente mientras el diálogo sigue abierto.
+    await edit('Agua', 1, 250000);
+    await dialog().getByTestId('confirm-consolidate').click();
+
+    await expect(dialog().getByTestId('consolidate-error')).toBeVisible();
+    await expect(dialog().getByTestId('policy-choice')).toBeVisible();
+    await expect(dialog().getByTestId('confirm-consolidate')).toBeDisabled();
+    // Nada cambió: la partida sigue sin consolidar.
+    const view = await (await api.get(`/api/periods/${periodOf(today)}`)).json();
+    expect(view.expenses.find((e: { name: string }) => e.name === 'Agua').status).not.toBe('CONSOLIDATED');
+
+    await dialog().getByTestId('policy-keep').getByRole('radio').check();
+    await dialog().getByTestId('confirm-consolidate').click();
+    await expect(dialog()).toBeHidden();
+    const next = await monthRow('Agua', 1);
+    await expect(next).toContainText('$ 250.000,00');
+    await expect(next.getByText('Editada', { exact: true })).toBeVisible();
   });
 });
