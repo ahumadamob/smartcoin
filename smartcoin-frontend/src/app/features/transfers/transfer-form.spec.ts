@@ -88,10 +88,91 @@ describe('TransferForm', () => {
     expect(form().controls.date.value).toBe(todayIso());
   });
 
-  it('solo ofrece como destino las cuentas de la misma moneda y distintas del origen', () => {
+  it('ofrece como destino todas las cuentas distintas del origen, también las de otra moneda', () => {
     expect(fixture.componentInstance['targets']()).toEqual([]);
     form().controls.sourceAccountId.setValue(1);
-    expect(fixture.componentInstance['targets']().map((a: AccountResponse) => a.id)).toEqual([2]);
+    expect(fixture.componentInstance['targets']().map((a: AccountResponse) => a.id)).toEqual([2, 3]);
+  });
+
+  describe('con monedas distintas', () => {
+    const CROSS: Transfer = { ...CREATED, targetAccountId: 3, targetAccountName: 'Dólares', targetCurrency: 'USD', targetAmount: 1000 };
+
+    const fillCross = (source: number, target: number) => {
+      form().controls.sourceAccountId.setValue(source);
+      form().controls.targetAccountId.setValue(target);
+      form().controls.date.setValue('2026-10-15');
+      fixture.detectChanges();
+    };
+
+    it('pide dos montos, el de pesos y el de dólares, cada uno con su símbolo', () => {
+      fillCross(1, 3);
+
+      expect(field('Monto en pesos').textContent).toContain('$');
+      expect(field('Monto en dólares').textContent).toContain('US$');
+      expect(text()).toContain('Compra de dólares');
+    });
+
+    it('con la misma moneda sigue pidiendo un solo monto', () => {
+      fillCross(1, 2);
+
+      expect(root().textContent).not.toContain('Monto en dólares');
+      expect(field('Monto')).toBeTruthy();
+      expect(form().controls.usdAmount.disabled).toBe(true);
+    });
+
+    it('una compra manda el de pesos como origen y el de dólares como destino', () => {
+      api.createTransfer.mockReturnValue(of(CROSS));
+      fillCross(1, 3);
+      type('Monto en pesos', '1.250.000,00');
+      type('Monto en dólares', '1.000,00');
+      submit();
+
+      expect(api.createTransfer).toHaveBeenCalledWith({
+        sourceAccountId: 1,
+        targetAccountId: 3,
+        date: '2026-10-15',
+        sourceAmount: 1250000,
+        targetAmount: 1000,
+      });
+      expect(saved).toHaveBeenCalledWith(CROSS);
+    });
+
+    it('una venta manda el de dólares como origen y el de pesos como destino', () => {
+      fillCross(3, 1);
+      type('Monto en pesos', '610.000,00');
+      type('Monto en dólares', '500,00');
+      submit();
+
+      expect(text()).toContain('Venta de dólares');
+      expect(api.createTransfer.mock.calls[0][0]).toMatchObject({
+        sourceAccountId: 3,
+        targetAccountId: 1,
+        sourceAmount: 500,
+        targetAmount: 610000,
+      });
+    });
+
+    it('valida el formato de los dos montos sin llamar a la API', () => {
+      fillCross(1, 3);
+      submit();
+      expect(text()).toContain('Ingresá el monto en pesos.');
+      expect(text()).toContain('Ingresá el monto en dólares.');
+
+      type('Monto en pesos', '1000,00');
+      type('Monto en dólares', '0');
+      expect(text()).toContain('mayor que 0');
+      expect(api.createTransfer).not.toHaveBeenCalled();
+    });
+
+    it('al volver a una cuenta de la misma moneda el monto en dólares deja de contar', () => {
+      fillCross(1, 3);
+      type('Monto en dólares', 'abc');
+      form().controls.targetAccountId.setValue(2);
+      fixture.detectChanges();
+      type('Monto', '10,00');
+
+      expect(form().valid).toBe(true);
+    });
   });
 
   it('al cambiar el origen descarta un destino que ya no corresponde', () => {

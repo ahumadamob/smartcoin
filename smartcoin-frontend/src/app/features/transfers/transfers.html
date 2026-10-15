@@ -16,7 +16,7 @@
         <h2 class="subtitle">Nueva transferencia</h2>
       </mat-card-header>
       <mat-card-content>
-        <app-transfer-form [accounts]="accounts()" (saved)="onSaved()" (cancelled)="closeForm()" />
+        <app-transfer-form [accounts]="accounts()" (saved)="onSaved($event)" (cancelled)="closeForm()" />
       </mat-card-content>
     </mat-card>
   }
@@ -45,6 +45,14 @@
           <span class="date">{{ transfer.date | date: dateFormat }}</span>
           <div class="info">
             <span class="name">{{ transfer.sourceAccountName }} → {{ transfer.targetAccountName }}</span>
+            @if (kindOf(transfer); as kind) {
+              <span class="detail" data-testid="exchange">
+                {{ kind }}
+                @if (transfer.exchangeRate != null) {
+                  · Tipo de cambio {{ transfer.exchangeRate | money: 'ARS' }}
+                }
+              </span>
+            }
             @if (transfer.note) {
               <span class="detail">{{ transfer.note }}</span>
             }

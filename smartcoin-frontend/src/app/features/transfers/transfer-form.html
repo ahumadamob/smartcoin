@@ -24,8 +24,8 @@
     </mat-select>
     @if (form.controls.targetAccountId.hasError('required')) {
       <mat-error>Elegí la cuenta de destino.</mat-error>
-    } @else {
-      <mat-hint>Solo las cuentas de la misma moneda que el origen.</mat-hint>
+    } @else if (kind(); as kindText) {
+      <mat-hint>{{ kindText }}.</mat-hint>
     }
   </mat-form-field>
 
@@ -37,18 +37,48 @@
     }
   </mat-form-field>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Monto</mat-label>
-    <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
-    <mat-hint>Con coma decimal, por ejemplo 50000,00.</mat-hint>
-    @if (form.controls.amount.hasError('required')) {
-      <mat-error>Ingresá el monto.</mat-error>
-    } @else if (form.controls.amount.hasError('amount')) {
-      <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
-    } @else if (form.controls.amount.hasError('positive')) {
-      <mat-error>El monto tiene que ser mayor que 0.</mat-error>
-    }
-  </mat-form-field>
+  @if (crossCurrency()) {
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Monto en pesos</mat-label>
+      <span matTextPrefix>$&nbsp;</span>
+      <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
+      <mat-hint>Con coma decimal, por ejemplo 1250000,00.</mat-hint>
+      @if (form.controls.amount.hasError('required')) {
+        <mat-error>Ingresá el monto en pesos.</mat-error>
+      } @else if (form.controls.amount.hasError('amount')) {
+        <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
+      } @else if (form.controls.amount.hasError('positive')) {
+        <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Monto en dólares</mat-label>
+      <span matTextPrefix>US$&nbsp;</span>
+      <input matInput formControlName="usdAmount" inputmode="decimal" autocomplete="off" required />
+      <mat-hint>Con coma decimal, por ejemplo 1000,00.</mat-hint>
+      @if (form.controls.usdAmount.hasError('required')) {
+        <mat-error>Ingresá el monto en dólares.</mat-error>
+      } @else if (form.controls.usdAmount.hasError('amount')) {
+        <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
+      } @else if (form.controls.usdAmount.hasError('positive')) {
+        <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+      }
+    </mat-form-field>
+  } @else {
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Monto</mat-label>
+      <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
+      <mat-hint>Con coma decimal, por ejemplo 50000,00.</mat-hint>
+      @if (form.controls.amount.hasError('required')) {
+        <mat-error>Ingresá el monto.</mat-error>
+      } @else if (form.controls.amount.hasError('amount')) {
+        <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
+      } @else if (form.controls.amount.hasError('positive')) {
+        <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+      }
+    </mat-form-field>
+  }
 
   <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Nota (opcional)</mat-label>

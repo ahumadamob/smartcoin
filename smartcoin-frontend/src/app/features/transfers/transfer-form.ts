@@ -16,6 +16,7 @@ import { AccountResponse, Transfer, TransferenciasService } from '../../api';
 import { detailFor, messageFor } from '../../core/error-messages';
 import { parseAmount } from '../../shared/amount';
 import { isoDate } from '../budget/iso-date';
+import { exchangeKind } from './transfer-kind';
 import { targetAccounts } from './transfer-targets';
 
 
@@ -37,8 +38,9 @@ export function todayIso(now = new Date()): string {
 }
 
 /**
- * Alta de una transferencia entre cuentas de la misma moneda (HU-27). Un solo monto, con coma decimal: la API
- * recibe los dos iguales. Solo valida formato; las reglas (RN-36) las decide el backend y su error se muestra sin
+ * Alta de una transferencia entre cuentas (HU-27, HU-28). Entre cuentas de la misma moneda, un solo monto, con coma
+ * decimal: la API recibe los dos iguales. Entre monedas distintas, dos: el de pesos y el de dólares, cada uno con su
+ * símbolo; el tipo de cambio lo calcula el backend y se ve al guardar (D-40). Solo valida formato; las reglas (RN-36) las decide el backend y su error se muestra sin
  * perder lo cargado.
  */
 @Component({
@@ -67,13 +69,36 @@ export class TransferForm {
       nonNullable: true,
       validators: [Validators.required, amountFormat, positiveAmount],
     }),
+    // Monto en dólares: solo se pide, y solo cuenta para la validez, si las dos monedas son distintas (HU-28).
+    usdAmount: new FormControl(
+      { value: '', disabled: true },
+      { nonNullable: true, validators: [Validators.required, amountFormat, positiveAmount] },
+    ),
     note: new FormControl('', { nonNullable: true, validators: Validators.maxLength(200) }),
   });
   protected readonly error = signal<string | null>(null);
   protected readonly submitting = signal(false);
   private readonly sourceId = signal<number | null>(null);
+  private readonly targetId = signal<number | null>(null);
 
   protected readonly targets = computed(() => targetAccounts(this.accounts(), this.sourceId()));
+
+  /** Moneda de las dos cuentas elegidas; nulo mientras falte alguna. */
+  private readonly currencies = computed(() => {
+    const source = this.accounts().find((account) => account.id === this.sourceId());
+    const target = this.accounts().find((account) => account.id === this.targetId());
+    return source && target ? { source: source.currency, target: target.currency } : null;
+  });
+
+  /** Con monedas distintas se piden dos montos, el de pesos y el de dólares (HU-28). */
+  protected readonly crossCurrency = computed(() => {
+    const currencies = this.currencies();
+    return currencies !== null && currencies.source !== currencies.target;
+  });
+  protected readonly kind = computed(() => {
+    const currencies = this.currencies();
+    return currencies ? exchangeKind(currencies.source, currencies.target) : null;
+  });
 
   constructor() {
     this.form.controls.sourceAccountId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => {
@@ -82,7 +107,23 @@ export class TransferForm {
       if (target.value !== null && !this.targets().some((account) => account.id === target.value)) {
         target.setValue(null);
       }
+      this.syncUsdAmount();
     });
+    this.form.controls.targetAccountId.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => {
+      this.targetId.set(id);
+      // Al volverse a la misma moneda, el campo de dólares deja de pedirse y de contar para la validez.
+      this.syncUsdAmount();
+    });
+  }
+
+  private syncUsdAmount(): void {
+    const usd = this.form.controls.usdAmount;
+    if (this.crossCurrency() && usd.disabled) {
+      usd.enable();
+    } else if (!this.crossCurrency() && usd.enabled) {
+      usd.disable();
+      usd.reset('');
+    }
   }
 
   protected label(account: AccountResponse): string {
@@ -96,6 +137,11 @@ export class TransferForm {
     }
     const raw = this.form.getRawValue();
     const amount = parseAmount(raw.amount)!;
+    // Con monedas distintas, `amount` es el de pesos y `usdAmount` el de dólares; cada uno va a la cuenta de su moneda.
+    const usdAmount = this.crossCurrency() ? parseAmount(raw.usdAmount)! : amount;
+    const sourceIsArs = this.currencies()?.source !== 'USD';
+    const sourceAmount = sourceIsArs ? amount : usdAmount;
+    const targetAmount = sourceIsArs ? usdAmount : amount;
     const note = raw.note.trim();
     this.error.set(null);
     this.submitting.set(true);
@@ -104,8 +150,8 @@ export class TransferForm {
         sourceAccountId: raw.sourceAccountId!,
         targetAccountId: raw.targetAccountId!,
         date: raw.date,
-        sourceAmount: amount,
-        targetAmount: amount,
+        sourceAmount,
+        targetAmount,
         ...(note === '' ? {} : { note }),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -113,6 +159,7 @@ export class TransferForm {
         next: (transfer) => {
           this.submitting.set(false);
           this.form.controls.amount.reset('');
+          this.form.controls.usdAmount.reset('');
           this.form.controls.note.reset('');
           this.form.controls.amount.markAsUntouched();
           this.saved.emit(transfer);

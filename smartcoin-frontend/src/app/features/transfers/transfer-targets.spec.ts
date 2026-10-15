@@ -23,13 +23,9 @@ describe('targetAccounts', () => {
   const dollars = account(4, 'Dólares', 'USD');
   const all = [bank, cash, wallet, dollars];
 
-  it('ofrece las cuentas de la misma moneda y distintas del origen', () => {
-    expect(targetAccounts(all, 1)).toEqual([cash, wallet]);
-  });
-
-  it('no ofrece las de otra moneda (compra y venta de dólares son de HU-28)', () => {
-    expect(targetAccounts(all, 1)).not.toContain(dollars);
-    expect(targetAccounts(all, 4)).toEqual([]);
+  it('ofrece todas las cuentas distintas del origen, de cualquier moneda', () => {
+    expect(targetAccounts(all, 1)).toEqual([cash, wallet, dollars]);
+    expect(targetAccounts(all, 4)).toEqual([bank, cash, wallet]);
   });
 
   it('sin origen, o con un origen que no existe, no ofrece ninguna', () => {
@@ -37,7 +33,7 @@ describe('targetAccounts', () => {
     expect(targetAccounts(all, 99)).toEqual([]);
   });
 
-  it('con una sola cuenta de esa moneda no hay destino', () => {
-    expect(targetAccounts([bank, dollars], 1)).toEqual([]);
+  it('con una sola cuenta no hay destino', () => {
+    expect(targetAccounts([bank], 1)).toEqual([]);
   });
 });

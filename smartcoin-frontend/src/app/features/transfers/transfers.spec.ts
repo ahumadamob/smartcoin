@@ -68,6 +68,42 @@ describe('Transfers', () => {
     expect(row).toContain('US$ 40,00');
   });
 
+  it('en una de distinta moneda muestra el tipo de cambio que devuelve la API', async () => {
+    await setup([
+      transfer({
+        sourceAmount: 1250000,
+        targetCurrency: 'USD',
+        targetAmount: 1000,
+        targetAccountName: 'Dólares',
+        exchangeRate: 1250,
+      }),
+      transfer({
+        id: 32,
+        sourceCurrency: 'USD',
+        sourceAmount: 500,
+        targetAmount: 610000,
+        sourceAccountName: 'Dólares',
+        targetAccountName: 'Banco',
+        exchangeRate: 1220,
+      }),
+    ]);
+
+    const rows = Array.from(root().querySelectorAll('[data-testid="exchange"]')).map((e) =>
+      e.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+    expect(rows).toEqual([
+      'Compra de dólares · Tipo de cambio $ 1.250,00',
+      'Venta de dólares · Tipo de cambio $ 1.220,00',
+    ]);
+  });
+
+  it('en una de la misma moneda no muestra tipo de cambio', async () => {
+    await setup([transfer({ exchangeRate: null })]);
+
+    expect(root().querySelector('[data-testid="exchange"]')).toBeNull();
+    expect(text()).not.toContain('Tipo de cambio');
+  });
+
   it('sin transferencias avisa que no hay en el rango', async () => {
     await setup([]);
 

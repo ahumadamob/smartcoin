@@ -12,6 +12,7 @@ import { messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { TransferForm } from './transfer-form';
+import { exchangeKind } from './transfer-kind';
 
 /**
  * Transferencias (HU-27): lista del rango de fechas y alta entre cuentas de la misma moneda. Sin fechas, el backend
@@ -28,6 +29,8 @@ export class Transfers implements OnInit {
   private readonly transfersApi = inject(TransferenciasService);
   private readonly accountsApi = inject(CuentasService);
   private readonly snackBar = inject(MatSnackBar);
+
+  private readonly money = new MoneyPipe();
 
   protected readonly dateFormat = DATE_FORMAT;
 
@@ -65,8 +68,19 @@ export class Transfers implements OnInit {
     this.formOpen.set(false);
   }
 
-  protected onSaved(): void {
-    this.snackBar.open('Transferencia registrada.', undefined, { duration: 4000 });
+  protected kindOf(transfer: Transfer): string | null {
+    return exchangeKind(transfer.sourceCurrency, transfer.targetCurrency);
+  }
+
+  protected onSaved(transfer: Transfer): void {
+    const kind = this.kindOf(transfer);
+    const rate = transfer.exchangeRate;
+    // Entre monedas distintas, el tipo de cambio que calculó el backend se ve apenas se guarda (HU-28).
+    const message =
+      kind !== null && rate != null
+        ? `${kind} registrada. Tipo de cambio: ${this.money.transform(rate, 'ARS')}.`
+        : 'Transferencia registrada.';
+    this.snackBar.open(message, undefined, { duration: 6000 });
     this.search();
   }
 
