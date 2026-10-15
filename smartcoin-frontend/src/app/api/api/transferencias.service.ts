@@ -111,6 +111,66 @@ export class TransferenciasService extends BaseService {
     }
 
     /**
+     * Eliminar una transferencia
+     * Elimina una transferencia (RN-36). Pide que el mes de su fecha esté abierto. Los saldos de las dos cuentas se recalculan solos (RN-35).
+     * @endpoint delete /api/transfers/{id}
+     * @param id 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public deleteTransfer(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any>;
+    public deleteTransfer(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<any>>;
+    public deleteTransfer(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<any>>;
+    public deleteTransfer(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling deleteTransfer.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/transfers/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Listar transferencias de un rango de fechas
      * Las transferencias del usuario con fecha entre &#x60;from&#x60; y &#x60;to&#x60;, ambas inclusive, de la más reciente a la más antigua y, a igual fecha, la última registrada primero. Cada una trae sus dos cuentas con su moneda. Sin &#x60;to&#x60;, hoy; sin &#x60;from&#x60;, el primer día del mes de &#x60;to&#x60;, es decir, el mes actual. Sin paginación.
      * @endpoint get /api/transfers
@@ -180,6 +240,81 @@ export class TransferenciasService extends BaseService {
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Corregir una transferencia
+     * Reemplaza cuentas, fecha, montos y nota (RN-36). Pide que el mes de la fecha actual esté abierto; los valores nuevos cumplen RN-36 con las mismas respuestas que el alta. Si los valores son los que ya tiene, responde 200 sin guardar. Se puede pasar de la misma moneda a monedas distintas y al revés: los montos cumplen lo mismo que en el alta. Orden en que se evalúa, y se informa el primero que falla: formato del cuerpo (400), transferencia inexistente o ajena (404), mes de la fecha actual cerrado (409 PERIOD_CLOSED), origen igual a destino (400 en &#x60;targetAccountId&#x60;), cuentas inexistentes o ajenas (400 en su campo), montos distintos con la misma moneda (409 TRANSFER_AMOUNTS_MISMATCH) y fecha nueva (409 DATE_OUT_OF_RANGE y, por último, 409 PERIOD_CLOSED). El tipo de cambio sale recalculado.
+     * @endpoint put /api/transfers/{id}
+     * @param id 
+     * @param transferRequest 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public updateTransfer(id: number, transferRequest: TransferRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Transfer>;
+    public updateTransfer(id: number, transferRequest: TransferRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Transfer>>;
+    public updateTransfer(id: number, transferRequest: TransferRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Transfer>>;
+    public updateTransfer(id: number, transferRequest: TransferRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling updateTransfer.');
+        }
+        if (transferRequest === null || transferRequest === undefined) {
+            throw new Error('Required parameter transferRequest was null or undefined when calling updateTransfer.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/transfers/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<Transfer>('put', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: transferRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

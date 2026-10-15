@@ -34,6 +34,10 @@ export interface Transfer {
      * Monto en ARS dividido por monto en USD, con 2 decimales (RN-37). Nulo si las dos cuentas son de la misma moneda. No se guarda.
      */
     exchangeRate?: number | null;
+    /**
+     * Informativo (D-41): el mes de la fecha es un período abierto, así que se puede corregir o eliminar (RN-36). El backend lo decide al intentarlo.
+     */
+    editable: boolean;
 }
 export namespace Transfer {
     export const SourceCurrencyEnum = {
