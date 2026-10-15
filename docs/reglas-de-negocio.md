@@ -229,6 +229,14 @@ Aclaraciones (HU-23, D-36): la vista previa sale del mismo plan que la consolida
 
 **RN-29. Desconsolidar.** Solo una partida consolidada de un período abierto. Vuelve a pendiente (queda Parcial, porque tiene movimientos). No revierte la propagación ni el monto vigente: la próxima consolidación del Concepto los vuelve a calcular.
 
+Aclaraciones (HU-26, D-38):
+
+- **Orden de evaluación** (se informa el primero que falla): la partida (404, RN-01); el período (`PERIOD_CLOSED`, aunque la partida esté pendiente); y el estado (`ENTRY_NOT_CONSOLIDATED`).
+- **Qué cambia**: `status` vuelve a `PENDING` y `consolidated_amount` y `consolidated_at` quedan nulos. El presupuestado y la marca de editada no se tocan (la consolidación nunca los cambió en la propia partida, así que ya son los de antes). Tampoco cambian el Concepto ni las demás partidas.
+- **Qué sigue valiendo**: queda Parcial con su real y su pendiente de siempre; admite de nuevo registrar, corregir y eliminar movimientos, editar su monto y volver a consolidarla. Si era la consolidación más reciente del Concepto, la base de la próxima es la que quede (RN-26, paso 1).
+- **Lo que no se revierte puede quedar sin respaldo**: si la desconsolidada era la única de la base, el monto vigente y los meses siguientes conservan su estimación hasta la próxima consolidación. Una partida desconsolidada, pendiente y no editada, vuelve a ser destino de la propagación de un mes anterior (RN-26, paso 4).
+- Toma el mismo bloqueo del Concepto que la consolidación, y cambia todo en una sola transacción.
+
 ## 7. Eliminación
 
 **RN-30. Eliminar una partida sin Concepto.** Debe estar pendiente, sin movimientos y en un período abierto.
@@ -413,6 +421,7 @@ Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un 
 | `PERIOD_NOT_AVAILABLE` | 409 | Usar un período anterior al primer período abierto o posterior al horizonte. |
 | `PERIOD_CLOSED` | 409 | Modificar algo de un período cerrado o con fecha en él. |
 | `ENTRY_NOT_PENDING` | 409 | Operar como pendiente sobre una partida consolidada, o eliminar un alcance que incluye alguna consolidada (con `entries`). |
+| `ENTRY_NOT_CONSOLIDATED` | 409 | Desconsolidar una partida que está pendiente. |
 | `ENTRY_HAS_MOVEMENTS` | 409 | Eliminar partidas que tienen movimientos (con `entries`). Si el alcance incluye también alguna consolidada, el código es `ENTRY_NOT_PENDING`. |
 | `CURRENCY_MISMATCH` | 409 | Cuenta de distinta moneda que la partida o el Concepto. |
 | `DATE_OUT_OF_RANGE` | 409 | Fecha antes de la ventana, antes de la apertura de la cuenta o futura. |
