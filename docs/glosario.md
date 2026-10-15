@@ -79,7 +79,7 @@ En la base, el estado de la partida se guarda solo como `PENDING` o `CONSOLIDATE
 | Propagar | `propagate` | Recalcula el presupuestado de las partidas futuras de un Concepto según su regla de estimación. |
 | Postergar | `carryOver` | Al cerrar el mes, pasa el pendiente de una partida al mes siguiente. |
 | Cerrar el mes | `closePeriod` | Verifica todo, compara saldos y bloquea el período para siempre. Se aplica a períodos. |
-| Transferir | `transfer` | Mueve plata entre dos cuentas propias. |
+| Transferir | `transfer` | Mueve plata entre dos cuentas propias. Entre monedas distintas se muestra como «Compra de dólares» (de ARS a USD) o «Venta de dólares» (de USD a ARS); son textos de la interfaz, no una acción ni un campo. |
 | Eliminar partida | `deleteEntry` | Borra una partida. Si viene de un Concepto, pregunta el alcance. |
 | Vista previa de la eliminación | `deletionPreview` | Informa, sin cambiar nada, qué eliminaría cada alcance y qué partidas lo impiden. |
 

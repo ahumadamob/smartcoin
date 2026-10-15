@@ -760,8 +760,8 @@ Reglas: RN-36.
 **Notas de implementación**
 
 - **Decisiones**: D-39. Dependen de **S-09** (sin confirmar), de S-13 y de D-20 (confirmadas).
-- **Endpoints**: `POST /api/transfers` (`createTransfer`, 201) y `GET /api/transfers?from=&to=` (`listTransfers`), tag «Transferencias». El cuerpo lleva `sourceAccountId`, `targetAccountId`, `date`, `sourceAmount`, `targetAmount` y `note`; la respuesta, la transferencia con sus dos cuentas y monedas, sin tipo de cambio (HU-28).
-- **Alcance entre historias**: RN-36 se implementa completa en el backend, incluidas las transferencias entre monedas distintas (se aceptan con sus dos montos). El tipo de cambio y la pantalla con dos montos son de HU-28; editar y eliminar, de HU-29. La pantalla de HU-27 solo ofrece destinos de la misma moneda que el origen.
+- **Endpoints**: `POST /api/transfers` (`createTransfer`, 201) y `GET /api/transfers?from=&to=` (`listTransfers`), tag «Transferencias». El cuerpo lleva `sourceAccountId`, `targetAccountId`, `date`, `sourceAmount`, `targetAmount` y `note`; la respuesta, la transferencia con sus dos cuentas y monedas y, desde HU-28, su tipo de cambio.
+- **Alcance entre historias**: RN-36 se implementa completa en el backend, incluidas las transferencias entre monedas distintas (se aceptan con sus dos montos). El tipo de cambio y la pantalla con dos montos son de HU-28; editar y eliminar, de HU-29. La pantalla de HU-27 solo ofrecía destinos de la misma moneda que el origen; HU-28 ofrece también los de la otra.
 - **Regla de fecha**: `TransferDateValidator` (`transfer/domain`), pura y gemela de `MovementDateValidator` sin ventana de anticipación.
 - **No toca partidas ni períodos**: no es ingreso ni gasto, así que no aparece en la vista del mes. Solo cambia los saldos (RN-35, ya implementados en HU-08).
 - **Frontend**: `/transferencias` con el rango (Desde, Hasta; en blanco, el mes actual del backend), la lista y `TransferForm`. La fecha de hoy que sugiere el formulario sale del navegador (el backend no expone «hoy» para transferencias); la valida el backend. Una transferencia entre monedas distintas, que hoy solo se puede crear por la API, se muestra con los dos montos.
@@ -779,6 +779,14 @@ Reglas: RN-36.
 5. No se guarda ninguna cotización ni se convierten totales.
 
 Reglas: RN-37.
+
+**Notas de implementación**
+
+- **Regla**: `ExchangeRate` (`transfer/domain`), pura: ARS ÷ USD con 2 decimales y `HALF_UP`, sin importar el origen (RN-03, RN-37, D-40). Vacía entre cuentas de la misma moneda.
+- **API**: `exchangeRate` en las respuestas de `POST` y `GET /api/transfers`, nulo en las de la misma moneda. Sin columna ni migración, sin endpoint nuevo.
+- **Sin vista previa**: el tipo de cambio se ve al guardar (aviso emergente) y en la lista; el formulario no lo muestra mientras se cargan los montos (D-40).
+- **Frontend**: el formulario ofrece todas las cuentas distintas del origen. Con monedas distintas pide «Monto en pesos» (`$`) y «Monto en dólares» (`US$`) y asigna cada uno a la cuenta de su moneda; con la misma, un solo «Monto». «Compra de dólares» (de ARS a USD) y «Venta de dólares» (de USD a ARS) son textos derivados de las monedas (`exchangeKind`), no un campo.
+- **Pruebas**: regla parametrizada (los dos ejemplos de RN-37, redondeos hacia arriba y hacia abajo, medio centavo exacto y USD de 0,01), servicio, `@WebMvcTest`, formulario con una y dos monedas, lista y `e2e/transferencias.spec.ts`.
 
 ### HU-29 · Corregir o eliminar una transferencia
 
