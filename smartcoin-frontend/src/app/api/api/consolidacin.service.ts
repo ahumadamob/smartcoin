@@ -23,6 +23,8 @@ import { Consolidation } from '../model/consolidation';
 // @ts-ignore
 import { ConsolidationPreview } from '../model/consolidationPreview';
 // @ts-ignore
+import { PeriodEntry } from '../model/periodEntry';
+// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 
 // @ts-ignore
@@ -162,6 +164,67 @@ export class ConsolidacinService extends BaseService {
         let localVarPath = `/api/entries/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}/consolidation-preview`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<ConsolidationPreview>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Desconsolidar una partida
+     * Vuelve a pendiente una partida consolidada de un período abierto: queda Parcial, porque tiene movimientos. Su presupuestado y su marca de editada no cambian. No revierte la propagación: el monto vigente del Concepto y las partidas de otros meses conservan lo que dejó la consolidación hasta la próxima consolidación del Concepto (RN-29). Orden en que se evalúa: partida inexistente o ajena (404), período cerrado (409) y partida no consolidada (409).
+     * @endpoint post /api/entries/{id}/unconsolidate
+     * @param id 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public unconsolidateEntry(id: number, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<PeriodEntry>;
+    public unconsolidateEntry(id: number, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PeriodEntry>>;
+    public unconsolidateEntry(id: number, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PeriodEntry>>;
+    public unconsolidateEntry(id: number, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling unconsolidateEntry.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/entries/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "number", dataFormat: "int64"})}/unconsolidate`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<PeriodEntry>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
