@@ -108,6 +108,31 @@ public class ConsolidationService {
 	}
 
 	/**
+	 * Desconsolida una partida (HU-26, RN-29): vuelve a pendiente, con su presupuestado y su marca de editada como
+	 * estaban. No revierte la propagación: el monto vigente del Concepto y las partidas de otros meses no cambian.
+	 * Orden de los errores: la partida (404, RN-01), el período cerrado ({@code PERIOD_CLOSED}) y el estado
+	 * ({@code ENTRY_NOT_CONSOLIDATED}). Toma el mismo bloqueo del Concepto que {@link #consolidate}.
+	 */
+	@Transactional
+	public EntryRow unconsolidate(long userId, long id) {
+		// Primera lectura: el bloqueo del Concepto, antes de la instantánea de la transacción.
+		items.lockByUserIdAndEntryId(userId, id);
+		BudgetEntry entry = find(userId, id);
+		BudgetPeriod period = entry.getPeriod();
+		if (period.getStatus() == PeriodStatus.CLOSED) {
+			throw new BusinessException(ErrorCode.PERIOD_CLOSED,
+					"El período " + period.getPeriodMonth() + " está cerrado y no admite cambios.");
+		}
+		if (entry.getStatus() != StoredEntryStatus.CONSOLIDATED) {
+			throw new BusinessException(ErrorCode.ENTRY_NOT_CONSOLIDATED, "La partida no está consolidada.");
+		}
+		entry.setStatus(StoredEntryStatus.PENDING);
+		entry.setConsolidatedAmount(null);
+		entry.setConsolidatedAt(null);
+		return PeriodViewService.row(entry, actualOf(userId, entry), LocalDate.now(clock));
+	}
+
+	/**
 	 * Una consolidación ya validada, lista para aplicar. La arma {@link #prepare} sin escribir nada, para que el pago
 	 * rápido (HU-22) pueda validar el movimiento y la consolidación antes de guardar cualquiera de los dos.
 	 */

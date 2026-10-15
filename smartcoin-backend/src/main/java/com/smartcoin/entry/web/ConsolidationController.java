@@ -1,6 +1,7 @@
 package com.smartcoin.entry.web;
 
 import com.smartcoin.entry.service.ConsolidationService;
+import com.smartcoin.period.web.PeriodViewResponse.PeriodEntry;
 import com.smartcoin.shared.security.CurrentUser;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -75,5 +76,25 @@ public class ConsolidationController {
 			@RequestBody(required = false) ConsolidateRequest request) {
 		return ConsolidationResponse.from(consolidation.consolidate(currentUser.id(), id,
 				request == null ? null : request.manualEntriesPolicy()));
+	}
+
+	@PostMapping("/entries/{id}/unconsolidate")
+	@Operation(operationId = "unconsolidateEntry", summary = "Desconsolidar una partida",
+			description = "Vuelve a pendiente una partida consolidada de un período abierto: queda Parcial, porque "
+					+ "tiene movimientos. Su presupuestado y su marca de editada no cambian. No revierte la "
+					+ "propagación: el monto vigente del Concepto y las partidas de otros meses conservan lo que "
+					+ "dejó la consolidación hasta la próxima consolidación del Concepto (RN-29). Orden en que se "
+					+ "evalúa: partida inexistente o ajena (404), período cerrado (409) y partida no consolidada "
+					+ "(409).")
+	@ApiResponse(responseCode = "200", description = "La partida desconsolidada, con la forma de la vista del mes.")
+	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "NOT_FOUND: la partida no existe o es de otro usuario.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "409", description = "PERIOD_CLOSED: el período está cerrado (RN-09). "
+			+ "ENTRY_NOT_CONSOLIDATED: la partida está pendiente.",
+			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	public PeriodEntry unconsolidate(@PathVariable long id) {
+		return PeriodEntry.from(consolidation.unconsolidate(currentUser.id(), id));
 	}
 }

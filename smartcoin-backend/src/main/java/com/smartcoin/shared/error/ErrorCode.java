@@ -21,6 +21,7 @@ public enum ErrorCode {
 	PERIOD_NOT_AVAILABLE(HttpStatus.CONFLICT, "Período no disponible"),
 	PERIOD_CLOSED(HttpStatus.CONFLICT, "Período cerrado"),
 	ENTRY_NOT_PENDING(HttpStatus.CONFLICT, "La partida no está pendiente"),
+	ENTRY_NOT_CONSOLIDATED(HttpStatus.CONFLICT, "La partida no está consolidada"),
 	ENTRY_HAS_MOVEMENTS(HttpStatus.CONFLICT, "La partida tiene movimientos"),
 	CURRENCY_MISMATCH(HttpStatus.CONFLICT, "Moneda distinta"),
 	DATE_OUT_OF_RANGE(HttpStatus.CONFLICT, "Fecha fuera de rango"),

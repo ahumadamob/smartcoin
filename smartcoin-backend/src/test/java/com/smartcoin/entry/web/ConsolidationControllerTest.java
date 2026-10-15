@@ -250,4 +250,50 @@ class ConsolidationControllerTest {
 
 		consolidate("999", null).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
 	}
+
+	private ResultActions unconsolidate(String id) throws Exception {
+		return mvc.perform(post("/api/entries/" + id + "/unconsolidate").header("Authorization", bearer()));
+	}
+
+	@Test
+	void unconsolidateAnswersTheEntryWithTheShapeOfTheMonthView() throws Exception {
+		BigDecimal budgeted = new BigDecimal("1800000.00");
+		when(consolidation.unconsolidate(USER_ID, 512L)).thenReturn(new EntryRow(512L, 31L, EntryOrigin.RECURRING,
+				EntryKind.INCOME, "Sueldo", null, null, 12L, "Banco", Currency.ARS, LocalDate.of(2026, 11, 25), null,
+				null, budgeted,
+				EntryAmounts.of(budgeted, StoredEntryStatus.PENDING, null, new BigDecimal("1850000.00")), false,
+				false));
+
+		unconsolidate("512")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(512))
+				.andExpect(jsonPath("$.status").value("PARTIAL"))
+				.andExpect(jsonPath("$.actualAmount").value(1850000.00))
+				.andExpect(jsonPath("$.pendingAmount").value(0))
+				.andExpect(jsonPath("$.budgetedAmount").value(1800000.00));
+	}
+
+	@Test
+	void unconsolidateBusinessErrorsKeepTheCommonFormat() throws Exception {
+		for (ErrorCode code : List.of(ErrorCode.PERIOD_CLOSED, ErrorCode.ENTRY_NOT_CONSOLIDATED)) {
+			org.mockito.Mockito.doThrow(new BusinessException(code, "detalle")).when(consolidation)
+					.unconsolidate(anyLong(), anyLong());
+			unconsolidate("512").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value(code.name()))
+					.andExpect(jsonPath("$.detail").value("detalle"));
+		}
+	}
+
+	@Test
+	void unconsolidateAnotherUsersEntryIs404() throws Exception {
+		when(consolidation.unconsolidate(anyLong(), anyLong()))
+				.thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "La partida no existe."));
+
+		unconsolidate("999").andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+	}
+
+	@Test
+	void unconsolidateWithoutTokenIs401() throws Exception {
+		mvc.perform(post("/api/entries/512/unconsolidate")).andExpect(status().isUnauthorized());
+		verifyNoInteractions(consolidation);
+	}
 }

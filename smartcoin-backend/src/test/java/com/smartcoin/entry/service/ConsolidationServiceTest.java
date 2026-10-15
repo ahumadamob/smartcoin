@@ -90,6 +90,7 @@ class ConsolidationServiceTest {
 		e.setKind(EntryKind.INCOME);
 		e.setAccount(account);
 		e.setBudgetedAmount(new BigDecimal(budgeted));
+		e.setDueDate(YearMonth.parse(period).atDay(25));
 		e.setStatus(StoredEntryStatus.PENDING);
 		BudgetPeriod p = BudgetPeriod.open(USER_ID, YearMonth.parse(period));
 		p.setStatus(PeriodStatus.OPEN);
@@ -555,5 +556,134 @@ class ConsolidationServiceTest {
 				.isInstanceOf(BusinessException.class);
 		verify(entries, never()).save(org.mockito.ArgumentMatchers.any());
 		assertThat(january.getBudgetedAmount()).isEqualByComparingTo("1800000.00");
+	}
+
+	// HU-26 (RN-29)
+
+	@Test
+	void unconsolidatesARecurringEntryWithoutTouchingTheItemNorTheOtherEntries() {
+		salaryScenario();
+		service.consolidate(USER_ID, december.getId(), null);
+		december.setManual(true);
+
+		var row = service.unconsolidate(USER_ID, december.getId());
+
+		assertThat(december.getStatus()).isEqualTo(StoredEntryStatus.PENDING);
+		assertThat(december.getConsolidatedAmount()).isNull();
+		assertThat(december.getConsolidatedAt()).isNull();
+		assertThat(december.getBudgetedAmount()).isEqualByComparingTo("1800000.00");
+		assertThat(december.isManual()).isTrue();
+		assertThat(salary.getCurrentAmount()).isEqualByComparingTo("1850000.00");
+		assertThat(january.getBudgetedAmount()).isEqualByComparingTo("1850000.00");
+		assertThat(february.getBudgetedAmount()).isEqualByComparingTo("1850000.00");
+		assertThat(row.amounts().status()).isEqualTo(EntryStatus.PARTIAL);
+		assertThat(row.amounts().actual()).isEqualByComparingTo("1850000.00");
+		assertThat(row.amounts().pending()).isEqualByComparingTo("0.00");
+		assertThat(row.amounts().forecast()).isEqualByComparingTo("1850000.00");
+	}
+
+	@Test
+	void unconsolidatesAnEntryWithoutAnItem() {
+		BudgetEntry oneOff = entry(null, "2026-11", "70000.00");
+		given(oneOff, "65000.00");
+		service.consolidate(USER_ID, oneOff.getId(), null);
+
+		var row = service.unconsolidate(USER_ID, oneOff.getId());
+
+		assertThat(oneOff.getStatus()).isEqualTo(StoredEntryStatus.PENDING);
+		assertThat(oneOff.getConsolidatedAmount()).isNull();
+		assertThat(oneOff.getConsolidatedAt()).isNull();
+		assertThat(row.amounts().status()).isEqualTo(EntryStatus.PARTIAL);
+		assertThat(row.amounts().pending()).isEqualByComparingTo("5000.00");
+	}
+
+	@Test
+	void locksTheItemBeforeReadingTheEntryWhenUnconsolidating() {
+		salaryScenario();
+		service.consolidate(USER_ID, december.getId(), null);
+		org.mockito.Mockito.clearInvocations(items, entries);
+
+		service.unconsolidate(USER_ID, december.getId());
+
+		var order = org.mockito.Mockito.inOrder(items, entries);
+		order.verify(items).lockByUserIdAndEntryId(USER_ID, december.getId());
+		order.verify(entries).findByIdAndUserIdWithDetails(december.getId(), USER_ID);
+	}
+
+	@Test
+	void aPendingEntryCannotBeUnconsolidated() {
+		salaryScenario();
+
+		assertThatThrownBy(() -> service.unconsolidate(USER_ID, december.getId()))
+				.isInstanceOfSatisfying(BusinessException.class,
+						e -> assertThat(e.code()).isEqualTo(ErrorCode.ENTRY_NOT_CONSOLIDATED));
+		assertThat(december.getStatus()).isEqualTo(StoredEntryStatus.PENDING);
+	}
+
+	@Test
+	void anEntryOfAClosedPeriodCannotBeUnconsolidatedEvenIfPending() {
+		salaryScenario();
+		service.consolidate(USER_ID, december.getId(), null);
+		december.getPeriod().setStatus(PeriodStatus.CLOSED);
+
+		assertThatThrownBy(() -> service.unconsolidate(USER_ID, december.getId()))
+				.isInstanceOfSatisfying(BusinessException.class,
+						e -> assertThat(e.code()).isEqualTo(ErrorCode.PERIOD_CLOSED));
+		assertThat(december.getStatus()).isEqualTo(StoredEntryStatus.CONSOLIDATED);
+		assertThat(december.getConsolidatedAmount()).isEqualByComparingTo("1850000.00");
+
+		BudgetEntry pendingInClosed = entry(salary, "2026-10", "1.00");
+		pendingInClosed.getPeriod().setStatus(PeriodStatus.CLOSED);
+		given(pendingInClosed, "1.00");
+		assertThatThrownBy(() -> service.unconsolidate(USER_ID, pendingInClosed.getId()))
+				.isInstanceOfSatisfying(BusinessException.class,
+						e -> assertThat(e.code()).isEqualTo(ErrorCode.PERIOD_CLOSED));
+	}
+
+	@Test
+	void unconsolidateOfAnotherUsersEntryIsNotFound() {
+		when(entries.findByIdAndUserIdWithDetails(999L, USER_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.unconsolidate(USER_ID, 999L))
+				.isInstanceOfSatisfying(BusinessException.class,
+						e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+	}
+
+	@Test
+	void afterUnconsolidatingAndConsolidatingWithAnotherAmountTheEstimateComesFromTheNewBase() {
+		salaryScenario();
+		service.consolidate(USER_ID, december.getId(), null);
+		service.unconsolidate(USER_ID, december.getId());
+		when(movements.sumByEntry(USER_ID, december.getId())).thenReturn(new BigDecimal("1900000.00"));
+
+		Result result = service.consolidate(USER_ID, december.getId(), null);
+
+		assertThat(result.estimate()).isEqualByComparingTo("1900000.00");
+		assertThat(salary.getCurrentAmount()).isEqualByComparingTo("1900000.00");
+		assertThat(january.getBudgetedAmount()).isEqualByComparingTo("1900000.00");
+		assertThat(february.getBudgetedAmount()).isEqualByComparingTo("1900000.00");
+	}
+
+	@Test
+	void unconsolidatingTheLatestConsolidationMakesTheNextOneUseTheRemainingAsBase() {
+		BudgetEntry september = consolidatedEntry("2026-09", "1000.00");
+		BudgetEntry october = entry(salary, "2026-10", "1000.00");
+		BudgetEntry november = entry(salary, "2026-11", "1000.00");
+		BudgetEntry december = entry(salary, "2026-12", "1000.00");
+		given(november, "1500.00");
+		service.consolidate(USER_ID, november.getId(), null);
+		assertThat(december.getBudgetedAmount()).isEqualByComparingTo("1500.00");
+
+		service.unconsolidate(USER_ID, november.getId());
+		// la base ahora es septiembre: consolidar octubre propaga desde octubre, no desde noviembre
+		given(october, "1200.00");
+		Preview preview = service.preview(USER_ID, october.getId());
+
+		assertThat(preview.estimateBasis()).extracting(EstimationCalculator.BaseEntry::period)
+				.containsExactly(YearMonth.of(2026, 10));
+		assertThat(preview.estimate()).isEqualByComparingTo("1200.00");
+		assertThat(preview.targets()).extracting(EstimationCalculator.Target::entryId)
+				.containsExactlyInAnyOrder(november.getId(), december.getId());
+		assertThat(september.getStatus()).isEqualTo(StoredEntryStatus.CONSOLIDATED);
 	}
 }
