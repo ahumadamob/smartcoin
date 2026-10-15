@@ -244,3 +244,151 @@ test.describe('HU-28 · comprar y vender dólares', () => {
     await expect(page.getByLabel('Monto en dólares')).toHaveValue('10,00');
   });
 });
+
+test.describe('HU-29 · corregir o eliminar una transferencia', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let token: string;
+
+  const api = async (path: string, init?: { method?: string; body?: unknown }) => {
+    const response = await page.request.fetch(`${API_URL}${path}`, {
+      method: init?.method ?? 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      data: init?.body,
+    });
+    expect(response.status(), path).toBeLessThan(300);
+    return response.text().then((body) => (body ? JSON.parse(body) : null));
+  };
+
+  const balances = async () => {
+    const list = await api('/api/accounts');
+    return Object.fromEntries(
+      list.accounts.map((a: { name: string; currentBalance: number }) => [a.name, a.currentBalance]),
+    );
+  };
+
+  const item = (name: string) => page.getByTestId('transfer').filter({ hasText: name });
+
+  async function showFromOpening() {
+    await page.goto('/transferencias');
+    await page.getByLabel('Desde').fill(opening);
+    await page.getByRole('button', { name: 'Ver' }).click();
+    await expect(page.getByTestId('transfer')).toHaveCount(2);
+  }
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    ({ token } = await startSession(page, playwright));
+    const accounts: [string, string, number][] = [
+      ['Galicia', 'ARS', 5000000],
+      ['Caja chica', 'ARS', 10000],
+      ['Caja en dólares', 'USD', 100],
+    ];
+    const ids: Record<string, number> = {};
+    for (const [name, currency, initialBalance] of accounts) {
+      const created = await api('/api/accounts', {
+        method: 'POST',
+        body: { name, type: 'BANK', currency, initialBalance, openingDate: opening },
+      });
+      ids[name] = created.id;
+    }
+    await api('/api/transfers', {
+      method: 'POST',
+      body: {
+        sourceAccountId: ids['Galicia'],
+        targetAccountId: ids['Caja chica'],
+        date: isoDay(-2),
+        sourceAmount: 50000,
+        targetAmount: 50000,
+      },
+    });
+    await api('/api/transfers', {
+      method: 'POST',
+      body: {
+        sourceAccountId: ids['Galicia'],
+        targetAccountId: ids['Caja en dólares'],
+        date: isoDay(-1),
+        sourceAmount: 1250000,
+        targetAmount: 1000,
+      },
+    });
+    await showFromOpening();
+  });
+
+  test.afterAll(async () => {
+    await page.close();
+  });
+
+  test('corregir el monto: la lista muestra el nuevo y /cuentas los saldos nuevos', async () => {
+    await item('Caja chica').getByRole('button', { name: /Editar/ }).click();
+
+    await expect(page.getByRole('heading', { name: 'Editar transferencia' })).toBeVisible();
+    await expect(page.getByLabel('Monto', { exact: true })).toHaveValue('50000,00');
+    await page.getByLabel('Monto', { exact: true }).fill('45.000,00');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(page.getByText('Transferencia corregida.')).toBeVisible();
+    await expect(item('Caja chica')).toContainText('$ 45.000,00');
+
+    expect(await balances()).toMatchObject({ Galicia: 3705000, 'Caja chica': 55000, 'Caja en dólares': 1100 });
+    await page.goto('/cuentas');
+    const row = (name: string) => page.getByRole('listitem').filter({ hasText: name });
+    await expect(row('Galicia').getByTestId('balance')).toHaveText('$ 3.705.000,00');
+    await expect(row('Caja chica').getByTestId('balance')).toHaveText('$ 55.000,00');
+  });
+
+  test('corregir una compra de dólares: carga los dos montos y recalcula el tipo de cambio', async () => {
+    await showFromOpening();
+    await item('Caja en dólares').getByRole('button', { name: /Editar/ }).click();
+
+    await expect(page.getByLabel('Monto en pesos')).toHaveValue('1250000,00');
+    await expect(page.getByLabel('Monto en dólares')).toHaveValue('1000,00');
+    await page.getByLabel('Monto en pesos').fill('1.300.000,00');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(page.getByText('Compra de dólares corregida. Tipo de cambio: $ 1.300,00.')).toBeVisible();
+    await expect(item('Caja en dólares').getByTestId('exchange')).toContainText('Tipo de cambio $ 1.300,00');
+    expect(await balances()).toMatchObject({ Galicia: 3655000, 'Caja en dólares': 1100 });
+  });
+
+  test('una fecha futura al editar la rechaza el backend, no se pierde lo cargado y no cambia nada', async () => {
+    await item('Caja chica').getByRole('button', { name: /Editar/ }).click();
+    await page.getByLabel('Fecha', { exact: true }).fill(isoDay(1));
+    await page.getByLabel('Monto', { exact: true }).fill('1.000,00');
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+
+    await expect(page.getByRole('alert')).toContainText('posterior a hoy');
+    await expect(page.getByLabel('Monto', { exact: true })).toHaveValue('1.000,00');
+    await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue(isoDay(1));
+    expect(await balances()).toMatchObject({ Galicia: 3655000, 'Caja chica': 55000 });
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByRole('heading', { name: 'Editar transferencia' })).toHaveCount(0);
+  });
+
+  test('eliminar pide confirmar con los datos de la transferencia; cancelar no elimina', async () => {
+    await item('Caja en dólares').getByRole('button', { name: /Eliminar/ }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Galicia → Caja en dólares');
+    await expect(dialog).toContainText('$ 1.300.000,00');
+    await expect(dialog).toContainText('US$ 1.000,00');
+    await expect(dialog).toContainText('tipo de cambio $ 1.300,00');
+    await dialog.getByRole('button', { name: 'Cancelar' }).click();
+
+    await expect(page.getByTestId('transfer')).toHaveCount(2);
+  });
+
+  test('eliminar las dos: los saldos vuelven al principio y el foco queda en Nueva transferencia', async () => {
+    for (const name of ['Caja en dólares', 'Caja chica']) {
+      await item(name).getByRole('button', { name: /Eliminar/ }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Eliminar', exact: true }).click();
+      await expect(page.getByText('Transferencia eliminada.')).toBeVisible();
+      await expect(item(name)).toHaveCount(0);
+    }
+
+    await expect(page.getByText('No hay transferencias en ese rango.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Nueva transferencia' })).toBeFocused();
+    expect(await balances()).toMatchObject({ Galicia: 5000000, 'Caja chica': 10000, 'Caja en dólares': 100 });
+  });
+});

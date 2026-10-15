@@ -179,7 +179,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **D-39. Transferencias entre cuentas.** *Confirmada* (HU-27): las dudas (rango por defecto de la lista, orden de los errores y huecos de RN-36) se resolvieron con el usuario antes de escribir código, todas por la opción recomendada. Depende de **S-09**, **sin confirmar**.
 
-- **Endpoints**: `POST /api/transfers` (201) y `GET /api/transfers?from=&to=`, ambos con la forma de HU-27. Sin edición ni eliminación (HU-29). El tipo de cambio se sumó en HU-28 (D-40).
+- **Endpoints**: `POST /api/transfers` (201) y `GET /api/transfers?from=&to=`, ambos con la forma de HU-27. Edición y eliminación, de HU-29 (D-41). El tipo de cambio se sumó en HU-28 (D-40).
 - **Orden de evaluación del alta** (se informa el primero que falla): token (401); formato del cuerpo (400: faltantes, montos mayores que 0 con hasta 2 decimales, nota de hasta 200); origen igual a destino (400 `VALIDATION_ERROR` en `targetAccountId`); cuenta de origen y de destino inexistentes o ajenas (400 en `sourceAccountId` y `targetAccountId`, D-24, el origen primero); montos distintos con la misma moneda (409 `TRANSFER_AMOUNTS_MISMATCH`); y la fecha: posterior a hoy, anterior a la apertura del origen, anterior a la apertura del destino (409 `DATE_OUT_OF_RANGE`) y, por último, mes cerrado (409 `PERIOD_CLOSED`). Mismo criterio que D-37: primero lo que existe y las monedas, al final la fecha.
 - **Un mes sin período** (anterior al período inicial) responde `DATE_OUT_OF_RANGE`, como en RN-21. Por la API no se produce, porque la apertura de una cuenta nunca es anterior al primer día del período inicial (RN-33).
 - **No hay ventana de anticipación**: la fecha no puede ser posterior a hoy.
@@ -196,6 +196,18 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **Compra y venta**: textos de la interfaz derivados de las monedas, no un campo: de ARS a USD, «Compra de dólares»; de USD a ARS, «Venta de dólares».
 - **Sin tope**: con montos de USD muy chicos el tipo de cambio puede ser muy alto (1.250,00 ARS por 0,01 USD dan 125.000,00); RN-36 no lo limita.
 - **Cálculo con el redondeo**: el tipo de cambio mostrado puede no reproducir los montos cargados; los montos son los que valen para los saldos.
+
+**D-41. Corregir o eliminar una transferencia.** *Confirmada* (HU-29): las cuatro dudas (orden de los errores, edición sin cambios, cambio de moneda al editar y cómo sabe la lista qué se puede editar) se resolvieron con el usuario antes de escribir código, todas por la opción recomendada. Depende de **S-09**, **sin confirmar**. Sigue a **D-35** y **D-39**.
+
+- **Endpoints**: `PUT /api/transfers/{id}` (`updateTransfer`) responde 200 con la transferencia y su tipo de cambio recalculado; `DELETE /api/transfers/{id}` (`deleteTransfer`) responde 204. El cuerpo del `PUT` es el mismo `TransferRequest` del alta. De otro usuario o inexistente: 404 (RN-01).
+- **Orden de evaluación del `PUT`** (se informa el primero que falla): token (401); formato del cuerpo (400); transferencia inexistente o ajena (404); mes de la fecha actual cerrado (409 `PERIOD_CLOSED`); y los valores nuevos con la misma regla y el mismo orden del alta (D-39): origen igual a destino, cuentas, `TRANSFER_AMOUNTS_MISMATCH`, fecha (`DATE_OUT_OF_RANGE` antes que `PERIOD_CLOSED`). Primero el estado de lo que existe y después lo que se pide: si fallan a la vez el mes actual y el de la fecha nueva, se informa el actual. El `DELETE` evalúa 404 y mes actual cerrado.
+- **Sin cambios** es válido: 200 con la misma transferencia y sin guardar nada.
+- **Se puede cambiar de misma moneda a monedas distintas y al revés.** RN-36 no lo prohíbe: los montos nuevos cumplen lo mismo que en el alta (iguales si las monedas coinciden; sin relación si difieren) y el tipo de cambio sale recalculado, o nulo si ahora son de la misma moneda.
+- **Siempre se revalidan los valores nuevos.** A diferencia de D-35 no hay ventana configurable que pueda dejar fuera una transferencia válida: «hoy» no retrocede, RN-33 impide mover la apertura de una cuenta después de su primera transferencia y el mes de la fecha ya se verificó abierto. Con fecha y cuentas iguales la revalidación no puede fallar, y evita una rama especial.
+- **`editable` en la respuesta** (`Transfer.editable`, en el alta, la edición y la lista): informa si el mes de la fecha es un período abierto, para que la pantalla ofrezca «Editar» y «Eliminar» solo donde corresponde. Es informativo: el backend decide al intentarlo y responde 409 `PERIOD_CLOSED` si el mes se cerró entre tanto. Se calcula con una consulta por mes distinto de la lista. Es el único cambio de contrato de la historia; para movimientos no hizo falta (D-35) porque la pantalla ya conoce el estado del período.
+- **Mes cerrado**: una transferencia con fecha en un mes cerrado queda congelada: no se edita ni se elimina, y no hay forma de producirlo de punta a punta hasta HU-33.
+- **RN-33 sigue bien sin cambios de código**: «referenciada», la fecha de la primera transferencia y los saldos (RN-35) se consultan en vivo en la tabla `transfer`; no hay nada guardado que corregir al editar o eliminar. Verificado con datos.
+- **Frontend**: «Editar» reutiliza `TransferForm` con los valores cargados (uno o dos montos según las monedas, y cambia al cambiar la cuenta); «Eliminar» pide confirmar con fecha, cuentas, monto o montos y tipo de cambio. Después de cada cambio se pide de nuevo la lista y el foco queda en «Nueva transferencia».
 
 ## Supuestos tomados al redactar
 

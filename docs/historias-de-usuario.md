@@ -797,6 +797,15 @@ Reglas: RN-37.
 
 Reglas: RN-36.
 
+**Notas de implementación**
+
+- **Decisión**: D-41 (orden de los errores, edición sin cambios, cambio de moneda al editar y el campo `editable`). Depende de **S-09**, sin confirmar.
+- **API**: `PUT /api/transfers/{id}` (200, mismo cuerpo del alta, con el tipo de cambio recalculado) y `DELETE /api/transfers/{id}` (204). `Transfer.editable` informa si el mes de la fecha es un período abierto.
+- **Servicio**: `create` y `update` comparten la resolución de los valores (`resolve`): las mismas reglas, el mismo orden y los mismos mensajes. No hay reglas nuevas en la capa pura: se reutilizan `TransferDateValidator` y `ExchangeRate`.
+- **Frontend**: `TransferForm` recibe `transfer` para editar (carga uno o dos montos y guarda con `PUT`); la lista ofrece «Editar» y «Eliminar» por fila editable; eliminar confirma con `ConfirmDialog` mostrando fecha, cuentas, monto o montos y tipo de cambio. Tras eliminar, el foco pasa a «Nueva transferencia».
+- **Pruebas**: servicio con repositorios simulados y `Clock` fijo (cada campo, otra cuenta, fecha futura, anterior a la apertura y en mes cerrado, transferencia congelada al editar y eliminar, montos distintos, cambio de moneda en los dos sentidos, sin cambios, ajena y orden de errores), `@WebMvcTest`, acciones, edición y confirmación en el frontend, y `e2e/transferencias.spec.ts` (corregir monto, corregir compra de dólares, fecha futura al editar y eliminar con los saldos de vuelta).
+- **Verificado con datos** (usuario de prueba, por la API): después de editar una transferencia los bloqueos de RN-33 responden según el estado nuevo. Con una transferencia, la cuenta responde 409 `ACCOUNT_IN_USE` al eliminarla y 409 `FIELD_NOT_EDITABLE` al mover su apertura después de la fecha de la transferencia; al corregir la fecha a una posterior, la apertura puede avanzar hasta la nueva fecha; al pasar la transferencia a otras cuentas, la cuenta que quedó sin referencias se elimina (204) y la nueva responde `ACCOUNT_IN_USE`; y al eliminar la transferencia los saldos vuelven a los iniciales y las dos cuentas se eliminan. Eliminar una transferencia ya eliminada responde 404. *Sigue pendiente* lo que depende de un mes cerrado (HU-33): `PERIOD_CLOSED` por el mes actual de la transferencia solo está probado en el servicio con repositorios simulados.
+
 **Endpoints de la épica**
 
 | Método y ruta | Uso |
