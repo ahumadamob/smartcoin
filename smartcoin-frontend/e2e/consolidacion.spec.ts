@@ -124,7 +124,7 @@ test.describe('HU-23 · consolidar una partida', () => {
     await expect(first).toContainText(periodText(monthFrom(1)));
     await expect(first).toContainText('$ 1.800.000,00');
     await expect(first).toContainText('$ 1.850.000,00');
-    await expect(dialog().getByTestId('irreversible')).toContainText('no se puede deshacer');
+    await expect(dialog().getByTestId('irreversible')).toContainText('desconsolidarla mientras el mes esté abierto');
     await expect(dialog().getByTestId('confirm-consolidate')).toBeEnabled();
 
     await dialog().getByTestId('confirm-consolidate').click();
@@ -135,7 +135,9 @@ test.describe('HU-23 · consolidar una partida', () => {
     await expect(entry.nth(8)).toHaveText('Consolidada');
     await expect(entry.nth(6)).toHaveText('$ 1.850.000,00');
     await expect(entry.nth(7)).toHaveText('$ 0,00');
-    await expect(row('Ingresos', 'Sueldo').getByRole('button')).toHaveCount(0);
+    // Lo único que ofrece ahora es desconsolidarla (HU-26).
+    await expect(row('Ingresos', 'Sueldo').getByRole('button')).toHaveCount(1);
+    await expect(row('Ingresos', 'Sueldo').getByRole('button', { name: 'Desconsolidar Sueldo' })).toBeVisible();
     await expect(page.getByText('«Sueldo» consolidada por $ 1.850.000,00. Se actualizaron 24 partidas')).toBeVisible();
     // El estimado de la consolidada es su monto consolidado: el resultado del mes lo usa.
     await expect(page.getByTestId('result')).toContainText('$ 1.850.000,00');
@@ -632,7 +634,8 @@ test.describe('HU-22 · pagar todo', () => {
     await expect(cells('Expensas').nth(6)).toHaveText('$ 200.000,00');
     await expect(cells('Expensas').nth(7)).toHaveText('$ 0,00');
     await expect(page.getByText('Pago de $ 200.000,00 registrado. «Expensas» consolidada por $ 200.000,00.')).toBeVisible();
-    await expect(row('Expensas').getByRole('button')).toHaveCount(0);
+    await expect(row('Expensas').getByRole('button')).toHaveCount(1);
+    await expect(row('Expensas').getByRole('button', { name: 'Desconsolidar Expensas' })).toBeVisible();
 
     const movements = await movementsOf('Expensas');
     expect(movements).toHaveLength(1);
@@ -708,5 +711,149 @@ test.describe('HU-22 · pagar todo', () => {
     await expect(dialog()).toBeHidden();
     await expect(cells('Patente').nth(8)).toHaveText('Consolidada');
     expect(await movementsOf('Patente')).toHaveLength(1);
+  });
+});
+
+test.describe('HU-26 · desconsolidar una partida', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let accountId: number;
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = await api.post('/api/accounts', {
+      data: { name: 'Banco Nación', type: 'BANK', currency: 'ARS', openingDate: `${startPeriod()}-01`, initialBalance: 0 },
+    });
+    expect(account.status()).toBe(201);
+    accountId = (await account.json()).id;
+    const item = await api.post('/api/budget-items', {
+      data: {
+        name: 'Sueldo',
+        kind: 'INCOME',
+        defaultAccountId: accountId,
+        periodicity: 'MONTHLY',
+        dueDay: 25,
+        dueMonthOffset: 0,
+        startPeriod: periodOf(today),
+        estimationRule: 'LAST_VALUE',
+        currentAmount: 1800000,
+      },
+    });
+    expect(item.status(), 'alta del Concepto').toBe(201);
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const section = (name: string) => page.getByRole('region', { name, exact: true });
+  const row = (sectionName: string, entry: string) =>
+    section(sectionName).locator('tbody tr').filter({ has: page.getByRole('rowheader', { name: entry, exact: true }) });
+  const cells = (locator: ReturnType<typeof row>) => locator.locator('th, td');
+  const dialog = () => page.getByRole('dialog');
+  const nextMonthSueldo = async () => {
+    await page.goto(`/presupuesto/${periodOf(monthFrom(1))}`);
+    return cells(row('Ingresos', 'Sueldo'));
+  };
+
+  test('consolidar y desconsolidar: la partida vuelve a Parcial y lo propagado no se revierte', async () => {
+    await page.goto('/presupuesto');
+    await row('Ingresos', 'Sueldo').getByRole('button', { name: 'Registrar cobro de Sueldo' }).click();
+    await dialog().getByLabel('Monto').fill('1.850.000,00');
+    await dialog().getByRole('button', { name: 'Registrar cobro', exact: true }).click();
+    await expect(dialog()).toBeHidden();
+    await row('Ingresos', 'Sueldo').getByRole('button', { name: 'Consolidar Sueldo' }).click();
+    await dialog().getByTestId('confirm-consolidate').click();
+    await expect(dialog()).toBeHidden();
+    await expect(cells(row('Ingresos', 'Sueldo')).nth(8)).toHaveText('Consolidada');
+    // El mes siguiente ya tomó el valor propagado.
+    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.850.000,00');
+    await page.goto('/presupuesto');
+
+    await row('Ingresos', 'Sueldo').getByRole('button', { name: 'Desconsolidar Sueldo' }).click();
+
+    await expect(
+      dialog().getByRole('heading', { name: `Desconsolidar «Sueldo» de ${periodText(today)}` }),
+    ).toBeVisible();
+    await expect(dialog().getByTestId('unconsolidate-effect')).toContainText('vuelve a Parcial');
+    await expect(dialog().getByTestId('unconsolidate-kept')).toContainText('Lo que se propagó no se deshace');
+    await dialog().getByTestId('confirm-unconsolidate').click();
+
+    await expect(dialog()).toBeHidden();
+    await expect(page.getByText('«Sueldo» volvió a Parcial')).toBeVisible();
+    const entry = cells(row('Ingresos', 'Sueldo'));
+    await expect(entry.nth(8)).toHaveText('Parcial');
+    await expect(entry.nth(6)).toHaveText('$ 1.850.000,00');
+    await expect(entry.nth(7)).toHaveText('$ 0,00');
+    // Sus acciones están de nuevo disponibles y «Desconsolidar» ya no.
+    for (const name of ['Registrar cobro de Sueldo', 'Consolidar Sueldo', 'Editar monto de Sueldo']) {
+      await expect(row('Ingresos', 'Sueldo').getByRole('button', { name })).toBeVisible();
+    }
+    await expect(row('Ingresos', 'Sueldo').getByRole('button', { name: 'Desconsolidar Sueldo' })).toHaveCount(0);
+
+    // El monto vigente y el mes siguiente siguen con lo propagado.
+    await page.goto('/conceptos');
+    await expect(page.getByRole('row').filter({ hasText: 'Sueldo' })).toContainText('$ 1.850.000,00');
+    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.850.000,00');
+  });
+
+  test('corregir el movimiento y volver a consolidar: el mes siguiente toma el valor nuevo', async () => {
+    await page.goto('/presupuesto');
+    await row('Ingresos', 'Sueldo').getByRole('button', { name: 'Registrar cobro de Sueldo' }).click();
+    await dialog().getByTestId('edit-movement').click();
+    await dialog().getByLabel('Monto').fill('1.900.000,00');
+    await dialog().getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(dialog().getByTestId('actual')).toHaveText('$ 1.900.000,00');
+    await page.keyboard.press('Escape');
+    await expect(dialog()).toBeHidden();
+
+    await row('Ingresos', 'Sueldo').getByRole('button', { name: 'Consolidar Sueldo' }).click();
+    await expect(dialog().getByTestId('estimate')).toHaveText('$ 1.900.000,00');
+    await dialog().getByTestId('confirm-consolidate').click();
+    await expect(dialog()).toBeHidden();
+    await expect(cells(row('Ingresos', 'Sueldo')).nth(8)).toHaveText('Consolidada');
+
+    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.900.000,00');
+    await page.goto('/conceptos');
+    await expect(page.getByRole('row').filter({ hasText: 'Sueldo' })).toContainText('$ 1.900.000,00');
+  });
+
+  test('error: una partida que otra pestaña ya desconsolidó muestra el motivo y, al cancelar, se actualiza', async () => {
+    const created = await api.post(`/api/periods/${periodOf(today)}/entries`, {
+      data: { name: 'Patente', kind: 'EXPENSE', accountId, dueDate: isoDate(today), budgetedAmount: 30000 },
+    });
+    expect(created.status()).toBe(201);
+    const id = (await created.json()).id;
+    expect(
+      (await api.post(`/api/entries/${id}/movements`, { data: { date: isoDate(today), amount: 30000, accountId } }))
+        .status(),
+    ).toBe(201);
+    expect((await api.post(`/api/entries/${id}/consolidate`, { data: {} })).status()).toBe(200);
+    await page.goto('/presupuesto');
+    await expect(row('Gastos', 'Patente').getByRole('button', { name: 'Desconsolidar Patente' })).toBeVisible();
+
+    // Otra pestaña (la API) la desconsolida mientras esta pantalla sigue mostrándola Consolidada.
+    expect((await api.post(`/api/entries/${id}/unconsolidate`)).status()).toBe(200);
+    await row('Gastos', 'Patente').getByRole('button', { name: 'Desconsolidar Patente' }).click();
+    await expect(dialog().getByTestId('unconsolidate-no-propagation')).toContainText('no afecta otros meses');
+    await dialog().getByTestId('confirm-unconsolidate').click();
+
+    await expect(dialog().getByTestId('unconsolidate-error')).toContainText('no está consolidada');
+    await dialog().getByTestId('cancel-unconsolidate').click();
+    await expect(dialog()).toBeHidden();
+    await expect(cells(row('Gastos', 'Patente')).nth(8)).toHaveText('Parcial');
+
+    // Dos veces por la API: 409 sin cambiar nada.
+    const again = await api.post(`/api/entries/${id}/unconsolidate`);
+    expect(again.status()).toBe(409);
+    expect((await again.json()).code).toBe('ENTRY_NOT_CONSOLIDATED');
   });
 });
