@@ -878,7 +878,7 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
       '$ 0,00',
       '$ 85.000,00',
       'Estimada',
-      'Registrar pago Editar monto Eliminar',
+      'Registrar pago Pagar todo Editar monto Eliminar',
     ]);
     await expect(cells(row('Ingresos', 'Alquiler cobrado'))).toHaveText([
       new RegExp(`^\\s*${dateText(month(0), 28)}`),
@@ -890,7 +890,7 @@ test.describe('HU-15 · ver el presupuesto de un mes', () => {
       'US$ 0,00',
       'US$ 1.000,00',
       'Estimada',
-      'Registrar cobro Editar monto Eliminar',
+      'Registrar cobro Cobrar todo Editar monto Eliminar',
     ]);
     await expect(row('Gastos', 'Seguro').getByTestId('budgeted')).toHaveText('$ 20.000,50');
     await expect(row('Gastos', 'Seguro').getByTestId('installment')).toHaveText('—');

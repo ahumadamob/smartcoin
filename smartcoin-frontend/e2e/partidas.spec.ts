@@ -162,7 +162,7 @@ test.describe('HU-16 · agregar una partida puntual', () => {
       '$ 0,00',
       '$ 85.000,50',
       'Estimada',
-      'Registrar pago Editar Eliminar',
+      'Registrar pago Pagar todo Editar Eliminar',
     ]);
     // Los totales los calcula el backend: gastos 85.000,50 y resultado 1.200.000,00 − 85.000,50.
     await expect(cells(totals('Gastos'))).toHaveText([

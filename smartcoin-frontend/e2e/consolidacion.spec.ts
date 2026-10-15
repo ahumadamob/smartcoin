@@ -2,7 +2,8 @@ import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { API_URL, startPeriod, startSession } from './support';
 
 /**
- * Épica 6 · Consolidación. HU-23 (consolidar una partida), HU-24 (promedio) y HU-25 (partidas editadas). Un usuario propio: se consolida siempre con un usuario de
+ * Épica 6 · Consolidación. HU-23 (consolidar una partida), HU-24 (promedio), HU-25 (partidas editadas) y HU-22
+ * (pago rápido). Un usuario propio: se consolida siempre con un usuario de
  * prueba, nunca con el real. La cuenta y el Concepto se cargan por la API (sus pantallas las cubren otras épicas);
  * el cobro, la vista previa y la consolidación se hacen en la pantalla.
  *
@@ -530,5 +531,182 @@ test.describe('HU-25 · elegir qué hacer con las partidas editadas', () => {
     const next = await monthRow('Agua', 1);
     await expect(next).toContainText('$ 250.000,00');
     await expect(next.getByText('Editada', { exact: true })).toBeVisible();
+  });
+});
+
+/**
+ * HU-22 (pago rápido): «Pagar todo» registra el movimiento por el pendiente y consolida en un solo paso. Un usuario
+ * propio y cuatro Conceptos de gasto mensuales con último valor desde el mes actual, uno por caso. Todas las fechas
+ * salen de hoy.
+ */
+test.describe('HU-22 · pagar todo', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let accountId: number;
+
+  const AMOUNTS: Record<string, number> = { Expensas: 200000, Alquiler: 120000, Seguro: 80000, Patente: 60000 };
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = await api.post('/api/accounts', {
+      data: { name: 'Banco Nación', type: 'BANK', currency: 'ARS', openingDate: `${startPeriod()}-01`, initialBalance: 0 },
+    });
+    expect(account.status()).toBe(201);
+    accountId = (await account.json()).id;
+    for (const [name, amount] of Object.entries(AMOUNTS)) {
+      const item = await api.post('/api/budget-items', {
+        data: {
+          name,
+          kind: 'EXPENSE',
+          defaultAccountId: accountId,
+          periodicity: 'MONTHLY',
+          dueDay: 10,
+          dueMonthOffset: 0,
+          startPeriod: periodOf(today),
+          estimationRule: 'LAST_VALUE',
+          currentAmount: amount,
+        },
+      });
+      expect(item.status(), `alta de ${name}`).toBe(201);
+    }
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const dialog = () => page.getByRole('dialog');
+  const row = (name: string) =>
+    page
+      .getByRole('region', { name: 'Gastos', exact: true })
+      .locator('tbody tr')
+      .filter({ has: page.getByRole('rowheader', { name, exact: true }) });
+  const cells = (name: string) => row(name).locator('th, td');
+  const settleButton = (name: string) => row(name).getByRole('button', { name: `Pagar todo de ${name}` });
+
+  async function entryId(name: string, offset: number): Promise<number> {
+    const view = await (await api.get(`/api/periods/${periodOf(monthFrom(offset))}`)).json();
+    return (view.expenses as { name: string; id: number }[]).find((e) => e.name === name)!.id;
+  }
+
+  async function movementsOf(name: string): Promise<{ amount: number; date: string }[]> {
+    return (await api.get(`/api/entries/${await entryId(name, 0)}/movements`)).json();
+  }
+
+  async function monthRow(name: string, offset: number) {
+    await page.goto(`/presupuesto/${periodOf(monthFrom(offset))}`);
+    await expect(row(name)).toBeVisible();
+    return row(name);
+  }
+
+  test('una Estimada: queda Consolidada con el real igual al presupuestado y los meses siguientes no cambian de monto', async () => {
+    await page.goto('/presupuesto');
+    await expect(row('Expensas')).toBeVisible();
+    await expect(cells('Expensas').nth(8)).toHaveText('Estimada');
+
+    await settleButton('Expensas').click();
+
+    await expect(dialog().getByRole('heading', { name: 'Pagar todo · Expensas' })).toBeVisible();
+    await expect(dialog().getByTestId('settle-amount')).toContainText('un pago de $ 200.000,00');
+    // La fecha que sugiere el backend es hoy y la cuenta es la de la partida.
+    await expect(dialog().locator('[formcontrolname="date"]')).toHaveValue(isoDate(today));
+    await expect(dialog().getByTestId('window-notice')).toContainText('Se puede fechar hasta 10 días antes');
+    // La vista previa muestra la estimación que resultaría, sin cambios en los meses siguientes.
+    await expect(dialog().getByTestId('actual')).toHaveText('$ 200.000,00');
+    await expect(dialog().getByTestId('estimate')).toHaveText('$ 200.000,00');
+    await expect(dialog().getByTestId('no-changes')).toContainText('no cambia ningún otro mes');
+
+    await dialog().getByTestId('confirm-quick-settle').click();
+
+    await expect(dialog()).toBeHidden();
+    await expect(cells('Expensas').nth(8)).toHaveText('Consolidada');
+    await expect(cells('Expensas').nth(5)).toContainText('$ 200.000,00');
+    await expect(cells('Expensas').nth(6)).toHaveText('$ 200.000,00');
+    await expect(cells('Expensas').nth(7)).toHaveText('$ 0,00');
+    await expect(page.getByText('Pago de $ 200.000,00 registrado. «Expensas» consolidada por $ 200.000,00.')).toBeVisible();
+    await expect(row('Expensas').getByRole('button')).toHaveCount(0);
+
+    const movements = await movementsOf('Expensas');
+    expect(movements).toHaveLength(1);
+    expect(movements[0]).toMatchObject({ amount: 200000, date: isoDate(today) });
+    const next = await monthRow('Expensas', 1);
+    await expect(next.locator('th, td').nth(5)).toContainText('$ 200.000,00');
+    await expect(next.getByText('Editada', { exact: true })).toHaveCount(0);
+  });
+
+  test('una Parcial: el movimiento es por lo que faltaba', async () => {
+    const id = await entryId('Alquiler', 0);
+    const first = await api.post(`/api/entries/${id}/movements`, {
+      data: { date: isoDate(today), amount: 50000, accountId },
+    });
+    expect(first.status()).toBe(201);
+    await page.goto('/presupuesto');
+    await expect(cells('Alquiler').nth(8)).toHaveText('Parcial');
+
+    await settleButton('Alquiler').click();
+    await expect(dialog().getByTestId('settle-amount')).toContainText('un pago de $ 70.000,00');
+    await dialog().getByTestId('confirm-quick-settle').click();
+
+    await expect(dialog()).toBeHidden();
+    await expect(cells('Alquiler').nth(8)).toHaveText('Consolidada');
+    await expect(cells('Alquiler').nth(6)).toHaveText('$ 120.000,00');
+    const movements = await movementsOf('Alquiler');
+    expect(movements.map((m) => m.amount).sort((a, b) => a - b)).toEqual([50000, 70000]);
+  });
+
+  test('con una partida editada en el destino: pide elegir y, con Respetar, la conserva', async () => {
+    const edit = await api.patch(`/api/entries/${await entryId('Seguro', 1)}`, { data: { budgetedAmount: 100000 } });
+    expect(edit.status()).toBe(200);
+    await page.goto('/presupuesto');
+
+    await settleButton('Seguro').click();
+
+    await expect(dialog().getByTestId('policy-required')).toContainText('Hay 1 partida editada a mano');
+    await expect(dialog().getByTestId('edited-target')).toContainText(periodText(monthFrom(1)));
+    await expect(dialog().getByTestId('policy-keep').getByRole('radio')).not.toBeChecked();
+    await expect(dialog().getByTestId('policy-overwrite').getByRole('radio')).not.toBeChecked();
+    await expect(dialog().getByTestId('confirm-quick-settle')).toBeDisabled();
+
+    await dialog().getByTestId('policy-keep').getByRole('radio').check();
+    await expect(dialog().getByTestId('confirm-quick-settle')).toBeEnabled();
+    await dialog().getByTestId('confirm-quick-settle').click();
+
+    await expect(dialog()).toBeHidden();
+    await expect(cells('Seguro').nth(8)).toHaveText('Consolidada');
+    const next = await monthRow('Seguro', 1);
+    await expect(next.locator('th, td').nth(5)).toContainText('$ 100.000,00');
+    await expect(next.getByText('Editada', { exact: true })).toBeVisible();
+  });
+
+  test('error: una fecha futura se rechaza bajo el campo y no queda ningún movimiento', async () => {
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    await page.goto('/presupuesto');
+    await settleButton('Patente').click();
+    await expect(dialog().getByTestId('settle-amount')).toContainText('$ 60.000,00');
+
+    await dialog().locator('[formcontrolname="date"]').fill(isoDate(tomorrow));
+    await dialog().getByTestId('confirm-quick-settle').click();
+
+    await expect(dialog().getByText('no puede ser posterior a hoy')).toBeVisible();
+    // El diálogo sigue abierto con lo cargado, y se puede corregir la fecha.
+    await expect(dialog().locator('[formcontrolname="date"]')).toHaveValue(isoDate(tomorrow));
+    // Nada se guardó: ni el movimiento ni la consolidación.
+    expect(await movementsOf('Patente')).toEqual([]);
+    const view = await (await api.get(`/api/periods/${periodOf(today)}`)).json();
+    expect(view.expenses.find((e: { name: string }) => e.name === 'Patente').status).toBe('ESTIMATED');
+
+    await dialog().locator('[formcontrolname="date"]').fill(isoDate(today));
+    await dialog().getByTestId('confirm-quick-settle').click();
+    await expect(dialog()).toBeHidden();
+    await expect(cells('Patente').nth(8)).toHaveText('Consolidada');
+    expect(await movementsOf('Patente')).toHaveLength(1);
   });
 });
