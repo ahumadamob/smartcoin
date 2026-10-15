@@ -216,7 +216,7 @@ Aclaraciones (HU-23, D-36):
 
 **RN-27. Vista previa de la consolidación.** Sin modificar nada, informa: monto real, E, monto vigente actual, y cada partida de destino con su período, presupuestado actual, presupuestado nuevo y si está editada. Indica si hace falta elegir política.
 
-Aclaraciones (HU-23, D-36): la vista previa sale del mismo plan que la consolidación. Lista todo el destino, con un indicador `changes` por partida (en una editada, solo con Pisar). Una partida que no se puede consolidar responde 200 con `allowed: false` y el motivo (`PERIOD_CLOSED`, `ENTRY_NOT_PENDING` o `CONSOLIDATION_REQUIRES_MOVEMENT`); una partida sin Concepto responde sin estimación ni destino (RN-28).
+Aclaraciones (HU-23, D-36): la vista previa sale del mismo plan que la consolidación. Lista todo el destino, con un indicador `changes` por partida (en una editada, solo con Pisar). Una partida que no se puede consolidar responde 200 con `allowed: false` y el motivo (`PERIOD_CLOSED`, `ENTRY_NOT_PENDING` o `CONSOLIDATION_REQUIRES_MOVEMENT`); una partida sin Concepto responde sin estimación ni destino (RN-28). Aclaración (HU-24): informa también las consolidaciones que entraron en E (`estimateBasis`: período y monto consolidado, de la más reciente a la más antigua), tomadas del mismo plan.
 
 **RN-28. Partidas sin Concepto.** Se consolidan con RN-25 y no propagan.
 

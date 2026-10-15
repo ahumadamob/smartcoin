@@ -152,6 +152,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **Otros huecos de RN-25 a RN-28**: consolidar un mes futuro con un cobro anticipado, o fuera de orden, está permitido y no tiene regla extra (RN-25 no exige fecha; S-05). La marca de editada de la partida que se consolida no se toca, así no se pierde información si HU-26 la desconsolida. Una política enviada cuando no hace falta (sin editadas en el destino, o partida sin Concepto) se ignora sin error (HU-25, criterio 5). La fecha de consolidación sale del `Clock` como `Instant`.
 - **Concurrencia**: la consolidación toma un bloqueo de escritura del Concepto (`lockByUserIdAndEntryId`) como primera lectura, antes de la instantánea de la transacción, para que dos consolidaciones del mismo Concepto no se pisen. La partida, el Concepto y el destino cambian en una sola transacción.
 - **Frontend**: «Consolidar» en las Parciales de un período abierto; el diálogo muestra la vista previa y avisa que no se puede deshacer por ahora (HU-26). El aviso de «cubierta» de HU-19 ofrece el botón, en el diálogo de movimientos y en el aviso emergente.
+- **La vista previa informa la base de la estimación** (HU-24, decidido con el usuario): `estimateBasis` lista las consolidaciones que entraron en E (período y monto), de la más reciente a la más antigua, para que el diálogo explique el promedio. `EstimationCalculator.Plan` expone `basis`; no cambia ninguna cuenta. El frontend solo nombra los meses.
 
 ## Supuestos tomados al redactar
 

@@ -666,6 +666,15 @@ Reglas: RN-25, RN-26, RN-27, RN-28.
 
 Reglas: RN-26.
 
+**Notas de implementación**
+
+- **Alcance**: la regla ya estaba completa desde HU-23 (`EstimationCalculator`, sin cambios en sus cuentas). Esta historia agrega la explicación en el diálogo y completa los tests. Los cinco criterios ya tenían test unitario; se sumó el que faltaba para el 4: una consolidación de cierre en medio de las normales deja entrar a la cuarta más reciente.
+- **La vista previa informa la base** (decidido con el usuario, D-36): `GET /api/entries/{id}/consolidation-preview` suma `estimateBasis` (`[{period, amount}]`), las consolidaciones que entraron en la estimación, de la más reciente a la más antigua: una con «Último valor» y hasta 3 con el promedio. Sale del mismo `Plan` que la consolidación (`Plan.basis`, un campo nuevo del plan; no hay cálculo aparte). Incluye la partida que se consolida, con su monto real. La consolidación (`POST`) no cambia.
+- **Frontend**: con «Promedio de los últimos 3», el diálogo muestra una línea (`averageBasisText`) con los meses de `estimateBasis`: «Promedio de agosto, septiembre y octubre.»; con una o dos aclara que promedia las que hay y que, con más, se promedian las 3 más recientes. Los meses se nombran sin año salvo que crucen de año. No hace cuentas con montos.
+- **Tests**: `EstimationCalculatorTest` (cierre en medio con la cuarta que entra; la base informada), `ConsolidationServiceTest` (la vista previa informa las que entran, excluye la de cierre y coincide con la consolidación; menos de 3), `ConsolidationControllerTest` (forma de `estimateBasis`), frontend (texto con 1, 2 y 3, y cruce de año; el diálogo con promedio y con último valor) y de punta a punta en `e2e/consolidacion.spec.ts`: un Concepto con promedio con tres meses consolidados (100,00; 200,01; 400,00 el más viejo al final), estimaciones 100,00 → 150,01 (medio centavo) → 233,34, y ese monto vigente en el mes siguiente y en la lista de Conceptos. Las fechas salen de hoy: pasa cualquier día del mes y en enero.
+- **Lo que no se prueba acá**: el criterio 4 con consolidaciones de cierre reales se verifica en HU-31 (hoy solo con tests unitarios y el filtro de la base). «Más de 3» solo se prueba con tests unitarios, porque el e2e no tiene cuatro meses consolidables (el período inicial es dos meses antes del actual).
+- Depende de **S-04** y **S-05**, sin confirmar.
+
 ### HU-25 · Decidir sobre partidas editadas al consolidar
 
 **Como** usuario **quiero** elegir si la consolidación pisa los meses que ajusté a mano **para** no perder lo que ya sé.
