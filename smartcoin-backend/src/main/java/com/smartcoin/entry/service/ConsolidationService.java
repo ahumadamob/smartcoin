@@ -91,7 +91,7 @@ public class ConsolidationService {
 	@Transactional(readOnly = true)
 	public Preview preview(long userId, long id) {
 		BudgetEntry entry = find(userId, id);
-		return toPreview(entry, evaluate(userId, entry));
+		return toPreview(entry, evaluate(userId, entry, actualOf(userId, entry)));
 	}
 
 	/**
@@ -104,7 +104,41 @@ public class ConsolidationService {
 		// Primera lectura: el bloqueo del Concepto, antes de la instantánea de la transacción.
 		items.lockByUserIdAndEntryId(userId, id);
 		BudgetEntry entry = find(userId, id);
-		Evaluation evaluation = evaluate(userId, entry);
+		return apply(prepare(userId, entry, actualOf(userId, entry), policy));
+	}
+
+	/**
+	 * Una consolidación ya validada, lista para aplicar. La arma {@link #prepare} sin escribir nada, para que el pago
+	 * rápido (HU-22) pueda validar el movimiento y la consolidación antes de guardar cualquiera de los dos.
+	 */
+	record Prepared(BudgetEntry entry, BigDecimal actual, List<BudgetEntry> concept, Plan plan,
+			ManualEntriesPolicy policy) {
+	}
+
+	/** Por qué una partida no admite cambios de estado: su período o su estado (RN-25), o {@code null} si lo admite. */
+	record StateBlock(ConsolidationBlockReason reason, String detail) {
+	}
+
+	static StateBlock stateBlock(BudgetEntry entry) {
+		BudgetPeriod period = entry.getPeriod();
+		if (period.getStatus() == PeriodStatus.CLOSED) {
+			return new StateBlock(ConsolidationBlockReason.PERIOD_CLOSED,
+					"El período " + period.getPeriodMonth() + " está cerrado y no admite cambios.");
+		}
+		if (entry.getStatus() != StoredEntryStatus.PENDING) {
+			return new StateBlock(ConsolidationBlockReason.ENTRY_NOT_PENDING, "La partida ya está consolidada.");
+		}
+		return null;
+	}
+
+	/**
+	 * Valida RN-25 con {@code actual} como el monto que quedaría consolidado, y el plan de RN-26 con la política. No
+	 * modifica nada: ante cualquier error la partida, el Concepto y el destino quedan como estaban. En la
+	 * consolidación común {@code actual} es la suma de los movimientos; en el pago rápido, la suma más el movimiento
+	 * que todavía no existe, que por eso nunca deja la partida «sin movimientos».
+	 */
+	Prepared prepare(long userId, BudgetEntry entry, BigDecimal actual, ManualEntriesPolicy policy) {
+		Evaluation evaluation = evaluate(userId, entry, actual);
 		if (evaluation.blockedBy() != null) {
 			throw new BusinessException(evaluation.blockedBy().code(), evaluation.blockedDetail());
 		}
@@ -115,28 +149,41 @@ public class ConsolidationService {
 					+ (edited.size() == 1 ? " partida editada" : " partidas editadas")
 					+ " en los meses siguientes: elegí si respetarlas o pisarlas. No se consolidó nada.", edited);
 		}
+		return new Prepared(entry, actual, evaluation.concept(), plan, policy);
+	}
 
-		entry.setConsolidatedAmount(evaluation.actual());
+	/** Aplica una consolidación ya validada: la partida, el Concepto y las partidas de destino. */
+	Result apply(Prepared prepared) {
+		BudgetEntry entry = prepared.entry();
+		entry.setConsolidatedAmount(prepared.actual());
 		entry.setStatus(StoredEntryStatus.CONSOLIDATED);
 		entry.setConsolidatedAt(clock.instant());
 
 		BigDecimal estimate = null;
 		int updated = 0;
+		Plan plan = prepared.plan();
 		if (plan != null) {
 			estimate = plan.estimate();
 			BudgetItem item = entry.getBudgetItem();
 			item.setCurrentAmount(estimate);
 			Map<Long, BudgetEntry> byId = new HashMap<>();
-			evaluation.concept().forEach(candidate -> byId.put(candidate.getId(), candidate));
-			for (Change change : plan.changes(policy)) {
+			prepared.concept().forEach(candidate -> byId.put(candidate.getId(), candidate));
+			for (Change change : plan.changes(prepared.policy())) {
 				BudgetEntry target = byId.get(change.entryId());
 				target.setBudgetedAmount(change.budgeted());
 				target.setManual(change.manual());
 				updated++;
 			}
 		}
-		return new Result(PeriodViewService.row(entry, evaluation.actual(), LocalDate.now(clock)), estimate,
-				updated);
+		return new Result(PeriodViewService.row(entry, prepared.actual(), LocalDate.now(clock)), estimate, updated);
+	}
+
+	/**
+	 * Qué pasaría al consolidar la partida con {@code actual} como monto consolidado, sin modificar nada. Es la vista
+	 * previa del pago rápido (HU-22): el real que quedaría es el de hoy más el pendiente.
+	 */
+	Preview previewSettling(long userId, BudgetEntry entry, BigDecimal actual) {
+		return toPreview(entry, evaluate(userId, entry, actual));
 	}
 
 	private BudgetEntry find(long userId, long id) {
@@ -152,18 +199,18 @@ public class ConsolidationService {
 			List<BudgetEntry> concept, Plan plan) {
 	}
 
-	/** Las condiciones de RN-25 y, si se cumplen y es recurrente, el plan de RN-26. No modifica nada. */
-	private Evaluation evaluate(long userId, BudgetEntry entry) {
+	/** La suma de los movimientos de la partida, con 2 decimales. */
+	private BigDecimal actualOf(long userId, BudgetEntry entry) {
 		BigDecimal total = movements.sumByEntry(userId, entry.getId());
-		BigDecimal actual = (total == null ? BigDecimal.ZERO : total).setScale(2, RoundingMode.UNNECESSARY);
+		return (total == null ? BigDecimal.ZERO : total).setScale(2, RoundingMode.UNNECESSARY);
+	}
+
+	/** Las condiciones de RN-25 y, si se cumplen y es recurrente, el plan de RN-26. No modifica nada. */
+	private Evaluation evaluate(long userId, BudgetEntry entry, BigDecimal actual) {
 		BudgetPeriod period = entry.getPeriod();
-		if (period.getStatus() == PeriodStatus.CLOSED) {
-			return blocked(ConsolidationBlockReason.PERIOD_CLOSED, actual,
-					"El período " + period.getPeriodMonth() + " está cerrado y no admite cambios.");
-		}
-		if (entry.getStatus() != StoredEntryStatus.PENDING) {
-			return blocked(ConsolidationBlockReason.ENTRY_NOT_PENDING, actual,
-					"La partida ya está consolidada.");
+		StateBlock state = stateBlock(entry);
+		if (state != null) {
+			return blocked(state.reason(), actual, state.detail());
 		}
 		if (actual.signum() == 0) {
 			return blocked(ConsolidationBlockReason.CONSOLIDATION_REQUIRES_MOVEMENT, actual,

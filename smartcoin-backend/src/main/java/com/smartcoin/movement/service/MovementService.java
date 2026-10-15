@@ -34,7 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Movimientos de una partida: registrar, listar, corregir y eliminar (HU-19, HU-21, RN-21, RN-22, RN-23). Toda
- * consulta lleva el {@code userId} del usuario actual. El pago rápido es HU-22.
+ * consulta lleva el {@code userId} del usuario actual. El pago rápido (HU-22) valida con {@link #validate} y guarda con
+ * {@link #save}, y consolida a continuación en la misma transacción.
  *
  * <p>Ni registrar, ni corregir, ni eliminar consolidan o cambian el presupuestado, aunque el real alcance o supere al
  * presupuestado (RN-23): no guardan nada en la partida. El estado Parcial sale de que tiene movimientos (RN-16); al
@@ -112,9 +113,26 @@ public class MovementService {
 			throw new BusinessException(ErrorCode.ENTRY_NOT_PENDING,
 					"La partida está consolidada: no admite movimientos. Desconsolidala primero.");
 		}
-		Account account = findAccount(userId, entry, values.accountId());
-		verifyDate(userId, entry, account, values.date());
+		Account account = validate(userId, entry, values.accountId(), values.date());
+		return save(userId, entry, account, values);
+	}
 
+	/**
+	 * Las condiciones de RN-21 sobre la cuenta y la fecha, en el orden de D-33: la cuenta (400 en {@code accountId}),
+	 * la moneda y la fecha. Devuelve la cuenta y no guarda nada. El estado de la partida y de su período los mira
+	 * quien llama: {@link #register} y el pago rápido (HU-22), que los evalúa antes por su cuenta.
+	 */
+	public Account validate(long userId, BudgetEntry entry, Long accountId, LocalDate date) {
+		Account account = findAccount(userId, entry, accountId);
+		verifyDate(userId, entry, account, date);
+		return account;
+	}
+
+	/**
+	 * Guarda un movimiento ya validado con {@link #validate} y devuelve la partida con el real que ahora tiene. La
+	 * partida no cambia (RN-23).
+	 */
+	public Registered save(long userId, BudgetEntry entry, Account account, NewMovement values) {
 		Movement movement = new Movement();
 		movement.setUserId(userId);
 		movement.setEntry(entry);
