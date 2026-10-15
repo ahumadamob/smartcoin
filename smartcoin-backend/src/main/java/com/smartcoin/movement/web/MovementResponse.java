@@ -36,7 +36,7 @@ public record MovementResponse(
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Moneda de la cuenta del movimiento.")
 		Currency currency) {
 
-	static MovementResponse from(MovementRow row) {
+	public static MovementResponse from(MovementRow row) {
 		return new MovementResponse(row.id(), row.entryId(), row.date(), row.amount(), row.note(), row.accountId(),
 				row.accountName(), row.currency());
 	}
