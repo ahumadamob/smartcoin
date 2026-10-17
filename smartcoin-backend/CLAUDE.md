@@ -122,6 +122,8 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | `MonthTotals` | RN-44: totales por moneda de ingresos y de gastos, y resultado |
 | `MovementDateValidator` | RN-21: ventana, apertura, fecha futura, y la fecha más temprana que admite una partida (HU-20) |
 | `BalanceCalculator` | RN-35 |
+| `CashFlowCalculator` | RN-45 (HU-34, D-46): a partir de lo ya cargado, saldo de arranque (proyectado si el rango empieza después de hoy), filas reales y previstas en su orden y saldo acumulado de cada una; una sola moneda |
+| `CashFlowRange` | HU-34, D-46: completa los extremos que faltan del rango y verifica sus límites (período inicial, horizonte, 366 días) |
 | `ClosingPlanner` | RN-38 a RN-40: a partir de los datos del período, el plan de cierre. HU-30: precondiciones (todas las que fallan), partidas pendientes y cuentas a conciliar; HU-31: resoluciones de las pendientes, monto con que se consolida cada una y partidas de saldo postergado (D-43); HU-32: saldos reales, diferencia de cada cuenta y partida de diferencia de cierre (D-44), referida a la cuenta conciliada; HU-33 guarda el cierre de cuenta y le asigna `source_closing_id`. El cierre efectivo (`ClosingService.close`) usa el mismo plan que la simulación y rechaza lo que esta informa como dato (D-45) |
 
 ## Convenciones
