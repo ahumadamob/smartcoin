@@ -71,6 +71,11 @@ model/periodEntry.ts
 model/periodSideTotals.ts
 model/periodView.ts
 model/problemDetail.ts
+model/projection.ts
+model/projectionAccount.ts
+model/projectionBalance.ts
+model/projectionMonth.ts
+model/projectionSubtotal.ts
 model/quickSettle.ts
 model/quickSettlePreview.ts
 model/quickSettleRequest.ts
