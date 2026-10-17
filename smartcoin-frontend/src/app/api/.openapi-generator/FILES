@@ -31,6 +31,7 @@ model/categoryResponse.ts
 model/changePasswordRequest.ts
 model/closingAccount.ts
 model/closingBlocker.ts
+model/closingInvalidBalance.ts
 model/closingInvalidResolution.ts
 model/closingNewEntry.ts
 model/closingPendingEntry.ts
@@ -66,6 +67,7 @@ model/problemDetail.ts
 model/quickSettle.ts
 model/quickSettlePreview.ts
 model/quickSettleRequest.ts
+model/realBalanceEntry.ts
 model/resetPasswordRequest.ts
 model/transfer.ts
 model/transferRequest.ts

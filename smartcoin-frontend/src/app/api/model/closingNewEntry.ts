@@ -10,36 +10,46 @@
 
 
 /**
- * Una partida que crearía el cierre en el período siguiente, pendiente y sin editar. HU-31: las de saldo postergado (RN-40, paso 1).
+ * Una partida que crearía el cierre en el período siguiente, pendiente y sin editar. HU-31: las de saldo postergado (RN-40, paso 1). HU-32: las de diferencia de cierre (paso 3).
  */
 export interface ClosingNewEntry { 
     period: string;
     /**
-     * CARRIED_OVER: saldo postergado.
+     * CARRIED_OVER: saldo postergado. CLOSING_DIFFERENCE: diferencia de cierre.
      */
     origin: ClosingNewEntry.OriginEnum;
     /**
-     * «Saldo pendiente: <nombre>», o el mismo nombre si la original ya era un saldo postergado. Si supera los 100 caracteres, el nombre original se recorta y termina en «…».
+     * Saldo postergado: «Saldo pendiente: <nombre>», o el mismo nombre si la original ya era un saldo postergado; si supera los 100 caracteres, el nombre original se recorta y termina en «…». Diferencia de cierre: «Diferencia de cierre: <cuenta> (<mes> <año>)», con el mes (ene a dic) y el año del período que se cierra, por ejemplo «Diferencia de cierre: Banco (oct 2026)»; si supera los 100 caracteres, se recorta el nombre de la cuenta y el mes queda intacto.
      */
     name: string;
+    /**
+     * INCOME o EXPENSE. En una diferencia de cierre, ingreso si la diferencia es positiva y gasto si es negativa.
+     */
     kind: ClosingNewEntry.KindEnum;
+    /**
+     * Las diferencias de cierre no llevan categoría.
+     */
     categoryId?: number | null;
     categoryName?: string | null;
     accountId: number;
     accountName: string;
     currency: ClosingNewEntry.CurrencyEnum;
     /**
-     * El vencimiento de la original más un mes, ajustado al último día del mes.
+     * Saldo postergado: el vencimiento de la original más un mes, ajustado al último día del mes. Diferencia de cierre: el día 1 del período siguiente.
      */
     dueDate: string;
     /**
-     * Presupuestado: el pendiente de la original.
+     * Saldo postergado: el pendiente de la original. Diferencia de cierre: el valor absoluto de la diferencia.
      */
     budgetedAmount: number;
     /**
-     * La partida cuyo saldo se posterga.
+     * Saldo postergado: la partida cuyo saldo se posterga. Nulo en una diferencia de cierre.
      */
-    sourceEntryId: number;
+    sourceEntryId?: number | null;
+    /**
+     * Diferencia de cierre: la cuenta conciliada, a cuyo cierre de cuenta quedará referida. Nulo en un saldo postergado.
+     */
+    sourceAccountId?: number | null;
 }
 export namespace ClosingNewEntry {
     export const OriginEnum = {

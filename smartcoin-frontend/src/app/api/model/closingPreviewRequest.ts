@@ -8,15 +8,20 @@
  * Do not edit the class manually.
  */
 import { ClosingResolutionChoice } from './closingResolutionChoice';
+import { RealBalanceEntry } from './realBalanceEntry';
 
 
 /**
- * Cuerpo opcional de la simulación del cierre (RN-43). Sin cuerpo, la simulación es el diagnóstico de HU-30. Los saldos reales (HU-32) todavía no se reciben: si llegan, se ignoran.
+ * Cuerpo opcional de la simulación del cierre (RN-43). Sin cuerpo, la simulación es el diagnóstico de HU-30.
  */
 export interface ClosingPreviewRequest { 
     /**
      * Las resoluciones elegidas, a lo sumo una por partida: puede faltar alguna pendiente (se informa en `unresolvedEntryIds`). Una partida repetida responde 400. Una partida que no es del período o no está pendiente no es un error: se informa en `invalidResolutions` y no se aplica.
      */
     resolutions?: Array<ClosingResolutionChoice>;
+    /**
+     * Los saldos reales informados, a lo sumo uno por cuenta: puede faltar alguna cuenta (se informa en `missingRealBalanceAccountIds`). Una cuenta repetida responde 400. Un saldo para una cuenta que no se concilia en el período (abierta después de su último día, de otro usuario o inexistente) no es un error: se informa en `invalidBalances` y no se aplica.
+     */
+    realBalances?: Array<RealBalanceEntry>;
 }
 

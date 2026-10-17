@@ -7,10 +7,11 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { ClosingNewEntry } from './closingNewEntry';
 
 
 /**
- * Una cuenta a conciliar, con su saldo calculado al último día del período (RN-35): saldo inicial más los movimientos y transferencias con fecha hasta ese día, también los cobros anticipados de partidas del mes siguiente (RN-41).
+ * Una cuenta a conciliar, con su saldo calculado al último día del período (RN-35): saldo inicial más los movimientos y transferencias con fecha hasta ese día, también los cobros anticipados de partidas del mes siguiente (RN-41). Con saldo real informado, suma la diferencia y la partida de diferencia de cierre que se crearía (RN-40, paso 3).
  */
 export interface ClosingAccount { 
     id: number;
@@ -21,6 +22,18 @@ export interface ClosingAccount {
      * Saldo calculado al último día del período. Puede ser negativo.
      */
     computedBalance: number;
+    /**
+     * Saldo real informado para esta cuenta; nulo si todavía no se informó.
+     */
+    realBalance?: number | null;
+    /**
+     * Real menos calculado. Negativa si la cuenta tiene menos de lo que la aplicación espera; 0 si coinciden. Nula sin saldo real.
+     */
+    difference?: number | null;
+    /**
+     * La partida de diferencia de cierre que se crearía en el mes siguiente. Nula sin saldo real o con diferencia 0.
+     */
+    differenceEntry?: ClosingNewEntry;
 }
 export namespace ClosingAccount {
     export const CurrencyEnum = {
