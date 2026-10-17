@@ -430,6 +430,12 @@ saldo actual
 
 La fecha efectiva es el vencimiento, o hoy si ya venció. Se informan subtotales por moneda. La proyección supone que cada pendiente se cobra o paga en la cuenta prevista de su partida.
 
+Aclaraciones (HU-35, D-47):
+
+- El pendiente de cada partida es el de RN-17: una Parcial proyecta solo lo que falta y una pagada por completo pero sin consolidar no proyecta nada. Un pendiente vencido cuenta desde el mes actual.
+- El pendiente se proyecta en la cuenta prevista de la partida, aunque un pago real haya salido de otra cuenta de la misma moneda. Por eso el subtotal de una moneda del mes actual coincide con el saldo final del flujo de caja (RN-45) de esa moneda, pero la distribución entre cuentas puede diferir.
+- `until` (mes, por defecto el horizonte) no puede ser anterior al mes actual ni posterior al horizonte: 400 `VALIDATION_ERROR` en `until`. No incluye transferencias futuras.
+
 ## 11. Usuarios y acceso
 
 **RN-47. Alta de usuario.** `POST /api/admin/users` con el header `X-Admin-Key`. La clave se compara en tiempo constante con la variable `APP_ADMIN_KEY`; si la variable no existe o está vacía, el endpoint rechaza siempre. No hay clave por defecto. Clave ausente o incorrecta: 401. Datos: email (se guarda en minúsculas y es único: `EMAIL_ALREADY_EXISTS`), contraseña inicial (RN-51) y período inicial (por defecto, el actual; no puede ser posterior al actual). El usuario queda habilitado, con cambio de contraseña obligatorio y con sus períodos creados (RN-07).

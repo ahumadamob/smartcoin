@@ -286,6 +286,16 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **Extremos omitidos**: sin `from` ni `to`, el mes actual; sin `to`, el último día del mes de `from`; sin `from`, el primer día del mes de `to`. La moneda es obligatoria (400 si falta o no es `ARS` ni `USD`).
 - **API**: `GET /api/cashflow?from=&to=&currency=` (`getCashFlow`) responde `from`, `to`, `currency`, `openingBalance`, `openingBalanceDate` (el día anterior a `from`), `openingBalanceProjected`, `rows` y `closingBalance`. Cada fila: `date`, `status` (`REAL` o `PLANNED`), `type` (`MOVEMENT`, `TRANSFER`, `PENDING_ENTRY`, `ACCOUNT_OPENING`), `description`, `amount` con signo y `balance` acumulado; las previstas traen además `dueDate` y `overdue`. Todos los montos los calcula el backend; nunca se suman ARS y USD.
 
+**D-47. Proyección de saldos por cuenta.** *Confirmada* (HU-35): las tres dudas se resolvieron con el usuario antes de escribir código, todas por la opción recomendada. Sigue a RN-46 y reutiliza la fecha efectiva y el pendiente de D-46.
+
+- **Presentación**: meses en filas (25, desde el actual hasta el horizonte) y cuentas en columnas, agrupadas por moneda (ARS, USD) y cada grupo con su subtotal. Encabezado y columna del mes fijos al recorrer la tabla.
+- **Coincidencia con el flujo de caja**: la proyección del mes actual coincide, en el subtotal de cada moneda, con el saldo final del flujo de caja del mes actual en esa moneda. Es así por construcción (las cuentas no abren en el futuro, RN-33, y no hay movimientos futuros, S-09). Lo que **no** coincide es la atribución por cuenta cuando un pago salió de otra cuenta de la misma moneda: el pendiente sigue proyectado en la cuenta prevista de la partida (RN-46), aunque el pago ya bajó el saldo actual de la otra. El subtotal en esa moneda es el mismo.
+- **Saldo negativo**: una cuenta o un subtotal con saldo proyectado por debajo de 0 lleva el signo menos y la marca «Faltante» en el texto (no solo el color), como el flujo de caja.
+- **Regla compartida**: la fecha efectiva (el vencimiento, u hoy si ya venció), el pendiente con signo y «si cuenta» (pendiente mayor que 0) viven en `PendingEntryRule` (`report/domain`); la usan `CashFlowCalculator` y `ProjectionCalculator`.
+- **API**: `GET /api/projection?until=YYYY-MM` (`getProjection`). `until` es opcional (por defecto, el horizonte); anterior al mes actual o posterior al horizonte es 400 `VALIDATION_ERROR` en el campo `until`. Responde `from`, `until`, `accounts` (id, nombre, moneda; el orden de las columnas) y `months`: cada uno con `month`, `balances` (uno por cuenta, en el orden de `accounts`) y `subtotals` (uno por moneda con cuentas, ARS antes que USD).
+- **Consultas**: períodos del usuario (horizonte), `AccountService.balancesAt(hoy)`, las partidas pendientes del usuario de todas las monedas con vencimiento hasta el último día proyectado y la suma de los movimientos de esas partidas. Cuatro consultas fijas, sin importar cuántas cuentas, meses o partidas haya.
+- **No incluye**: transferencias futuras (no existen, S-09), ni lo que no es una partida pendiente.
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
@@ -322,7 +332,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-17. Categorías opcionales**, sin tipo (sirven para ingresos y gastos).
 
-**S-18. Flujo de caja, proyección de saldos y vista de varios meses (HU-34 a HU-36) son propuestas.** Se confirman antes de implementarlas. *HU-34 se confirmó* (D-46); HU-35 y HU-36 siguen siendo propuestas.
+**S-18. Flujo de caja, proyección de saldos y vista de varios meses (HU-34 a HU-36) son propuestas.** Se confirman antes de implementarlas. *HU-34 se confirmó* (D-46) y *HU-35 se confirmó* (D-47); HU-36 sigue siendo propuesta.
 
 **S-19. El nombre de un Concepto puede repetirse.** El modelo no tiene un índice único en `budget_item` y ninguna regla lo pide; dos Conceptos "Seguro" con distinta cuenta son razonables. Agregado en HU-10.
 
