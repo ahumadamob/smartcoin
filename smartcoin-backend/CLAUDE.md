@@ -122,7 +122,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | `MonthTotals` | RN-44: totales por moneda de ingresos y de gastos, y resultado |
 | `MovementDateValidator` | RN-21: ventana, apertura, fecha futura, y la fecha más temprana que admite una partida (HU-20) |
 | `BalanceCalculator` | RN-35 |
-| `ClosingPlanner` | RN-38 a RN-40: a partir de los datos del período, el plan de cierre. HU-30: precondiciones (todas las que fallan), partidas pendientes y cuentas a conciliar; HU-31 a HU-33 suman consolidaciones, partidas nuevas y cierres de cuenta |
+| `ClosingPlanner` | RN-38 a RN-40: a partir de los datos del período, el plan de cierre. HU-30: precondiciones (todas las que fallan), partidas pendientes y cuentas a conciliar; HU-31: resoluciones de las pendientes, monto con que se consolida cada una y partidas de saldo postergado (D-43); HU-32 y HU-33 suman diferencias y cierres de cuenta |
 
 ## Convenciones
 

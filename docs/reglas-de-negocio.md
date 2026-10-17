@@ -335,6 +335,13 @@ Las consolidaciones de los pasos 1 y 2 **no propagan ni cuentan como base de est
 >
 > Ejemplo: Banco con saldo calculado 512.300,00 y real 509.800,00 → diferencia −2.500,00 → en 2026-11 aparece un gasto "Diferencia de cierre: Banco (oct 2026)" por 2.500,00 con vencimiento el 01/11.
 
+Aclaraciones de los pasos 1 y 2 (HU-31, D-43):
+
+- El período de la partida de saldo postergado es el siguiente al que se cierra. El vencimiento es el original más un mes calendario, también en las recurrentes: no se mira el día de vencimiento del Concepto (30/11 pasa a 30/12; 31/01 a 28/02, o 29/02 en un año bisiesto; 31/12 a 31/01 del año siguiente). Con desfase −1 nace vencida.
+- Si «Saldo pendiente: <nombre>» supera los 100 caracteres, el nombre original se recorta a 82 y termina en «…».
+- En una recurrente toma el nombre y la categoría del Concepto. Postergar un saldo postergado conserva su nombre y la referencia apunta a la partida inmediata. Una diferencia de cierre se posterga como cualquier otra.
+- Postergar con pendiente 0 consolida y no crea nada; también si se pagó de más. Ninguna de las dos resoluciones toca el Concepto ni su monto vigente.
+
 **RN-41. Saldos que cruzan meses.** El saldo calculado suma los movimientos por su fecha, sin importar el período de su partida. Los dos sueldos de diciembre cobrados el 25/11 y el 30/11 forman parte del saldo de fin de noviembre, que es lo que muestra el banco. Cerrar noviembre no exige consolidar las partidas de diciembre, pero sí bloquea los movimientos con fecha en noviembre, también los de esas partidas. Por eso los cobros anticipados tienen que cargarse antes de cerrar el mes en que ocurren.
 
 **RN-42. Diferencia de cierre.** La partida de diferencia es una partida presupuestada más. Mientras no se consolide, el saldo calculado sigue arrastrando la diferencia; para corregirlo se registra un movimiento por su monto y se consolida. Si al cerrar el mes siguiente sigue pendiente, se resuelve como cualquier otra: con Cerrar con lo registrado, la diferencia vuelve a aparecer en la conciliación de ese mes. El saldo inicial del mes siguiente es el saldo calculado, no el real, para no contar la diferencia dos veces.
@@ -355,6 +362,12 @@ Aclaraciones (HU-30, D-42):
 - Un período abierto que no cumple las precondiciones igual informa sus partidas pendientes y sus cuentas a conciliar.
 - Las partidas pendientes son las Estimadas y las Parciales (RN-16), también las que tienen pendiente 0, con real y pendiente calculados como en la vista del mes (RN-17). Las cuentas a conciliar son las de RN-39, con su saldo al último día del período (RN-35, RN-41).
 - Informa también el primer período abierto (RN-08), que es el que hay que cerrar primero.
+
+Aclaraciones (HU-31, D-43):
+
+- Con resoluciones informa, para cada pendiente resuelta, la resolución, el monto con que se consolidaría y la partida de saldo postergado que se crearía; las partidas que se crearían; y las pendientes que todavía no tienen resolución. Los efectos se calculan aunque no se cumplan las precondiciones.
+- Una resolución para una partida que no es del período o que no está pendiente no es un error de la simulación: se informa con su motivo y no se aplica. El cierre la rechaza con `VALIDATION_ERROR` (RN-39). Una partida con dos resoluciones es un pedido mal formado: `VALIDATION_ERROR` también en la simulación.
+- Un período cerrado ignora las resoluciones.
 
 ## 10. Vistas
 
