@@ -129,6 +129,24 @@ table.accounts {
   max-width: 480px;
 }
 
+table.balances {
+  max-width: 760px;
+}
+
+.balance-field {
+  width: 200px;
+}
+
+// La fila del efecto va pegada a la de su cuenta y no se dibuja si todavía no hay nada que decir.
+.effect-row td {
+  padding-top: 0;
+}
+
+.effect-row:has(.effect:empty) {
+  display: none;
+}
+
+
 caption {
   text-align: left;
   padding: 8px 0;

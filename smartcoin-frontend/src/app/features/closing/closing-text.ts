@@ -1,4 +1,4 @@
-import { ClosingBlocker, ClosingPendingEntry, ClosingPreview, ClosingResolutionChoice } from '../../api';
+import { ClosingAccount, ClosingBlocker, ClosingPendingEntry, ClosingPreview, ClosingResolutionChoice } from '../../api';
 import { FormatMoney } from '../budget/movement-text';
 
 /** Los pasos del asistente de cierre (Épica 8): pendientes, saldos y confirmación. */
@@ -8,10 +8,10 @@ export interface ClosingStep {
   available: boolean;
 }
 
-/** HU-30 y HU-31 hacen el primer paso; los otros dos llegan con la conciliación (HU-32) y el cierre (HU-33). */
+/** HU-30 y HU-31 hacen el primer paso y HU-32 el segundo; la confirmación llega con el cierre (HU-33). */
 export const CLOSING_STEPS: readonly ClosingStep[] = [
   { label: 'Pendientes', available: true },
-  { label: 'Saldos', available: false },
+  { label: 'Saldos', available: true },
   { label: 'Confirmación', available: false },
 ];
 
@@ -145,3 +145,51 @@ export function nextStepHint(pendingCount: number, unresolvedCount: number, next
 export const REMOVED_ENTRIES_NOTICE =
   'Algunas partidas dejaron de estar pendientes en este mes (por ejemplo, se consolidaron en otra pestaña) y se ' +
   'quitaron de la lista.';
+
+// Saldos reales y diferencias (HU-32, RN-40 paso 3).
+
+export const BACK_STEP_LABEL = 'Volver a Pendientes';
+
+export const CONFIRMATION_STEP_LABEL = 'Siguiente: Confirmación';
+
+/** Qué es el saldo real, en una línea. `lastDay` ya viene con formato de fecha. */
+export function balancesIntro(lastDay: string): string {
+  return (
+    `El saldo real es el que figura en el banco o la billetera al último día del mes (${lastDay}). ` +
+    'No se guarda nada hasta confirmar el cierre.'
+  );
+}
+
+export const BALANCE_FORMAT_ERROR = 'Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.';
+
+/**
+ * El efecto de la diferencia de una cuenta, tal como lo informa el backend: «Coincide.» o la partida de diferencia que
+ * aparece en el mes siguiente. Sin saldo real en la simulación, nada. Solo arma el texto: no resta nada.
+ */
+export function differenceText(account: ClosingAccount, closingPeriod: string, money: FormatMoney): string | null {
+  if (account.realBalance === null || account.realBalance === undefined) {
+    return null;
+  }
+  const entry = account.differenceEntry;
+  if (!entry) {
+    return 'Coincide.';
+  }
+  const kind = entry.kind === 'INCOME' ? 'un ingreso' : 'un gasto';
+  return (
+    `En ${monthName(entry.period, closingPeriod)} aparece ${kind} «${entry.name}» por ` +
+    `${money(entry.budgetedAmount, entry.currency)}.`
+  );
+}
+
+export const CONFIRMATION_PENDING_TEXT = 'La confirmación estará disponible más adelante.';
+
+/** Por qué todavía no se puede pasar a «Confirmación». */
+export function confirmationHint(accountCount: number, missingCount: number, nextAvailable: boolean): string {
+  if (missingCount > 0) {
+    return missingCount === 1
+      ? 'Falta cargar el saldo real de 1 cuenta.'
+      : `Falta cargar el saldo real de ${missingCount} cuentas.`;
+  }
+  const done = accountCount === 0 ? 'No hay cuentas para conciliar.' : 'Todos los saldos reales están cargados.';
+  return nextAvailable ? done : `${done} ${CONFIRMATION_PENDING_TEXT}`;
+}

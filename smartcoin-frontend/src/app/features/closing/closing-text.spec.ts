@@ -1,9 +1,12 @@
-import { ClosingPendingEntry, ClosingPreview } from '../../api';
+import { ClosingAccount, ClosingNewEntry, ClosingPendingEntry, ClosingPreview } from '../../api';
 import {
   accountsByCurrency,
+  balancesIntro,
   blockerText,
   closingSummary,
+  confirmationHint,
   dayAndMonth,
+  differenceText,
   effectText,
   monthName,
   nextStepHint,
@@ -22,6 +25,8 @@ const preview = (overrides: Partial<ClosingPreview> = {}): ClosingPreview => ({
   newEntries: [],
   unresolvedEntryIds: [],
   invalidResolutions: [],
+  missingRealBalanceAccountIds: [],
+  invalidBalances: [],
   ...overrides,
 });
 
@@ -155,5 +160,78 @@ describe('closing-text', () => {
     );
     expect(nextStepHint(0, 0, false)).toBe('No hay nada que resolver. El paso «Saldos» estará disponible más adelante.');
     expect(nextStepHint(3, 0, true)).toBe('Todas las partidas pendientes tienen una resolución.');
+  });
+
+  // Saldos reales y diferencias (HU-32).
+
+  const bank: ClosingAccount = {
+    id: 12, name: 'Banco', currency: 'ARS', openingDate: '2026-08-01', computedBalance: 512300,
+  };
+  const difference = (overrides: Partial<ClosingNewEntry>): ClosingNewEntry => ({
+    period: '2026-11', origin: 'CLOSING_DIFFERENCE', name: 'Diferencia de cierre: Banco (oct 2026)',
+    kind: 'EXPENSE', accountId: 12, accountName: 'Banco', currency: 'ARS', dueDate: '2026-11-01',
+    budgetedAmount: 2500, sourceAccountId: 12, ...overrides,
+  });
+
+  it('una diferencia negativa anuncia el gasto en el mes siguiente, tal como lo informa el backend', () => {
+    const account: ClosingAccount = { ...bank, realBalance: 509800, difference: -2500, differenceEntry: difference({}) };
+
+    expect(differenceText(account, '2026-10', money)).toBe(
+      'En noviembre aparece un gasto «Diferencia de cierre: Banco (oct 2026)» por $ 2500.',
+    );
+  });
+
+  it('una diferencia positiva anuncia el ingreso, en la moneda de la cuenta', () => {
+    const dollars: ClosingAccount = {
+      id: 13, name: 'Dólares', currency: 'USD', openingDate: '2026-08-01', computedBalance: 1000,
+      realBalance: 1200, difference: 200,
+      differenceEntry: difference({
+        kind: 'INCOME', name: 'Diferencia de cierre: Dólares (oct 2026)', currency: 'USD', accountId: 13,
+        accountName: 'Dólares', budgetedAmount: 200,
+      }),
+    };
+
+    expect(differenceText(dollars, '2026-10', money)).toBe(
+      'En noviembre aparece un ingreso «Diferencia de cierre: Dólares (oct 2026)» por US$ 200.',
+    );
+  });
+
+  it('con diferencia 0 dice que coincide', () => {
+    expect(differenceText({ ...bank, realBalance: 512300, difference: 0 }, '2026-10', money)).toBe('Coincide.');
+  });
+
+  it('sin saldo real no dice nada', () => {
+    expect(differenceText(bank, '2026-10', money)).toBeNull();
+    expect(differenceText({ ...bank, realBalance: null, difference: null }, '2026-10', money)).toBeNull();
+  });
+
+  it('en diciembre el mes siguiente es de otro año y lo dice', () => {
+    const account: ClosingAccount = {
+      ...bank, realBalance: 1, difference: -2500,
+      differenceEntry: difference({ period: '2027-01', dueDate: '2027-01-01', name: 'Diferencia de cierre: Banco (dic 2026)' }),
+    };
+
+    expect(differenceText(account, '2026-12', money)).toBe(
+      'En enero 2027 aparece un gasto «Diferencia de cierre: Banco (dic 2026)» por $ 2500.',
+    );
+  });
+
+  it('explica qué es el saldo real', () => {
+    expect(balancesIntro('31/10/2026')).toBe(
+      'El saldo real es el que figura en el banco o la billetera al último día del mes (31/10/2026). ' +
+        'No se guarda nada hasta confirmar el cierre.',
+    );
+  });
+
+  it('explica por qué no se puede avanzar a «Confirmación»', () => {
+    expect(confirmationHint(3, 3, false)).toBe('Falta cargar el saldo real de 3 cuentas.');
+    expect(confirmationHint(3, 1, false)).toBe('Falta cargar el saldo real de 1 cuenta.');
+    expect(confirmationHint(3, 0, false)).toBe(
+      'Todos los saldos reales están cargados. La confirmación estará disponible más adelante.',
+    );
+    expect(confirmationHint(0, 0, false)).toBe(
+      'No hay cuentas para conciliar. La confirmación estará disponible más adelante.',
+    );
+    expect(confirmationHint(3, 0, true)).toBe('Todos los saldos reales están cargados.');
   });
 });

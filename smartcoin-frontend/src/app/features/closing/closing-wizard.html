@@ -13,19 +13,19 @@
   </header>
 
   <ol class="steps" aria-label="Pasos del cierre">
-    @for (step of steps; track step.label; let i = $index) {
+    @for (item of steps; track item.label; let i = $index) {
       <li
         class="step"
-        [class.step-current]="i === 0"
-        [class.step-disabled]="!step.available"
-        [attr.aria-current]="i === 0 ? 'step' : null"
-        [attr.aria-disabled]="step.available ? null : 'true'"
+        [class.step-current]="i === step()"
+        [class.step-disabled]="!item.available"
+        [attr.aria-current]="i === step() ? 'step' : null"
+        [attr.aria-disabled]="item.available ? null : 'true'"
         data-testid="step"
       >
         <span class="step-number" aria-hidden="true">{{ i + 1 }}</span>
         <span class="step-label">
-          {{ step.label }}
-          @if (!step.available) {
+          {{ item.label }}
+          @if (!item.available) {
             <span class="step-note">{{ unavailableStepText }}</span>
           }
         </span>
@@ -43,6 +43,7 @@
   } @else if (loading()) {
     <p role="status">Cargando lo que falta para cerrar el mes…</p>
   } @else if (preview(); as current) {
+    @if (step() === 0) {
     <section class="diagnosis" aria-labelledby="diagnosis-heading" data-testid="diagnosis">
       <h2 id="diagnosis-heading" class="heading" [class.blocked]="!current.preconditionsMet" data-testid="summary">
         {{ summary(current) }}
@@ -178,6 +179,7 @@
         }
       </section>
 
+      @if (!canChoose()) {
       <section class="section" aria-labelledby="accounts-heading">
         <h2 id="accounts-heading" class="heading">Cuentas a conciliar</h2>
         @if (accountGroups().length === 0) {
@@ -209,6 +211,7 @@
           }
         }
       </section>
+      }
 
       @if (canChoose()) {
         <div class="next">
@@ -218,12 +221,87 @@
             [disabled]="!canAdvance()"
             aria-describedby="next-hint"
             data-testid="next-step"
+            (click)="goTo(1)"
           >
             {{ nextLabel }}
           </button>
           <p id="next-hint" class="hint" role="status" data-testid="next-hint">{{ nextHint() }}</p>
         </div>
       }
+    }
+    } @else {
+      <section class="section" aria-labelledby="balances-heading" data-testid="balances-step">
+        <h2 id="balances-heading" class="heading">Saldos reales</h2>
+        <p class="hint" data-testid="balances-intro">{{ balancesIntro((current.lastDay | date: dateFormat) ?? '') }}</p>
+        @if (updateError(); as message) {
+          <p class="problem-text" role="alert" data-testid="update-error">{{ message }}</p>
+        }
+        @if (accountGroups().length === 0) {
+          <p class="empty" role="status" data-testid="no-accounts">
+            No hay cuentas abiertas al {{ current.lastDay | date: dateFormat }}: no hay saldos que conciliar.
+          </p>
+        } @else {
+          @for (group of accountGroups(); track group.currency) {
+            <table class="accounts balances" [attr.aria-label]="'Cuentas en ' + group.label.toLowerCase()" data-testid="account-group">
+              <caption>{{ group.label }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Cuenta</th>
+                  <th scope="col" class="number">Saldo calculado</th>
+                  <th scope="col">Saldo real</th>
+                  <th scope="col" class="number">Diferencia</th>
+                </tr>
+              </thead>
+              @for (account of group.accounts; track account.id) {
+                <tbody [attr.data-account-id]="account.id" data-testid="balance-row">
+                  <tr>
+                    <th scope="row">{{ account.name }}</th>
+                    <td class="number" [class.negative]="account.computedBalance < 0">
+                      {{ account.computedBalance | money: account.currency }}
+                    </td>
+                    <td>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="balance-field">
+                        <input
+                          matInput
+                          inputmode="decimal"
+                          autocomplete="off"
+                          placeholder="0,00"
+                          [formControl]="balanceControl(account)"
+                          [attr.aria-label]="'Saldo real de ' + account.name"
+                          [attr.data-testid]="'real-balance-' + account.id"
+                          (change)="balanceEntered(account)"
+                        />
+                        @if (balanceControl(account).hasError('amount')) {
+                          <mat-error>{{ balanceFormatError }}</mat-error>
+                        }
+                      </mat-form-field>
+                    </td>
+                    <td class="number" [class.negative]="(shownDifference(account) ?? 0) < 0" data-testid="difference">
+                      {{ shownDifference(account) | money: account.currency }}
+                    </td>
+                  </tr>
+                  <tr class="effect-row">
+                    <td colspan="4" class="effect" aria-live="polite" data-testid="difference-effect">{{ differenceEffect(account) }}</td>
+                  </tr>
+                </tbody>
+              }
+            </table>
+          }
+        }
+        <div class="next">
+          <button mat-button type="button" (click)="goTo(0)" data-testid="back-step">{{ backLabel }}</button>
+          <button
+            mat-flat-button
+            type="button"
+            [disabled]="!canConfirm()"
+            aria-describedby="confirm-hint"
+            data-testid="confirm-step"
+          >
+            {{ confirmationLabel }}
+          </button>
+          <p id="confirm-hint" class="hint" role="status" data-testid="confirm-hint">{{ confirmHint() }}</p>
+        </div>
+      </section>
     }
   }
 </div>

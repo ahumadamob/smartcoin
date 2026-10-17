@@ -51,6 +51,8 @@ const AUGUST: ClosingPreview = {
   newEntries: [],
   unresolvedEntryIds: [1, 2],
   invalidResolutions: [],
+  missingRealBalanceAccountIds: [12, 14, 13],
+  invalidBalances: [],
 };
 
 /**
@@ -81,11 +83,45 @@ function augustWith(request?: ClosingPreviewRequest): ClosingPreview {
         }
       : entry;
   });
+  // Solo para el test: el backend resta real menos calculado y arma la partida de diferencia; el asistente no.
+  const real = new Map((request?.realBalances ?? []).map((b) => [b.accountId, b.amount]));
+  const accounts = AUGUST.accounts.map((account) => {
+    const balance = real.get(account.id);
+    if (balance === undefined) {
+      return account;
+    }
+    const difference = Math.round((balance - account.computedBalance) * 100) / 100;
+    return {
+      ...account,
+      realBalance: balance,
+      difference,
+      differenceEntry:
+        difference === 0
+          ? undefined
+          : {
+              period: '2026-09',
+              origin: 'CLOSING_DIFFERENCE' as const,
+              name: `Diferencia de cierre: ${account.name} (ago 2026)`,
+              kind: difference > 0 ? ('INCOME' as const) : ('EXPENSE' as const),
+              accountId: account.id,
+              accountName: account.name,
+              currency: account.currency,
+              dueDate: '2026-09-01',
+              budgetedAmount: Math.abs(difference),
+              sourceAccountId: account.id,
+            },
+    };
+  });
   return {
     ...AUGUST,
     pendingEntries,
-    newEntries: pendingEntries.flatMap((entry) => (entry.carriedOverEntry ? [entry.carriedOverEntry] : [])),
+    accounts,
+    newEntries: [
+      ...pendingEntries.flatMap((entry) => (entry.carriedOverEntry ? [entry.carriedOverEntry] : [])),
+      ...accounts.flatMap((account) => (account.differenceEntry ? [account.differenceEntry] : [])),
+    ],
     unresolvedEntryIds: pendingEntries.filter((entry) => !entry.resolution).map((entry) => entry.id),
+    missingRealBalanceAccountIds: accounts.filter((account) => account.realBalance === undefined).map((a) => a.id),
   };
 }
 
@@ -149,17 +185,17 @@ describe('ClosingWizard', () => {
       const steps = all('[data-testid="step"]');
       expect(steps.map((s) => text(s))).toEqual([
         '1 Pendientes',
-        '2 Saldos Disponible más adelante',
+        '2 Saldos',
         '3 Confirmación Disponible más adelante',
       ]);
       expect(steps[0].getAttribute('aria-current')).toBe('step');
       expect(steps[0].getAttribute('aria-disabled')).toBeNull();
     });
 
-    it('los pasos de saldos y confirmación están deshabilitados y no tienen contenido ni botones', () => {
+    it('solo la confirmación está deshabilitada; ningún paso tiene enlaces ni botones propios', () => {
       const steps = all('[data-testid="step"]');
-      expect(steps.slice(1).map((s) => s.getAttribute('aria-disabled'))).toEqual(['true', 'true']);
-      expect(steps.slice(1).every((s) => s.querySelector('a, button') === null)).toBe(true);
+      expect(steps.map((s) => s.getAttribute('aria-disabled'))).toEqual([null, null, 'true']);
+      expect(steps.every((s) => s.querySelector('a, button') === null)).toBe(true);
     });
   });
 
@@ -188,18 +224,10 @@ describe('ClosingWizard', () => {
       );
     });
 
-    it('lista las cuentas agrupadas por moneda con el saldo calculado al último día, sin subtotales', () => {
-      expect(text(root().querySelector('[data-testid="accounts-hint"]'))).toContain('Saldo calculado al 31/08/2026');
-      const groups = all('[data-testid="account-group"]');
-      expect(groups.map((g) => text(g.querySelector('caption')))).toEqual(['Pesos', 'Dólares']);
-      expect(Array.from(groups[0].querySelectorAll('tbody tr')).map(cells)).toEqual([
-        ['Banco', '$ 255.000,00'],
-        ['Efectivo', '-$ 1.500,50'],
-      ]);
-      expect(Array.from(groups[1].querySelectorAll('tbody tr')).map(cells)).toEqual([['Dólares', 'US$ 600,00']]);
-      expect(groups[0].querySelector('.negative')).not.toBeNull();
-      expect(root().textContent).not.toContain('Total');
-      expect(root().textContent).not.toContain('Subtotal');
+    it('las cuentas se conciliaron en el paso «Saldos»: «Pendientes» no las lista', () => {
+      expect(all('[data-testid="account-group"]')).toHaveLength(0);
+      expect(root().querySelector('[data-testid="accounts-hint"]')).toBeNull();
+      expect(root().querySelector('[data-testid="balances-step"]')).toBeNull();
     });
 
     it('vuelve al presupuesto del mes', () => {
@@ -345,6 +373,7 @@ describe('ClosingWizard', () => {
 
       expect(api.previewClosing).toHaveBeenLastCalledWith('2026-08', {
         resolutions: [{ entryId: 1, resolution: 'CARRY_OVER' }],
+        realBalances: [],
       });
       expect(effect(1)).toBe(
         'Queda consolidada en $ 20.000,00. En septiembre aparece «Saldo pendiente: Luz» por $ 25.000,00, ' +
@@ -369,11 +398,12 @@ describe('ClosingWizard', () => {
           { entryId: 1, resolution: 'CLOSE_AS_IS' },
           { entryId: 2, resolution: 'CLOSE_AS_IS' },
         ],
+        realBalances: [],
       });
       expect(effect(1)).toBe('Queda consolidada en $ 20.000,00. Se descarta el pendiente de $ 25.000,00.');
     });
 
-    it('no se puede avanzar hasta resolver todas; con todas resueltas, «Saldos» sigue para más adelante', async () => {
+    it('no se puede avanzar hasta resolver todas; con todas resueltas, se pasa a «Saldos»', async () => {
       expect(next().disabled).toBe(true);
       expect(text(next())).toBe('Siguiente: Saldos');
       expect(hint()).toBe('Falta elegir qué hacer con 2 partidas pendientes.');
@@ -383,10 +413,8 @@ describe('ClosingWizard', () => {
       expect(hint()).toBe('Falta elegir qué hacer con 1 partida pendiente.');
 
       await pick(2, 'CLOSE_AS_IS');
-      expect(next().disabled).toBe(true);
-      expect(hint()).toBe(
-        'Todas las partidas pendientes tienen una resolución. El paso «Saldos» estará disponible más adelante.',
-      );
+      expect(next().disabled).toBe(false);
+      expect(hint()).toBe('Todas las partidas pendientes tienen una resolución.');
       expect(next().getAttribute('aria-describedby')).toBe('next-hint');
     });
 
@@ -399,6 +427,7 @@ describe('ClosingWizard', () => {
           { entryId: 1, resolution: 'CARRY_OVER' },
           { entryId: 2, resolution: 'CARRY_OVER' },
         ],
+        realBalances: [],
       });
       expect(radio(1, 'CARRY_OVER').checked).toBe(true);
       expect(radio(2, 'CARRY_OVER').checked).toBe(true);
@@ -428,9 +457,8 @@ describe('ClosingWizard', () => {
       );
       expect(root().querySelector('mat-radio-group')).toBeNull();
       expect(root().querySelector('[data-testid="all-carry-over"]')).toBeNull();
-      expect(text(root().querySelector('[data-testid="next-hint"]'))).toBe(
-        'No hay nada que resolver. El paso «Saldos» estará disponible más adelante.',
-      );
+      expect(text(root().querySelector('[data-testid="next-hint"]'))).toBe('No hay nada que resolver.');
+      expect(root().querySelector<HTMLButtonElement>('[data-testid="next-step"]')!.disabled).toBe(false);
     });
 
     it('con pendiente 0 aclara que las dos opciones dan lo mismo y Postergar no crea nada', async () => {
@@ -512,6 +540,341 @@ describe('ClosingWizard', () => {
 
       expect(api.previewClosing).toHaveBeenLastCalledWith('2026-09');
       expect(all('input[type="radio"]').every((input) => !(input as HTMLInputElement).checked)).toBe(true);
+    });
+  });
+
+  describe('saldos: cargar el saldo real de cada cuenta (HU-32)', () => {
+    const next = () => root().querySelector<HTMLButtonElement>('[data-testid="next-step"]')!;
+    const confirm = () => root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!;
+    const confirmHint = () => text(root().querySelector('[data-testid="confirm-hint"]'));
+    const row = (id: number) => root().querySelector(`[data-testid="balance-row"][data-account-id="${id}"]`)!;
+    const input = (id: number) => root().querySelector<HTMLInputElement>(`[data-testid="real-balance-${id}"]`)!;
+    const difference = (id: number) => text(row(id).querySelector('[data-testid="difference"]'));
+    const effect = (id: number) => text(row(id).querySelector('[data-testid="difference-effect"]'));
+    const lastBody = () => api.previewClosing.mock.lastCall![1] as ClosingPreviewRequest;
+
+    /** Escribe el saldo y lo da por terminado, como al salir del campo. */
+    async function enter(id: number, value: string) {
+      input(id).value = value;
+      input(id).dispatchEvent(new Event('input'));
+      input(id).dispatchEvent(new Event('change'));
+      await refresh();
+    }
+
+    async function toBalances() {
+      for (const id of [1, 2]) {
+        root().querySelector<HTMLInputElement>(
+          `[data-testid="pending-entry"][data-entry-id="${id}"] [data-testid="choice-CLOSE_AS_IS"] input`,
+        )!.click();
+        await refresh();
+      }
+      next().click();
+      await refresh();
+    }
+
+    beforeEach(async () => {
+      await open('/cierre/2026-08');
+      await toBalances();
+    });
+
+    it('«Siguiente: Saldos» lleva al segundo paso y el foco pasa al título', () => {
+      const steps = all('[data-testid="step"]');
+      expect(steps[1].getAttribute('aria-current')).toBe('step');
+      expect(steps[0].getAttribute('aria-current')).toBeNull();
+      expect(root().querySelector('[data-testid="balances-step"]')).not.toBeNull();
+      expect(root().querySelector('[data-testid="pending-entries"]')).toBeNull();
+      expect(root().querySelector('[data-testid="diagnosis"]')).toBeNull();
+    });
+
+    it('explica en una línea qué es el saldo real', () => {
+      expect(text(root().querySelector('[data-testid="balances-intro"]'))).toBe(
+        'El saldo real es el que figura en el banco o la billetera al último día del mes (31/08/2026). ' +
+          'No se guarda nada hasta confirmar el cierre.',
+      );
+    });
+
+    it('lista las cuentas agrupadas por moneda con su saldo calculado y un campo para el real, sin subtotales', () => {
+      const groups = all('[data-testid="account-group"]');
+      expect(groups.map((g) => text(g.querySelector('caption')))).toEqual(['Pesos', 'Dólares']);
+      expect(groups[0].querySelectorAll('[data-testid="balance-row"]')).toHaveLength(2);
+      expect(Array.from(groups[0].querySelectorAll('thead th')).map((th) => text(th))).toEqual([
+        'Cuenta', 'Saldo calculado', 'Saldo real', 'Diferencia',
+      ]);
+      expect(text(row(12).querySelector('th'))).toBe('Banco');
+      expect(text(row(12).querySelector('td'))).toBe('$ 255.000,00');
+      expect(text(row(14).querySelector('td'))).toBe('-$ 1.500,50');
+      expect(text(row(13).querySelector('td'))).toBe('US$ 600,00');
+      expect(row(14).querySelector('.negative')).not.toBeNull();
+      expect(root().textContent).not.toContain('Total');
+      expect(root().textContent).not.toContain('Subtotal');
+    });
+
+    it('cada campo se nombra con su cuenta, admite coma decimal y arranca vacío', () => {
+      expect(input(12).getAttribute('aria-label')).toBe('Saldo real de Banco');
+      expect(input(13).getAttribute('aria-label')).toBe('Saldo real de Dólares');
+      expect(input(12).getAttribute('inputmode')).toBe('decimal');
+      expect(all('[data-testid="balance-row"] input').every((i) => (i as HTMLInputElement).value === '')).toBe(true);
+      expect(effect(12)).toBe('');
+      expect(difference(12)).toBe('');
+    });
+
+    it('no pidió nada más que la simulación: cargar la pantalla no guarda ni calcula', () => {
+      expect(api.previewClosing.mock.calls.every(([period]) => period === '2026-08')).toBe(true);
+      expect(Object.keys(api)).toEqual(['previewClosing']);
+    });
+
+    it('una diferencia negativa anuncia el gasto en el mes siguiente, con lo que informa el backend', async () => {
+      await enter(12, '250.000,00');
+
+      expect(lastBody()).toEqual({
+        resolutions: [
+          { entryId: 1, resolution: 'CLOSE_AS_IS' },
+          { entryId: 2, resolution: 'CLOSE_AS_IS' },
+        ],
+        realBalances: [{ accountId: 12, amount: 250000 }],
+      });
+      expect(difference(12)).toBe('-$ 5.000,00');
+      expect(effect(12)).toBe(
+        'En septiembre aparece un gasto «Diferencia de cierre: Banco (ago 2026)» por $ 5.000,00.',
+      );
+    });
+
+    it('una diferencia positiva en dólares anuncia el ingreso en dólares', async () => {
+      await enter(13, '650');
+
+      expect(lastBody().realBalances).toEqual([{ accountId: 13, amount: 650 }]);
+      expect(difference(13)).toBe('US$ 50,00');
+      expect(effect(13)).toBe(
+        'En septiembre aparece un ingreso «Diferencia de cierre: Dólares (ago 2026)» por US$ 50,00.',
+      );
+    });
+
+    it('con el mismo saldo calculado dice que coincide y no anuncia ninguna partida', async () => {
+      await enter(12, '255000');
+
+      expect(difference(12)).toBe('$ 0,00');
+      expect(effect(12)).toBe('Coincide.');
+    });
+
+    it('admite saldos negativos y centavos', async () => {
+      await enter(14, '-2.000,50');
+
+      expect(lastBody().realBalances).toEqual([{ accountId: 14, amount: -2000.5 }]);
+      expect(difference(14)).toBe('-$ 500,00');
+      expect(effect(14)).toContain('un gasto «Diferencia de cierre: Efectivo (ago 2026)» por $ 500,00');
+    });
+
+    it('cada saldo cargado vuelve a pedir la simulación con todos los anteriores', async () => {
+      await enter(12, '255000');
+      await enter(13, '600');
+
+      expect(lastBody().realBalances).toEqual([
+        { accountId: 12, amount: 255000 },
+        { accountId: 13, amount: 600 },
+      ]);
+      expect(effect(12)).toBe('Coincide.');
+      expect(effect(13)).toBe('Coincide.');
+    });
+
+    it('cambiar un saldo reemplaza el anterior y borrarlo lo quita de la simulación', async () => {
+      await enter(12, '250000');
+      await enter(12, '255000');
+      expect(lastBody().realBalances).toEqual([{ accountId: 12, amount: 255000 }]);
+      expect(effect(12)).toBe('Coincide.');
+
+      await enter(12, '');
+      expect(lastBody().realBalances).toEqual([]);
+      expect(effect(12)).toBe('');
+      expect(difference(12)).toBe('');
+    });
+
+    it('si el campo no cambió no vuelve a pedir la simulación', async () => {
+      await enter(12, '250000');
+      const calls = api.previewClosing.mock.calls.length;
+
+      await enter(12, '250000');
+      expect(api.previewClosing.mock.calls).toHaveLength(calls);
+    });
+
+    it('un saldo con formato inválido muestra el error, no pide nada y lo cuenta como faltante', async () => {
+      const calls = api.previewClosing.mock.calls.length;
+
+      await enter(12, '25.5');
+
+      expect(api.previewClosing.mock.calls).toHaveLength(calls);
+      expect(text(row(12).querySelector('mat-error'))).toBe(
+        'Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.',
+      );
+      expect(effect(12)).toBe('');
+      expect(confirmHint()).toBe('Revisá el saldo real con formato inválido.');
+    });
+
+    it('un saldo válido que pasa a inválido se quita de la simulación', async () => {
+      await enter(12, '250000');
+      await enter(12, '2500,001');
+
+      expect(lastBody().realBalances).toEqual([]);
+      expect(effect(12)).toBe('');
+    });
+
+    it('mientras llega la simulación dice que está calculando y no anuncia nada', async () => {
+      const pending = new Subject<ClosingPreview>();
+      api.previewClosing.mockReturnValueOnce(pending);
+
+      await enter(12, '250000');
+      expect(effect(12)).toBe('Calculando la diferencia…');
+      expect(difference(12)).toBe('');
+
+      pending.next(
+        augustWith({
+          resolutions: [
+            { entryId: 1, resolution: 'CLOSE_AS_IS' },
+            { entryId: 2, resolution: 'CLOSE_AS_IS' },
+          ],
+          realBalances: [{ accountId: 12, amount: 250000 }],
+        }),
+      );
+      pending.complete();
+      await refresh();
+      expect(effect(12)).toContain('un gasto');
+    });
+
+    it('si la simulación falla, muestra el error y no anuncia efecto ni deja avanzar', async () => {
+      api.previewClosing.mockReturnValueOnce(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { detail: 'Falló.' } })),
+      );
+
+      await enter(12, '250000');
+
+      expect(root().querySelector('[data-testid="update-error"]')).not.toBeNull();
+      expect(effect(12)).toBe('');
+      expect(confirm().disabled).toBe(true);
+    });
+
+    it('avanzar a «Confirmación» exige todos los saldos, y sigue deshabilitado hasta HU-33', async () => {
+      expect(confirm().disabled).toBe(true);
+      expect(text(confirm())).toBe('Siguiente: Confirmación');
+      expect(confirmHint()).toBe('Falta cargar el saldo real de 3 cuentas.');
+      expect(confirm().getAttribute('aria-describedby')).toBe('confirm-hint');
+
+      await enter(12, '255000');
+      await enter(14, '-1.500,50');
+      expect(confirm().disabled).toBe(true);
+      expect(confirmHint()).toBe('Falta cargar el saldo real de 1 cuenta.');
+
+      await enter(13, '600');
+      expect(confirm().disabled).toBe(true);
+      expect(confirmHint()).toBe(
+        'Todos los saldos reales están cargados. La confirmación estará disponible más adelante.',
+      );
+    });
+
+    it('se puede volver a «Pendientes» sin perder las elecciones ni los saldos', async () => {
+      await enter(12, '250000');
+      await enter(13, '650');
+
+      root().querySelector<HTMLButtonElement>('[data-testid="back-step"]')!.click();
+      await refresh();
+
+      expect(all('[data-testid="step"]')[0].getAttribute('aria-current')).toBe('step');
+      expect(root().querySelector('[data-testid="pending-entries"]')).not.toBeNull();
+      const radio = (id: number) =>
+        root().querySelector<HTMLInputElement>(
+          `[data-testid="pending-entry"][data-entry-id="${id}"] [data-testid="choice-CLOSE_AS_IS"] input`,
+        )!;
+      expect(radio(1).checked).toBe(true);
+      expect(radio(2).checked).toBe(true);
+      expect(next().disabled).toBe(false);
+
+      next().click();
+      await refresh();
+      expect(input(12).value).toBe('250000');
+      expect(input(13).value).toBe('650');
+      expect(effect(12)).toContain('un gasto');
+      expect(effect(13)).toContain('un ingreso');
+    });
+
+    it('cambiar una resolución desde «Pendientes» conserva los saldos en el pedido', async () => {
+      await enter(12, '250000');
+      root().querySelector<HTMLButtonElement>('[data-testid="back-step"]')!.click();
+      await refresh();
+
+      root().querySelector<HTMLInputElement>(
+        '[data-testid="pending-entry"][data-entry-id="1"] [data-testid="choice-CARRY_OVER"] input',
+      )!.click();
+      await refresh();
+
+      expect(lastBody().resolutions).toEqual([
+        { entryId: 1, resolution: 'CARRY_OVER' },
+        { entryId: 2, resolution: 'CLOSE_AS_IS' },
+      ]);
+      expect(lastBody().realBalances).toEqual([{ accountId: 12, amount: 250000 }]);
+    });
+  });
+
+  describe('saldos: casos particulares (HU-32)', () => {
+    it('sin cuentas abiertas lo dice y no hay saldos que cargar', async () => {
+      await open('/cierre/2026-08', {
+        '2026-08': of({ ...AUGUST, accounts: [], pendingEntries: [], unresolvedEntryIds: [], missingRealBalanceAccountIds: [] }),
+      });
+      root().querySelector<HTMLButtonElement>('[data-testid="next-step"]')!.click();
+      await refresh();
+
+      expect(text(root().querySelector('[data-testid="no-accounts"]'))).toBe(
+        'No hay cuentas abiertas al 31/08/2026: no hay saldos que conciliar.',
+      );
+      expect(root().querySelectorAll('input')).toHaveLength(0);
+      expect(text(root().querySelector('[data-testid="confirm-hint"]'))).toBe(
+        'No hay cuentas para conciliar. La confirmación estará disponible más adelante.',
+      );
+    });
+
+    it('un mes bloqueado no ofrece cargar saldos: muestra el diagnóstico con las cuentas', async () => {
+      await open('/cierre/2026-10', { '2026-10': of(OCTOBER) });
+
+      expect(root().querySelector('[data-testid="next-step"]')).toBeNull();
+      expect(all('[data-testid="account-group"]')).toHaveLength(2);
+      expect(root().querySelector('[data-testid="balances-step"]')).toBeNull();
+    });
+
+    it('si el backend dice que dejó de estar todo resuelto, vuelve a «Pendientes»', async () => {
+      await open('/cierre/2026-08');
+      for (const id of [1, 2]) {
+        root().querySelector<HTMLInputElement>(
+          `[data-testid="pending-entry"][data-entry-id="${id}"] [data-testid="choice-CLOSE_AS_IS"] input`,
+        )!.click();
+        await refresh();
+      }
+      root().querySelector<HTMLButtonElement>('[data-testid="next-step"]')!.click();
+      await refresh();
+      api.previewClosing.mockReturnValueOnce(of({ ...augustWith(), unresolvedEntryIds: [1] }));
+
+      const field = root().querySelector<HTMLInputElement>('[data-testid="real-balance-12"]')!;
+      field.value = '1';
+      field.dispatchEvent(new Event('input'));
+      field.dispatchEvent(new Event('change'));
+      await refresh();
+
+      expect(root().querySelector('[data-testid="balances-step"]')).toBeNull();
+      expect(all('[data-testid="step"]')[0].getAttribute('aria-current')).toBe('step');
+    });
+
+    it('al ir a otro mes se descartan los saldos y se vuelve al primer paso', async () => {
+      await open('/cierre/2026-08');
+      for (const id of [1, 2]) {
+        root().querySelector<HTMLInputElement>(
+          `[data-testid="pending-entry"][data-entry-id="${id}"] [data-testid="choice-CLOSE_AS_IS"] input`,
+        )!.click();
+        await refresh();
+      }
+      root().querySelector<HTMLButtonElement>('[data-testid="next-step"]')!.click();
+      await refresh();
+
+      await TestBed.inject(Router).navigateByUrl('/cierre/2026-09');
+      await refresh();
+
+      expect(all('[data-testid="step"]')[0].getAttribute('aria-current')).toBe('step');
+      expect(root().querySelector('[data-testid="balances-step"]')).toBeNull();
     });
   });
 
