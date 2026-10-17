@@ -1,0 +1,41 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">Flujo de caja</h1>
+  </header>
+
+  <form [formGroup]="filters" (ngSubmit)="search()" class="filters" aria-label="Rango y moneda">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Desde</mat-label>
+      <input matInput type="date" formControlName="from" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Hasta</mat-label>
+      <input matInput type="date" formControlName="to" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Moneda</mat-label>
+      <mat-select formControlName="currency">
+        @for (currency of currencies; track currency) {
+          <mat-option [value]="currency">{{ currencyLabels[currency] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button type="submit">Ver</button>
+    <span class="detail">Sin fechas, se muestra el mes actual. Nunca se suman pesos y dólares.</span>
+  </form>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">Calculando el flujo de caja…</p>
+  } @else if (flow(); as current) {
+    <p class="summary" role="status" data-testid="summary">
+      Del {{ current.from | date: dateFormat }} al {{ current.to | date: dateFormat }}, en
+      {{ currencyLabels[current.currency] }}: {{ current.rows.length }}
+      {{ current.rows.length === 1 ? 'fila' : 'filas' }}.
+    </p>
+    <app-cash-flow-table [flow]="current" />
+  }
+</div>

@@ -82,9 +82,8 @@ export const routes: Routes = [
       },
       {
         path: 'flujo-de-caja',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/reports/cash-flow').then((m) => m.CashFlowPage),
         title: 'Flujo de caja',
-        data: { heading: 'Flujo de caja' },
       },
       {
         path: 'proyeccion',

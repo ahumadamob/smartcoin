@@ -1,0 +1,88 @@
+<section class="flow" aria-label="Flujo de caja">
+  <p class="opening" data-testid="opening">
+    <span class="label">
+      {{ flow().openingBalanceProjected ? 'Saldo de arranque proyectado' : 'Saldo de arranque' }}
+      al {{ flow().openingBalanceDate | date: dateFormat }}
+    </span>
+    <strong class="balance" [class.shortfall]="isShortfall(flow().openingBalance)" data-testid="opening-balance">
+      {{ flow().openingBalance | money: flow().currency }}
+    </strong>
+    @if (isShortfall(flow().openingBalance)) {
+      <span class="mark mark-shortfall">Faltante</span>
+    }
+  </p>
+  @if (flow().openingBalanceProjected) {
+    <p class="hint" data-testid="projected-hint">
+      El rango empieza después de hoy: el saldo de arranque suma lo que se espera cobrar y pagar desde hoy hasta ese día.
+    </p>
+  }
+
+  @if (flow().rows.length === 0) {
+    <p class="empty" role="status">No hay movimientos ni pendientes en este rango.</p>
+  } @else {
+    <div class="table-wrapper" role="region" aria-label="Filas del flujo de caja" tabindex="0">
+      <table>
+        <caption class="visually-hidden">
+          Flujo de caja en orden cronológico, con el saldo acumulado después de cada fila
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Fecha</th>
+            <th scope="col">Descripción</th>
+            <th scope="col">Estado</th>
+            <th scope="col" class="number">Monto</th>
+            <th scope="col" class="number">Saldo acumulado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of flow().rows; track $index) {
+            <tr [class.planned]="row.status === 'PLANNED'" [attr.data-status]="row.status" data-testid="row">
+              <td class="nowrap" data-testid="date">{{ row.date | date: dateFormat }}</td>
+              <th scope="row" data-testid="description">
+                {{ row.description }}
+                @if (row.overdue) {
+                  <span class="mark mark-overdue">Vencida</span>
+                }
+                @if (row.dueDate) {
+                  <span class="detail" data-testid="due">Vencimiento: {{ row.dueDate | date: dateFormat }}</span>
+                }
+              </th>
+              <td class="nowrap" data-testid="status">
+                <span class="mark" [class.mark-planned]="row.status === 'PLANNED'" [class.mark-real]="row.status === 'REAL'">
+                  <span aria-hidden="true">{{ row.status === 'REAL' ? '●' : '○' }}</span>
+                  {{ statusLabels[row.status] }}
+                </span>
+              </td>
+              <td class="number" data-testid="amount">{{ row.amount | money: flow().currency }}</td>
+              <td class="number" data-testid="balance" [class.shortfall]="isShortfall(row.balance)">
+                {{ row.balance | money: flow().currency }}
+                @if (isShortfall(row.balance)) {
+                  <span class="mark mark-shortfall">Faltante</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="4">Saldo final</th>
+            <td class="number" data-testid="closing" [class.shortfall]="isShortfall(flow().closingBalance)">
+              {{ flow().closingBalance | money: flow().currency }}
+              @if (isShortfall(flow().closingBalance)) {
+                <span class="mark mark-shortfall">Faltante</span>
+              }
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  }
+  @if (flow().rows.length === 0) {
+    <p class="opening" data-testid="closing-empty">
+      <span class="label">Saldo final</span>
+      <strong class="balance" [class.shortfall]="isShortfall(flow().closingBalance)">
+        {{ flow().closingBalance | money: flow().currency }}
+      </strong>
+    </p>
+  }
+</section>
