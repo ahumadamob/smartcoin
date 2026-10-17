@@ -2,8 +2,8 @@ import { APIRequestContext, Page, expect, test } from '@playwright/test';
 import { API_URL, startSession } from './support';
 
 /**
- * Épica 8 · Cierre de mes. HU-30 (ver qué falta para cerrar el mes), HU-31 (resolver las partidas pendientes) y HU-32
- * (conciliar saldos y ver las diferencias). Cada
+ * Épica 8 · Cierre de mes. HU-30 (ver qué falta para cerrar el mes), HU-31 (resolver las partidas pendientes), HU-32
+ * (conciliar saldos y ver las diferencias) y HU-33 (el cierre efectivo, que deja el mes inmutable). Cada
  * grupo usa un usuario propio, nunca el real: nace con el
  * período inicial dos meses antes del actual, así que ese mes ya terminó y no tiene anterior. Se puede cerrar. El mes
  * siguiente tiene el anterior abierto, y el actual todavía no terminó.
@@ -118,7 +118,7 @@ test.describe('HU-30 · ver qué falta para cerrar el mes', () => {
     await expect(page.getByTestId('step')).toHaveText([
       /Pendientes/,
       /^2\s*Saldos\s*$/,
-      /Confirmación\s*Disponible más adelante/,
+      /^3\s*Confirmación\s*$/,
     ]);
     await expect(page.getByTestId('summary')).toHaveText('Se puede cerrar el mes.');
     await expect(blockers()).toHaveCount(0);
@@ -421,11 +421,8 @@ test.describe('HU-32 · conciliar saldos y registrar diferencias', () => {
     await expect(effect('Dólares')).toHaveText(
       `En ${nextMonthName} aparece un ingreso «Diferencia de cierre: Dólares (${closedLabel})» por US$ 150,00.`,
     );
-    // Con todos los saldos cargados, «Confirmación» sigue deshabilitado hasta que exista el cierre (HU-33).
-    await expect(confirmHint()).toHaveText(
-      'Todos los saldos reales están cargados. La confirmación estará disponible más adelante.',
-    );
-    await expect(confirm()).toBeDisabled();
+    await expect(confirmHint()).toHaveText('Todos los saldos reales están cargados.');
+    await expect(confirm()).toBeEnabled();
   });
 
   test('un saldo con formato inválido lo dice y vuelve a faltar', async () => {
@@ -466,5 +463,227 @@ test.describe('HU-32 · conciliar saldos y registrar diferencias', () => {
     await expect(page.getByRole('row', { name: /Luz/ })).toContainText('Parcial');
 
     expect(await views()).toEqual(viewsBefore);
+  });
+});
+
+test.describe('HU-33 · período cerrado inmutable', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let api: APIRequestContext;
+  let bank: number;
+
+  /** El mes siguiente al segundo: el actual. Su nombre en los textos del asistente del segundo mes. */
+  const third = new Date(next.getFullYear(), next.getMonth() + 1, 1);
+  const thirdName = third.getFullYear() === next.getFullYear() ? MONTHS[third.getMonth()] : label(third);
+  const nextClosedLabel = `${ABBREVIATIONS[next.getMonth()]} ${next.getFullYear()}`;
+  const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+  const created = async (path: string, data: unknown): Promise<number> => {
+    const response = await api.post(path, { data });
+    expect(response.status(), path).toBe(201);
+    return (await response.json()).id;
+  };
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    const { token } = await startSession(page, playwright);
+    api = await playwright.request.newContext({
+      baseURL: API_URL,
+      extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+    });
+    const account = (name: string, currency: string, initialBalance: number) =>
+      created('/api/accounts', { name, type: 'BANK', currency, openingDate: isoDate(start), initialBalance });
+    bank = await account('Banco', 'ARS', 200000);
+    await account('Dólares', 'USD', 500);
+    const entry = (name: string, day: number, budgetedAmount: number) =>
+      created(`/api/periods/${periodOf(start)}/entries`, {
+        name,
+        kind: 'EXPENSE',
+        accountId: bank,
+        dueDate: isoDate(new Date(start.getFullYear(), start.getMonth(), day)),
+        budgetedAmount,
+      });
+    // La luz de RN-40: 45.000,00 con 20.000,00 pagados. El Banco queda en 180.000,00.
+    const power = await entry('Luz', 18, 45000);
+    await entry('Internet', 20, 30000);
+    await created(`/api/entries/${power}/movements`, {
+      date: isoDate(new Date(start.getFullYear(), start.getMonth(), 18)),
+      amount: 20000,
+      accountId: bank,
+    });
+  });
+
+  test.afterAll(async () => {
+    await api.dispose();
+    await page.close();
+  });
+
+  const group = (name: string) => page.getByRole('group', { name });
+  const balance = (name: string) => page.getByLabel(`Saldo real de ${name}`);
+  async function enter(name: string, value: string) {
+    await balance(name).fill(value);
+    await balance(name).press('Tab');
+  }
+  const closeButton = (month: Date) => page.getByRole('button', { name: `Cerrar ${label(month)}` });
+  const acknowledge = (month: Date) =>
+    page.getByRole('checkbox', { name: `Entiendo que ${label(month)} queda cerrado para siempre y no se puede reabrir.` });
+
+  test('cerrar primero el segundo mes responde PREVIOUS_PERIOD_OPEN', async () => {
+    const response = await api.post(`/api/periods/${periodOf(next)}/close`, { data: {} });
+
+    expect(response.status()).toBe(409);
+    expect((await response.json()).code).toBe('PREVIOUS_PERIOD_OPEN');
+    const view = await (await api.get(`/api/periods/${periodOf(next)}`)).json();
+    expect(view.status).toBe('OPEN');
+  });
+
+  test('cerrar el período inicial con una partida postergada y una diferencia de saldo', async () => {
+    await page.goto(`/cierre/${periodOf(start)}`);
+    await group('Luz').getByRole('radio', { name: 'Postergar saldo' }).check();
+    await group('Internet').getByRole('radio', { name: 'Cerrar con lo registrado' }).check();
+    await page.getByRole('button', { name: 'Siguiente: Saldos' }).click();
+    await enter('Banco', '177.500,00');
+    await enter('Dólares', '500');
+    await page.getByRole('button', { name: 'Siguiente: Confirmación' }).click();
+
+    await expect(page.getByTestId('step').nth(2)).toHaveAttribute('aria-current', 'step');
+    await expect(page.getByTestId('summary-consolidated').getByRole('listitem')).toHaveText([
+      'Luz Postergar saldo: se consolida en $ 20.000,00.',
+      'Internet Cerrar con lo registrado: se consolida en $ 0,00.',
+    ]);
+    await expect(page.getByTestId('summary-created').getByRole('listitem')).toHaveText([
+      `Saldo pendiente: Luz Gasto por $ 25.000,00, con vencimiento el 18/${two(next.getMonth() + 1)}.`,
+      `Diferencia de cierre: Banco (${closedLabel}) Gasto por $ 2.500,00, con vencimiento el 01/${two(next.getMonth() + 1)}.`,
+    ]);
+    await expect(page.getByTestId('summary-accounts').first().getByRole('row', { name: /Banco/ })).toContainText(
+      '-$ 2.500,00',
+    );
+    await expect(page.getByTestId('irreversible-warning')).toContainText(
+      `Al cerrar, ${label(start)} queda cerrado para siempre`,
+    );
+
+    // El botón exige la casilla; se marca con el teclado.
+    await expect(closeButton(start)).toBeDisabled();
+    await acknowledge(start).focus();
+    await page.keyboard.press('Space');
+    await expect(acknowledge(start)).toBeChecked();
+    await closeButton(start).click();
+
+    await expect(page).toHaveURL(`/presupuesto/${periodOf(start)}`);
+    await expect(page.getByText(`${capitalized(label(start))} quedó cerrado.`)).toBeVisible();
+  });
+
+  test('el mes cerrado se ve «Cerrado» y sin acciones', async () => {
+    await expect(page.getByTestId('closed')).toHaveText('Cerrado');
+    await expect(page.getByRole('link', { name: 'Cerrar mes' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Agregar partida' })).toHaveCount(0);
+    await expect(page.getByRole('row', { name: /Luz/ })).toContainText('Consolidada');
+    await expect(page.getByRole('row', { name: /Internet/ })).toContainText('Consolidada');
+    await expect(page.getByRole('row', { name: /Luz/ }).getByRole('button')).toHaveCount(0);
+
+    // Un cambio en el mes cerrado, por la API: 409 PERIOD_CLOSED.
+    const response = await api.post(`/api/periods/${periodOf(start)}/entries`, {
+      data: {
+        name: 'Tarde', kind: 'EXPENSE', accountId: bank,
+        dueDate: isoDate(new Date(start.getFullYear(), start.getMonth(), 5)), budgetedAmount: 100,
+      },
+    });
+    expect(response.status()).toBe(409);
+    expect((await response.json()).code).toBe('PERIOD_CLOSED');
+  });
+
+  test('el aviso lleva al mes siguiente, con las partidas nuevas y «Cerrar mes»', async () => {
+    await page.getByRole('button', { name: `Ir a ${label(next)}` }).click();
+
+    await expect(page).toHaveURL(`/presupuesto/${periodOf(next)}`);
+    await expect(page.getByRole('row', { name: /Saldo pendiente: Luz/ })).toContainText('$ 25.000,00');
+    await expect(page.getByRole('row', { name: new RegExp(`Diferencia de cierre: Banco \\(${closedLabel}\\)`) }))
+      .toContainText('$ 2.500,00');
+    await expect(page.getByTestId('closed')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Cerrar mes' }).click();
+    await expect(page).toHaveURL(`/cierre/${periodOf(next)}`);
+    await expect(page.getByTestId('summary')).toHaveText('Se puede cerrar el mes.');
+  });
+
+  test('cerrar el segundo mes: un error lleva al paso que corresponde sin perder lo cargado', async () => {
+    await group('Saldo pendiente: Luz').getByRole('radio', { name: 'Postergar saldo' }).check();
+    // Postergar un saldo postergado conserva su nombre (RN-40).
+    await expect(group('Saldo pendiente: Luz').getByTestId('effect')).toContainText(
+      `En ${thirdName} aparece «Saldo pendiente: Luz» por $ 25.000,00`,
+    );
+    await group(`Diferencia de cierre: Banco (${closedLabel})`)
+      .getByRole('radio', { name: 'Cerrar con lo registrado' })
+      .check();
+    await page.getByRole('button', { name: 'Siguiente: Saldos' }).click();
+    // La diferencia sigue pendiente: el saldo calculado la sigue arrastrando (RN-42).
+    await expect(page.getByTestId('balance-row').filter({ hasText: 'Banco' })).toContainText('$ 180.000,00');
+    await enter('Banco', '177.500,00');
+    await enter('Dólares', '500');
+    await page.getByRole('button', { name: 'Siguiente: Confirmación' }).click();
+    await expect(page.getByTestId('summary-created').getByRole('listitem')).toHaveCount(2);
+
+    // Mientras tanto, desde otra pestaña, aparece una partida nueva en el mes: queda sin resolver.
+    await created(`/api/periods/${periodOf(next)}/entries`, {
+      name: 'Gas', kind: 'EXPENSE', accountId: bank,
+      dueDate: isoDate(new Date(next.getFullYear(), next.getMonth(), 10)), budgetedAmount: 8000,
+    });
+    await acknowledge(next).check();
+    await closeButton(next).click();
+
+    await expect(page.getByTestId('close-error')).toHaveText(
+      'No se cerró el mes: Falta resolver 1 partida pendiente: elegí «Postergar saldo» o «Cerrar con lo registrado» ' +
+        'en cada una.',
+    );
+    await expect(page.getByTestId('step').nth(0)).toHaveAttribute('aria-current', 'step');
+    await expect(group('Saldo pendiente: Luz').getByRole('radio', { name: 'Postergar saldo' })).toBeChecked();
+    await expect(page.getByTestId('next-hint')).toHaveText('Falta elegir qué hacer con 1 partida pendiente.');
+    await expect(page).toHaveURL(`/cierre/${periodOf(next)}`);
+    expect((await (await api.get(`/api/periods/${periodOf(next)}`)).json()).status).toBe('OPEN');
+  });
+
+  test('resolviendo la que faltaba, se cierra el segundo mes', async () => {
+    await group('Gas').getByRole('radio', { name: 'Cerrar con lo registrado' }).check();
+    await page.getByRole('button', { name: 'Siguiente: Saldos' }).click();
+    await expect(balance('Banco')).toHaveValue('177.500,00');
+    await page.getByRole('button', { name: 'Siguiente: Confirmación' }).click();
+    await expect(page.getByTestId('summary-consolidated').getByRole('listitem')).toHaveCount(3);
+    await acknowledge(next).check();
+    await closeButton(next).click();
+
+    await expect(page).toHaveURL(`/presupuesto/${periodOf(next)}`);
+    await expect(page.getByTestId('closed')).toHaveText('Cerrado');
+
+    await page.getByRole('button', { name: `Ir a ${label(third)}` }).click();
+    await expect(page).toHaveURL(`/presupuesto/${periodOf(third)}`);
+    // Conserva su nombre, y la diferencia que se cerró con lo registrado vuelve a aparecer (RN-42).
+    await expect(page.getByRole('row', { name: /Saldo pendiente: Luz/ })).toHaveCount(1);
+    await expect(page.getByText('Saldo pendiente: Saldo pendiente')).toHaveCount(0);
+    await expect(page.getByRole('row', { name: new RegExp(`Diferencia de cierre: Banco \\(${nextClosedLabel}\\)`) }))
+      .toContainText('$ 2.500,00');
+  });
+
+  test('el mes actual responde PERIOD_NOT_FINISHED', async () => {
+    if (isLastDay) {
+      // Hoy terminó el actual: se cierra por la API y se prueba el siguiente.
+      const preview = await (await api.post(`/api/periods/${periodOf(current)}/closing-preview`, { data: {} })).json();
+      const closed = await api.post(`/api/periods/${periodOf(current)}/close`, {
+        data: {
+          resolutions: preview.pendingEntries.map((e: { id: number }) => ({ entryId: e.id, resolution: 'CLOSE_AS_IS' })),
+          realBalances: preview.accounts.map((a: { id: number; computedBalance: number }) => ({
+            accountId: a.id,
+            amount: a.computedBalance,
+          })),
+        },
+      });
+      expect(closed.status()).toBe(200);
+    }
+    const response = await api.post(`/api/periods/${periodOf(unfinished)}/close`, { data: {} });
+
+    expect(response.status()).toBe(409);
+    const problem = await response.json();
+    expect(problem.code).toBe('PERIOD_NOT_FINISHED');
+    expect(problem.detail).toContain(shown(unfinishedLast));
   });
 });
