@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 // Estas pruebas solo recorren el menú: alcanza con una sesión guardada que el guard acepte. Lo único que piden el
 // layout (el usuario actual, para el menú de usuario) y las pantallas de cuentas, categorías y Conceptos (sus listas),
-// del presupuesto (el mes actual) y del flujo de caja se responde acá, porque el token es falso. Cada pantalla que llame a la API desde su historia suma su respuesta simulada.
+// del presupuesto (el mes actual) y del flujo de caja y de la proyección se responde acá, porque el token es falso. Cada pantalla que llame a la API desde su historia suma su respuesta simulada.
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/accounts', (route) => route.fulfill({ json: { accounts: [], subtotals: [] } }));
   await page.route('**/api/categories', (route) => route.fulfill({ json: [] }));
@@ -21,6 +21,9 @@ test.beforeEach(async ({ page }) => {
         closingBalance: 0,
       },
     }),
+  );
+  await page.route(/\/api\/projection(\?.*)?$/, (route) =>
+    route.fulfill({ json: { from: '2026-10', until: '2028-10', accounts: [], months: [] } }),
   );
   await page.route('**/api/periods/current', (route) =>
     route.fulfill({
