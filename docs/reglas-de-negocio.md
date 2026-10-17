@@ -412,6 +412,14 @@ Aclaraciones (HU-15, D-29):
 
 Arranca con la suma de los saldos de las cuentas de esa moneda al día anterior al rango y muestra el saldo acumulado en cada fila.
 
+Aclaraciones (HU-34, D-46):
+
+- La fecha efectiva de un pendiente es su vencimiento, o hoy si ya venció; nunca es anterior a hoy. Un pendiente cuya fecha efectiva cae fuera del rango no se lista.
+- Si el rango empieza después de hoy, el saldo de arranque es **proyectado**: el saldo real más el pendiente (con signo) de las partidas con fecha efectiva anterior al rango. Si empieza hoy o antes, es el saldo real al día anterior.
+- El saldo de arranque solo incluye las cuentas abiertas antes del rango. El saldo inicial de una cuenta que abre dentro del rango aparece como una fila real en su fecha de apertura.
+- Dentro de un día: saldo inicial de cuenta, real, prevista; en cada grupo, ingresos antes que gastos, y después descripción y orden de creación.
+- El rango va del primer día del período inicial al último del horizonte y tiene hasta 366 días; si no, 400 `VALIDATION_ERROR`.
+
 **RN-46. Proyección de saldos.** Para cada mes M desde el actual hasta el horizonte, y para cada cuenta, el saldo proyectado al último día de M es:
 
 ```
