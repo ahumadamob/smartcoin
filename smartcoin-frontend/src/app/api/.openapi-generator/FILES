@@ -20,6 +20,7 @@ model/accountEditability.ts
 model/accountListResponse.ts
 model/accountRequest.ts
 model/accountResponse.ts
+model/budgetGrid.ts
 model/budgetItemDetail.ts
 model/budgetItemEditability.ts
 model/budgetItemEntryCounts.ts
@@ -58,6 +59,11 @@ model/entryDeletionPreview.ts
 model/entryUpdateRequest.ts
 model/estimationBasis.ts
 model/fieldEditability.ts
+model/gridCell.ts
+model/gridCurrencyTotals.ts
+model/gridMonth.ts
+model/gridMonthTotals.ts
+model/gridRow.ts
 model/loginRequest.ts
 model/loginResponse.ts
 model/models.ts
