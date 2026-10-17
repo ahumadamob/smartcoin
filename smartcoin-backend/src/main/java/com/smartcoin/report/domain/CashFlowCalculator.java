@@ -25,13 +25,13 @@ public final class CashFlowCalculator {
 	}
 
 	/** Si la fila ya ocurrió o está prevista. */
-	public enum Status {
+	public enum CashFlowRowStatus {
 		REAL,
 		PLANNED
 	}
 
 	/** De dónde sale la fila. El orden del enum es el desempate final entre filas iguales. */
-	public enum RowType {
+	public enum CashFlowRowType {
 		ACCOUNT_OPENING,
 		MOVEMENT,
 		TRANSFER,
@@ -73,8 +73,8 @@ public final class CashFlowCalculator {
 	}
 
 	/** Una fila. {@code dueDate} y {@code overdue} solo tienen sentido en las previstas de partidas pendientes. */
-	public record Row(LocalDate date, Status status, RowType type, String description, BigDecimal amount,
-			BigDecimal balance, LocalDate dueDate, boolean overdue) {
+	public record Row(LocalDate date, CashFlowRowStatus status, CashFlowRowType type, String description,
+			BigDecimal amount, BigDecimal balance, LocalDate dueDate, boolean overdue) {
 	}
 
 	/**
@@ -97,14 +97,15 @@ public final class CashFlowCalculator {
 		for (AccountOpening account : input.accounts()) {
 			if (account.currency() == currency && inRange(account.openingDate(), from, to)
 					&& account.initialBalance().signum() != 0) {
-				entries.add(new Entry(account.openingDate(), Group.OPENING, RowType.ACCOUNT_OPENING, account.id(),
-						"Saldo inicial de " + account.accountName(), account.initialBalance(), null, false));
+				entries.add(new Entry(account.openingDate(), Group.OPENING, CashFlowRowType.ACCOUNT_OPENING,
+						account.id(), "Saldo inicial de " + account.accountName(), account.initialBalance(), null,
+						false));
 			}
 		}
 		for (MovementLine movement : input.movements()) {
 			if (movement.currency() == currency && inRange(movement.date(), from, to)) {
 				BigDecimal signed = movement.kind() == EntryKind.INCOME ? movement.amount() : movement.amount().negate();
-				entries.add(new Entry(movement.date(), Group.REAL, RowType.MOVEMENT, movement.id(),
+				entries.add(new Entry(movement.date(), Group.REAL, CashFlowRowType.MOVEMENT, movement.id(),
 						movement.entryName() + " · " + movement.accountName(), signed, null, false));
 			}
 		}
@@ -112,7 +113,7 @@ public final class CashFlowCalculator {
 			if (inRange(transfer.date(), from, to)) {
 				BigDecimal signed = transferAmount(transfer, currency);
 				if (signed != null) {
-					entries.add(new Entry(transfer.date(), Group.REAL, RowType.TRANSFER, transfer.id(),
+					entries.add(new Entry(transfer.date(), Group.REAL, CashFlowRowType.TRANSFER, transfer.id(),
 							transferDescription(transfer), signed, null, false));
 				}
 			}
@@ -127,7 +128,7 @@ public final class CashFlowCalculator {
 				opening = opening.add(signed);
 			}
 			else if (!effective.isAfter(to)) {
-				entries.add(new Entry(effective, Group.PLANNED, RowType.PENDING_ENTRY, line.id(),
+				entries.add(new Entry(effective, Group.PLANNED, CashFlowRowType.PENDING_ENTRY, line.id(),
 						line.entryName() + " · " + line.accountName(), signed, line.dueDate(),
 						line.dueDate().isBefore(input.today())));
 			}
@@ -138,7 +139,9 @@ public final class CashFlowCalculator {
 		List<Row> rows = new ArrayList<>(entries.size());
 		for (Entry entry : entries) {
 			balance = balance.add(entry.amount());
-			rows.add(new Row(entry.date(), entry.group() == Group.PLANNED ? Status.PLANNED : Status.REAL,
+			CashFlowRowStatus status = entry.group() == Group.PLANNED ? CashFlowRowStatus.PLANNED
+					: CashFlowRowStatus.REAL;
+			rows.add(new Row(entry.date(), status,
 					entry.type(), entry.description(), entry.amount().setScale(2), balance.setScale(2),
 					entry.dueDate(), entry.overdue()));
 		}
@@ -180,8 +183,8 @@ public final class CashFlowCalculator {
 		PLANNED
 	}
 
-	private record Entry(LocalDate date, Group group, RowType type, long id, String description, BigDecimal amount,
-			LocalDate dueDate, boolean overdue) {
+	private record Entry(LocalDate date, Group group, CashFlowRowType type, long id, String description,
+			BigDecimal amount, LocalDate dueDate, boolean overdue) {
 	}
 
 	/**

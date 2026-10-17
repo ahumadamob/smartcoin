@@ -53,4 +53,18 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
 			order by t.transferDate desc, t.id desc""")
 	List<Transfer> findByUserIdAndDateBetween(@Param("userId") Long userId, @Param("from") LocalDate from,
 			@Param("to") LocalDate to);
+
+	/**
+	 * HU-34 (RN-45): transferencias del usuario con fecha entre {@code from} y {@code to} (inclusive) entre cuentas de
+	 * monedas distintas, con sus dos cuentas. Las de la misma moneda no cambian el total de ninguna y no interesan al
+	 * flujo de caja. Sin orden: lo decide la regla.
+	 */
+	@Query("""
+			select t from Transfer t
+			join fetch t.sourceAccount s
+			join fetch t.targetAccount a
+			where t.userId = :userId and t.transferDate >= :from and t.transferDate <= :to
+				and s.currency <> a.currency""")
+	List<Transfer> findCrossCurrencyForCashFlow(@Param("userId") Long userId, @Param("from") LocalDate from,
+			@Param("to") LocalDate to);
 }

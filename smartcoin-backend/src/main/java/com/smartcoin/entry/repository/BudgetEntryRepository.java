@@ -1,10 +1,13 @@
 package com.smartcoin.entry.repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import com.smartcoin.entry.domain.BudgetEntry;
+import com.smartcoin.entry.domain.StoredEntryStatus;
+import com.smartcoin.shared.domain.Currency;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -71,4 +74,18 @@ public interface BudgetEntryRepository extends JpaRepository<BudgetEntry, Long> 
 	@Modifying
 	@Query("delete from BudgetEntry e where e.userId = :userId and e.id in :ids")
 	int deleteByUserIdAndIdIn(@Param("userId") Long userId, @Param("ids") Collection<Long> ids);
+
+	/**
+	 * HU-34 (RN-45): las partidas del usuario con este estado, cuya cuenta es de la moneda y cuyo vencimiento es menor o
+	 * igual a {@code dueUntil}, con su cuenta y su Concepto en la misma consulta. Con {@code PENDING}, las candidatas
+	 * a filas previstas del flujo de caja y al saldo de arranque proyectado: el servicio decide, con la fecha efectiva,
+	 * cuáles entran. Sin orden: lo decide la regla.
+	 */
+	@Query("""
+			select e from BudgetEntry e
+			join fetch e.account a
+			left join fetch e.budgetItem
+			where e.userId = :userId and e.status = :status and a.currency = :currency and e.dueDate <= :dueUntil""")
+	List<BudgetEntry> findPendingForCashFlow(@Param("userId") Long userId, @Param("status") StoredEntryStatus status,
+			@Param("currency") Currency currency, @Param("dueUntil") LocalDate dueUntil);
 }

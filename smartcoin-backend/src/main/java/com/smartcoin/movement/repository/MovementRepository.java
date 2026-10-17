@@ -8,7 +8,9 @@ import java.util.Optional;
 
 import com.smartcoin.account.domain.AccountTotal;
 import com.smartcoin.entry.domain.EntryTotal;
+import com.smartcoin.entry.domain.StoredEntryStatus;
 import com.smartcoin.movement.domain.Movement;
+import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.domain.EntryKind;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -80,4 +82,33 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
 			join fetch m.account
 			where m.id = :id and m.userId = :userId""")
 	Optional<Movement> findByIdAndUserIdWithAccount(@Param("id") Long id, @Param("userId") Long userId);
+
+	/**
+	 * HU-34 (RN-45): los movimientos del usuario con fecha entre {@code from} y {@code to} (inclusive) en cuentas de la
+	 * moneda, con su cuenta, su partida y el Concepto de la partida en la misma consulta. Cuenta la cuenta del
+	 * movimiento, no la de la partida, y su fecha, no el período de su partida (RN-41). Sin orden: lo decide la regla.
+	 */
+	@Query("""
+			select m from Movement m
+			join fetch m.account a
+			join fetch m.entry e
+			left join fetch e.budgetItem
+			where m.userId = :userId and a.currency = :currency
+				and m.movementDate >= :from and m.movementDate <= :to""")
+	List<Movement> findForCashFlow(@Param("userId") Long userId, @Param("currency") Currency currency,
+			@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+	/**
+	 * HU-34 (RN-17): suma de los movimientos de cada partida pendiente del usuario cuya cuenta es de la moneda y cuyo
+	 * vencimiento es menor o igual a {@code dueUntil}, en una sola consulta: es la misma selección de partidas que
+	 * {@code BudgetEntryRepository.findPendingForCashFlow}. Las partidas sin movimientos no figuran.
+	 */
+	@Query("""
+			select new com.smartcoin.entry.domain.EntryTotal(e.id, sum(m.amount))
+			from Movement m join m.entry e
+			where m.userId = :userId and e.status = :status and e.account.currency = :currency
+				and e.dueDate <= :dueUntil
+			group by e.id""")
+	List<EntryTotal> sumByPendingEntriesDueUntil(@Param("userId") Long userId, @Param("status") StoredEntryStatus status,
+			@Param("currency") Currency currency, @Param("dueUntil") LocalDate dueUntil);
 }

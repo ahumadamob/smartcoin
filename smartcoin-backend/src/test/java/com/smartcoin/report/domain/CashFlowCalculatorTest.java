@@ -15,13 +15,13 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import com.smartcoin.report.domain.CashFlowCalculator.AccountOpening;
+import com.smartcoin.report.domain.CashFlowCalculator.CashFlowRowStatus;
+import com.smartcoin.report.domain.CashFlowCalculator.CashFlowRowType;
 import com.smartcoin.report.domain.CashFlowCalculator.Input;
 import com.smartcoin.report.domain.CashFlowCalculator.MovementLine;
 import com.smartcoin.report.domain.CashFlowCalculator.PendingLine;
 import com.smartcoin.report.domain.CashFlowCalculator.Result;
 import com.smartcoin.report.domain.CashFlowCalculator.Row;
-import com.smartcoin.report.domain.CashFlowCalculator.RowType;
-import com.smartcoin.report.domain.CashFlowCalculator.Status;
 import com.smartcoin.report.domain.CashFlowCalculator.TransferLine;
 import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.domain.EntryKind;
@@ -79,7 +79,7 @@ class CashFlowCalculatorTest {
 		Result result = CashFlowCalculator.calculate(input);
 
 		assertThat(result.rows()).extracting(Row::date).containsExactly(date("2026-11-25"), date("2026-11-30"));
-		assertThat(result.rows()).extracting(Row::status).containsOnly(Status.REAL);
+		assertThat(result.rows()).extracting(Row::status).containsOnly(CashFlowRowStatus.REAL);
 		assertThat(balances(result)).containsExactly("450000.00", "700000.00");
 		assertThat(result.openingBalance()).isEqualByComparingTo("50000.00");
 		assertThat(result.closingBalance()).isEqualByComparingTo("700000.00");
@@ -95,7 +95,7 @@ class CashFlowCalculatorTest {
 
 		assertThat(result.rows()).extracting(Row::amount).containsExactly(amount("30000.00"), amount("-10000.00"));
 		assertThat(balances(result)).containsExactly("110000.00", "100000.00");
-		assertThat(result.rows()).extracting(Row::type).containsOnly(RowType.MOVEMENT);
+		assertThat(result.rows()).extracting(Row::type).containsOnly(CashFlowRowType.MOVEMENT);
 		assertThat(result.rows().get(0).description()).isEqualTo("Cobro · Banco");
 	}
 
@@ -106,7 +106,7 @@ class CashFlowCalculatorTest {
 						pending(2, INCOME, "Sueldo", "2026-10-30", "300000.00"))));
 
 		assertThat(result.rows()).extracting(Row::date).containsExactly(date("2026-10-20"), date("2026-10-30"));
-		assertThat(result.rows()).extracting(Row::status).containsOnly(Status.PLANNED);
+		assertThat(result.rows()).extracting(Row::status).containsOnly(CashFlowRowStatus.PLANNED);
 		assertThat(result.rows()).extracting(Row::overdue).containsOnly(false);
 		assertThat(result.rows().get(0).dueDate()).isEqualTo(date("2026-10-20"));
 		assertThat(balances(result)).containsExactly("60000.00", "360000.00");
@@ -121,7 +121,7 @@ class CashFlowCalculatorTest {
 		assertThat(luz.date()).isEqualTo(TODAY);
 		assertThat(luz.dueDate()).isEqualTo(date("2026-10-10"));
 		assertThat(luz.overdue()).isTrue();
-		assertThat(luz.status()).isEqualTo(Status.PLANNED);
+		assertThat(luz.status()).isEqualTo(CashFlowRowStatus.PLANNED);
 	}
 
 	@Test
@@ -204,8 +204,8 @@ class CashFlowCalculatorTest {
 
 		assertThat(result.rows()).extracting(Row::date).containsExactly(date("2026-10-05"), date("2026-10-08"),
 				date("2026-10-17"), date("2026-10-20"), date("2026-10-30"));
-		assertThat(result.rows()).extracting(Row::status).containsExactly(Status.REAL, Status.REAL, Status.PLANNED,
-				Status.PLANNED, Status.PLANNED);
+		assertThat(result.rows()).extracting(Row::status).containsExactly(CashFlowRowStatus.REAL, CashFlowRowStatus.REAL, CashFlowRowStatus.PLANNED,
+				CashFlowRowStatus.PLANNED, CashFlowRowStatus.PLANNED);
 		assertThat(result.closingBalance()).isEqualByComparingTo("340000.00");
 	}
 
@@ -229,8 +229,8 @@ class CashFlowCalculatorTest {
 
 		assertThat(result.openingBalance()).isEqualByComparingTo("80000.00");
 		Row opening = result.rows().get(0);
-		assertThat(opening.type()).isEqualTo(RowType.ACCOUNT_OPENING);
-		assertThat(opening.status()).isEqualTo(Status.REAL);
+		assertThat(opening.type()).isEqualTo(CashFlowRowType.ACCOUNT_OPENING);
+		assertThat(opening.status()).isEqualTo(CashFlowRowStatus.REAL);
 		assertThat(opening.date()).isEqualTo(date("2026-10-12"));
 		assertThat(opening.description()).isEqualTo("Saldo inicial de Billetera");
 		assertThat(opening.balance()).isEqualByComparingTo("100000.00");
@@ -336,8 +336,8 @@ class CashFlowCalculatorTest {
 
 		assertThat(ars.rows()).hasSize(1);
 		assertThat(ars.rows().get(0).amount()).isEqualByComparingTo("-1250000.00");
-		assertThat(ars.rows().get(0).type()).isEqualTo(RowType.TRANSFER);
-		assertThat(ars.rows().get(0).status()).isEqualTo(Status.REAL);
+		assertThat(ars.rows().get(0).type()).isEqualTo(CashFlowRowType.TRANSFER);
+		assertThat(ars.rows().get(0).status()).isEqualTo(CashFlowRowStatus.REAL);
 		assertThat(ars.rows().get(0).description()).isEqualTo("Compra de dólares: Banco → Caja USD");
 		assertThat(usd.rows().get(0).amount()).isEqualByComparingTo("1000.00");
 		assertThat(usd.rows().get(0).balance()).isEqualByComparingTo("1000.00");
