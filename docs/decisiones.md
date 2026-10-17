@@ -332,7 +332,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-17. Categorías opcionales**, sin tipo (sirven para ingresos y gastos).
 
-**S-18. Flujo de caja, proyección de saldos y vista de varios meses (HU-34 a HU-36) son propuestas.** Se confirman antes de implementarlas. *HU-34 se confirmó* (D-46) y *HU-35 se confirmó* (D-47); HU-36 sigue siendo propuesta.
+**S-18. Flujo de caja, proyección de saldos y vista de varios meses (HU-34 a HU-36) son propuestas.** Se confirman antes de implementarlas. Las tres historias de la Épica 9 se confirmaron: *HU-34* (D-46), *HU-35* (D-47) y *HU-36* (D-48).
 
 **S-19. El nombre de un Concepto puede repetirse.** El modelo no tiene un índice único en `budget_item` y ninguna regla lo pide; dos Conceptos "Seguro" con distinta cuenta son razonables. Agregado en HU-10.
 

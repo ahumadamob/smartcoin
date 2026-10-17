@@ -17,7 +17,7 @@ Formato de cada historia: qué se quiere y para qué, criterios de aceptación v
 | 6 | HU-23 a HU-25, HU-22 y HU-26 | Consolidar y ver cómo se ajustan los meses siguientes, y pagar o cobrar todo con un clic. |
 | 7 | HU-27 a HU-29 | Transferir entre cuentas y comprar o vender dólares. |
 | 8 | HU-30 a HU-33 | Cerrar el mes. |
-| 9 | HU-34 a HU-36 | Flujo de caja, proyección de saldos y vista de varios meses (HU-34 y HU-35 confirmadas; HU-36 es propuesta, S-18). |
+| 9 | HU-34 a HU-36 | Flujo de caja, proyección de saldos y vista de varios meses (las tres confirmadas, S-18). |
 
 ---
 
@@ -925,9 +925,7 @@ Reglas: RN-09, RN-38, RN-40.
 
 ---
 
-## Épica 9 · Saldos y proyección (HU-36 es propuesta, S-18)
-
-HU-34 (D-46) y HU-35 (D-47) están confirmadas. Confirmar con Mario antes de implementar HU-36.
+## Épica 9 · Saldos y proyección
 
 ### HU-34 · Flujo de caja por fecha
 
