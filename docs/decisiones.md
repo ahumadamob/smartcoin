@@ -209,6 +209,18 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **RN-33 sigue bien sin cambios de código**: «referenciada», la fecha de la primera transferencia y los saldos (RN-35) se consultan en vivo en la tabla `transfer`; no hay nada guardado que corregir al editar o eliminar. Verificado con datos.
 - **Frontend**: «Editar» reutiliza `TransferForm` con los valores cargados (uno o dos montos según las monedas, y cambia al cambiar la cuenta); «Eliminar» pide confirmar con fecha, cuentas, monto o montos y tipo de cambio. Después de cada cambio se pide de nuevo la lista y el foco queda en «Nueva transferencia».
 
+**D-42. Ver qué falta para cerrar el mes (simulación del cierre).** *Confirmada* (HU-30): las cuatro dudas se resolvieron con el usuario antes de escribir código, todas por la opción recomendada. Depende de **S-10**, **sin confirmar**.
+
+- **Alcance entre historias** (decidido por el usuario): el cierre se construye en cuatro partes. HU-30 hace las precondiciones y el diagnóstico; HU-31, las resoluciones de pendientes; HU-32, la conciliación y las diferencias; HU-33, el cierre efectivo. `ClosingPlanner` y la respuesta de la simulación crecen con campos nuevos, sin cambiar los existentes.
+- **Se informan todas las precondiciones que fallan**, en el orden de RN-38 (`PERIOD_CLOSED`, `PREVIOUS_PERIOD_OPEN`, `PERIOD_NOT_FINISHED`), cada una con su explicación. El caso común, un mes sin terminar con el anterior abierto, muestra los dos motivos. El cierre (HU-33) responderá el 409 de la primera. Como cerrar exige las otras dos, un período cerrado en la práctica solo falla por `PERIOD_CLOSED`.
+- **Un período cerrado responde 200** con `PERIOD_CLOSED` y las listas vacías: no hay nada que resolver ni conciliar, y no se leen partidas ni saldos. Es la misma forma que las vistas previas de D-32 y D-36. **Fuera de rango, 404**, como la vista del mes (RN-06). Un período abierto pero bloqueado arma el diagnóstico igual: es lo que hay que resolver.
+- **Sin cuerpo en HU-30**: si llega uno (con resoluciones o saldos reales), se ignora y la respuesta es el diagnóstico. HU-31 y HU-32 agregan un cuerpo opcional, lo que no rompe el contrato ni el cliente generado.
+- **`preconditionsMet`** y no «se puede cerrar»: HU-31 y HU-32 sumarán «los datos que faltan» (RN-43). Si el campo dijera «se puede cerrar», tendría que cambiar de significado.
+- **`firstOpenPeriod`** (RN-08) va en la respuesta. El enlace de «mes anterior abierto» lleva al primer período abierto y no al anterior, que también puede estar bloqueado.
+- **Saldos al último día**: `AccountService.balancesAt` expone las cuatro sumas de HU-08 a una fecha. En un mes sin terminar, el saldo «al último día» coincide con el de hoy, porque no hay movimientos futuros (S-09).
+- **«Cerrar mes» está en todo período abierto**, aunque todavía no se pueda cerrar: el asistente explica el motivo (criterio 2) sin cambiar el contrato de la vista del mes. No aparece en los cerrados.
+- **Frontend**: los tres pasos del asistente se muestran como una lista; en esta historia solo el primero tiene contenido y los otros dos aparecen deshabilitados («Disponible más adelante»). El frontend no suma: agrupa las cuentas por moneda y nada más.
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.

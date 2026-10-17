@@ -43,6 +43,7 @@ Vocabulario obligatorio del proyecto. En la interfaz y en la documentación se u
 | Diferencia | `difference` | Saldo real menos saldo calculado. |
 | Tipo de cambio | `exchangeRate` | Pesos por dólar de una compra o venta. Se calcula a partir de los dos montos y no se guarda. |
 | Período inicial | `startPeriod` | Primer período del usuario. No existen períodos anteriores. |
+| Primer período abierto | `firstOpenPeriod` | El siguiente al último cerrado, o el período inicial si no hay ninguno cerrado (RN-08). Es el próximo que se puede cerrar. |
 | Horizonte | `horizon` | Último período que existe: el actual más 24 meses (configurable). |
 | Ventana de anticipación | `earlyDays` | Cuántos días antes del inicio de su período puede tener fecha un movimiento (10, configurable). |
 
@@ -82,6 +83,7 @@ En la base, el estado de la partida se guarda solo como `PENDING` o `CONSOLIDATE
 | Transferir | `transfer` | Mueve plata entre dos cuentas propias. Entre monedas distintas se muestra como «Compra de dólares» (de ARS a USD) o «Venta de dólares» (de USD a ARS); son textos de la interfaz, no una acción ni un campo. |
 | Eliminar partida | `deleteEntry` | Borra una partida. Si viene de un Concepto, pregunta el alcance. |
 | Vista previa de la eliminación | `deletionPreview` | Informa, sin cambiar nada, qué eliminaría cada alcance y qué partidas lo impiden. |
+| Simulación del cierre | `closingPreview` | Informa, sin cambiar nada, si se puede cerrar el mes y, si no, por qué; qué partidas siguen pendientes y el saldo calculado de cada cuenta a conciliar. |
 
 ## Términos a evitar
 

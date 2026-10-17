@@ -36,7 +36,7 @@ import org.springframework.test.util.ReflectionTestUtils;
  *
  * <p>El repositorio simulado filtra por fecha en memoria, como lo hace la consulta {@code sumByAccountUpTo}: este test
  * prueba que {@link AccountService} pide el saldo a la fecha del reloj y arma el saldo con {@code BalanceCalculator}.
- * Que el SQL excluya lo posterior no se puede probar sin base (sin Docker); queda para HU-30 a HU-34.
+ * Que el SQL excluya lo posterior no se puede probar sin base (sin Docker); se verificó con datos en HU-30.
  */
 class AdvanceIncomeBalanceTest {
 

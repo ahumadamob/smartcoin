@@ -348,6 +348,14 @@ Las consolidaciones de los pasos 1 y 2 **no propagan ni cuentan como base de est
 
 El cierre efectivo vuelve a hacer todas las validaciones.
 
+Aclaraciones (HU-30, D-42):
+
+- Se informan **todas** las precondiciones que fallan, en el orden de RN-38, cada una con su explicación. El cierre responde el 409 de la primera.
+- Un período cerrado responde con `PERIOD_CLOSED` y sin partidas ni cuentas. Un período que no existe para el usuario responde 404 (RN-06).
+- Un período abierto que no cumple las precondiciones igual informa sus partidas pendientes y sus cuentas a conciliar.
+- Las partidas pendientes son las Estimadas y las Parciales (RN-16), también las que tienen pendiente 0, con real y pendiente calculados como en la vista del mes (RN-17). Las cuentas a conciliar son las de RN-39, con su saldo al último día del período (RN-35, RN-41).
+- Informa también el primer período abierto (RN-08), que es el que hay que cerrar primero.
+
 ## 10. Vistas
 
 **RN-44. Vista del mes.** Muestra las partidas del período separadas en ingresos y gastos, ordenadas por vencimiento y nombre. Para cada partida: nombre, categoría, cuenta, vencimiento, cuota x de n, presupuestado, real, pendiente, estimado, estado, si está editada y si está vencida. Totales por moneda, para ingresos y para gastos: presupuestado, real, pendiente y estimado. Resultado por moneda = estimado de ingresos − estimado de gastos. Las transferencias no aparecen.
