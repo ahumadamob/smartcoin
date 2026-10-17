@@ -128,8 +128,8 @@ class ClosingBalanceTest {
 
 		AccountService accountService = new AccountService(accounts, mock(BudgetItemRepository.class), entries,
 				movements, transfers, mock(AccountClosingRepository.class), mock(UserRepository.class), clock);
-		service = new ClosingService(periods, new PeriodViewService(periods, entries, movements, clock),
-				accountService, clock);
+		service = new ClosingService(periods, entries, mock(AccountClosingRepository.class),
+				new PeriodViewService(periods, entries, movements, clock), accountService, clock);
 	}
 
 	private static <T> List<AccountTotal> sum(List<T> rows, Predicate<T> filter, Function<T, Long> account,

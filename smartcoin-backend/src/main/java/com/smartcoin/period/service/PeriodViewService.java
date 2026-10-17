@@ -110,12 +110,24 @@ public class PeriodViewService {
 	 * dentro de la transacción de quien la llama.
 	 */
 	public List<EntryRow> rows(long userId, BudgetPeriod period) {
+		return loadedRows(userId, period).stream().map(LoadedRow::row).toList();
+	}
+
+	/** Una partida cargada, junto con su fila: el cierre de mes (HU-33) modifica la entidad. */
+	public record LoadedRow(BudgetEntry entry, EntryRow row) {
+	}
+
+	/**
+	 * Como {@link #rows}, con las mismas dos consultas, pero junto con cada entidad, para que el cierre de mes (HU-33)
+	 * consolide las mismas partidas cuyos montos evaluó, sin volver a leerlas.
+	 */
+	public List<LoadedRow> loadedRows(long userId, BudgetPeriod period) {
 		LocalDate today = LocalDate.now(clock);
 		Map<Long, BigDecimal> movementTotals = movements.sumByEntryOfPeriod(userId, period.getId()).stream()
 				.collect(Collectors.toMap(EntryTotal::entryId, EntryTotal::total));
 		return entries.findByUserIdAndPeriodIdWithDetails(userId, period.getId()).stream()
-				.map(entry -> row(entry, movementTotals.get(entry.getId()), today))
-				.sorted(ORDER)
+				.map(entry -> new LoadedRow(entry, row(entry, movementTotals.get(entry.getId()), today)))
+				.sorted(Comparator.comparing(LoadedRow::row, ORDER))
 				.toList();
 	}
 

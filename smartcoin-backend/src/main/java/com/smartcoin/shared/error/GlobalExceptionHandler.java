@@ -34,6 +34,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		if (!e.entries().isEmpty()) {
 			problem.setProperty("entries", e.entries());
 		}
+		if (!e.accounts().isEmpty()) {
+			problem.setProperty("accounts", e.accounts());
+		}
 		if (e.field() != null) {
 			problem.setProperty("errors", List.of(fieldError(e.field(), e.getMessage())));
 		}

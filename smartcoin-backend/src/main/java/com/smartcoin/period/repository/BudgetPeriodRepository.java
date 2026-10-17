@@ -5,10 +5,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
+
 import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.PeriodStatus;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,4 +28,14 @@ public interface BudgetPeriodRepository extends JpaRepository<BudgetPeriod, Long
 
 	/** HU-15 (RN-06): un período del usuario; vacío si no existe para él. */
 	Optional<BudgetPeriod> findByUserIdAndPeriodMonth(Long userId, YearMonth periodMonth);
+
+	/**
+	 * HU-33 (RN-38, D-45): el período del usuario con bloqueo de escritura, para que dos cierres del mismo período no
+	 * se pisen. Es la primera lectura del cierre: así la instantánea de la transacción se toma después de tener el
+	 * bloqueo, y el segundo cierre ve el período ya cerrado. Vacío si no existe para el usuario.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select p from BudgetPeriod p where p.userId = :userId and p.periodMonth = :periodMonth")
+	Optional<BudgetPeriod> lockByUserIdAndPeriodMonth(@Param("userId") Long userId,
+			@Param("periodMonth") YearMonth periodMonth);
 }

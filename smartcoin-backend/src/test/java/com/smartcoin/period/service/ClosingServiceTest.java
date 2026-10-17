@@ -46,6 +46,7 @@ import com.smartcoin.period.domain.ClosingPlanner.Reconciliation;
 import com.smartcoin.period.domain.InvalidBalanceReason;
 import com.smartcoin.period.domain.InvalidResolutionReason;
 import com.smartcoin.period.domain.PeriodStatus;
+import com.smartcoin.period.repository.AccountClosingRepository;
 import com.smartcoin.period.repository.BudgetPeriodRepository;
 import com.smartcoin.period.service.ClosingService.Blocker;
 import com.smartcoin.period.service.ClosingService.Preview;
@@ -77,6 +78,7 @@ class ClosingServiceTest {
 	BudgetEntryRepository entries = mock(BudgetEntryRepository.class);
 	MovementRepository movements = mock(MovementRepository.class);
 	AccountService accounts = mock(AccountService.class);
+	AccountClosingRepository closings = mock(AccountClosingRepository.class);
 	List<BudgetPeriod> existing = new ArrayList<>();
 	Account bank = account(42, "Banco", Currency.ARS, "2026-08-01");
 	long nextId = 1;
@@ -100,7 +102,8 @@ class ClosingServiceTest {
 
 	private ClosingService serviceAt(String today) {
 		Clock clock = Clock.fixed(Instant.parse(today + "T15:00:00Z"), ZONE);
-		return new ClosingService(periods, new PeriodViewService(periods, entries, movements, clock), accounts, clock);
+		return new ClosingService(periods, entries, closings, new PeriodViewService(periods, entries, movements, clock),
+				accounts, clock);
 	}
 
 	private Preview preview(YearMonth month, String today) {
@@ -267,6 +270,7 @@ class ClosingServiceTest {
 		verify(entries, never()).delete(any());
 		verify(movements, never()).save(any());
 		verify(movements, never()).delete(any());
+		verifyNoInteractions(closings);
 		assertThat(existing).allSatisfy(p -> assertThat(p.getStatus()).isEqualTo(PeriodStatus.OPEN));
 	}
 
