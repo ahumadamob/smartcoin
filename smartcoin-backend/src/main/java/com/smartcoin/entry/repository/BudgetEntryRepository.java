@@ -1,6 +1,7 @@
 package com.smartcoin.entry.repository;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +50,23 @@ public interface BudgetEntryRepository extends JpaRepository<BudgetEntry, Long> 
 			where e.userId = :userId and e.period.id = :periodId""")
 	List<BudgetEntry> findByUserIdAndPeriodIdWithDetails(@Param("userId") Long userId,
 			@Param("periodId") Long periodId);
+
+	/**
+	 * HU-36 (RN-44): las partidas de todos los períodos del usuario entre dos meses, inclusive, con cuenta, categoría,
+	 * Concepto, categoría y cuenta por defecto del Concepto, en una sola consulta. Es la de la vista del mes, para un
+	 * rango.
+	 */
+	@Query("""
+			select e from BudgetEntry e
+			join fetch e.period p
+			join fetch e.account
+			left join fetch e.category
+			left join fetch e.budgetItem i
+			left join fetch i.category
+			left join fetch i.defaultAccount
+			where e.userId = :userId and p.periodMonth between :from and :to""")
+	List<BudgetEntry> findByUserIdAndPeriodRangeWithDetails(@Param("userId") Long userId,
+			@Param("from") YearMonth from, @Param("to") YearMonth to);
 
 	/**
 	 * HU-16 (RN-18): una partida del usuario con su período, cuenta, categoría, Concepto y categoría del Concepto en la

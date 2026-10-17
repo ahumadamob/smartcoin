@@ -2,6 +2,7 @@ package com.smartcoin.movement.repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,18 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
 			where m.userId = :userId and m.entry.period.id = :periodId
 			group by m.entry.id""")
 	List<EntryTotal> sumByEntryOfPeriod(@Param("userId") Long userId, @Param("periodId") Long periodId);
+
+	/**
+	 * HU-36 (RN-17): la suma de los movimientos de cada partida de los períodos del usuario entre dos meses, inclusive,
+	 * en una sola consulta. Es {@link #sumByEntryOfPeriod} para un rango.
+	 */
+	@Query("""
+			select new com.smartcoin.entry.domain.EntryTotal(m.entry.id, sum(m.amount))
+			from Movement m
+			where m.userId = :userId and m.entry.period.periodMonth between :from and :to
+			group by m.entry.id""")
+	List<EntryTotal> sumByEntryOfPeriodRange(@Param("userId") Long userId, @Param("from") YearMonth from,
+			@Param("to") YearMonth to);
 
 	/**
 	 * HU-16 (RN-17): suma de los movimientos de una partida del usuario, o {@code null} si no tiene ninguno. Es la
