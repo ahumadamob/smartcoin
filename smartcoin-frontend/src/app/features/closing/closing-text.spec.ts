@@ -1,5 +1,14 @@
-import { ClosingPreview } from '../../api';
-import { accountsByCurrency, blockerText, closingSummary, dayAndMonth } from './closing-text';
+import { ClosingPendingEntry, ClosingPreview } from '../../api';
+import {
+  accountsByCurrency,
+  blockerText,
+  closingSummary,
+  dayAndMonth,
+  effectText,
+  monthName,
+  nextStepHint,
+  sameEffectNote,
+} from './closing-text';
 
 const preview = (overrides: Partial<ClosingPreview> = {}): ClosingPreview => ({
   period: '2027-02',
@@ -10,8 +19,29 @@ const preview = (overrides: Partial<ClosingPreview> = {}): ClosingPreview => ({
   blockers: [],
   pendingEntries: [],
   accounts: [],
+  newEntries: [],
+  unresolvedEntryIds: [],
+  invalidResolutions: [],
   ...overrides,
 });
+
+/** La luz de RN-40: 45.000,00 presupuestados, 20.000,00 pagados. */
+const power: ClosingPendingEntry = {
+  id: 1,
+  name: 'Luz',
+  kind: 'EXPENSE',
+  accountId: 12,
+  accountName: 'Banco',
+  currency: 'ARS',
+  dueDate: '2026-10-18',
+  budgetedAmount: 45000,
+  actualAmount: 20000,
+  pendingAmount: 25000,
+  status: 'PARTIAL',
+};
+
+/** Un formato simple: el real lo da el pipe `money`, probado aparte. */
+const money = (amount: number, currency: 'ARS' | 'USD') => `${currency === 'USD' ? 'US$' : '$'} ${amount}`;
 
 describe('closing-text', () => {
   it('arma «día/mes» del último día que informa el backend', () => {
@@ -47,5 +77,83 @@ describe('closing-text', () => {
     ]);
     expect(accountsByCurrency([])).toEqual([]);
     expect(groups.every((g) => !('total' in g))).toBe(true);
+  });
+
+
+  it('sin resolución en la simulación no anuncia ningún efecto', () => {
+    expect(effectText(power, '2026-10', money)).toBeNull();
+    expect(effectText({ ...power, resolution: 'CARRY_OVER' }, '2026-10', money)).toBeNull();
+  });
+
+  it('Postergar con pendiente: el monto consolidado y la partida que aparece, como la informa el backend', () => {
+    const entry: ClosingPendingEntry = {
+      ...power,
+      resolution: 'CARRY_OVER',
+      consolidatedAmount: 20000,
+      carriedOverEntry: {
+        period: '2026-11', origin: 'CARRIED_OVER', name: 'Saldo pendiente: Luz', kind: 'EXPENSE', accountId: 12,
+        accountName: 'Banco', currency: 'ARS', dueDate: '2026-11-18', budgetedAmount: 25000, sourceEntryId: 1,
+      },
+    };
+
+    expect(effectText(entry, '2026-10', money)).toBe(
+      'Queda consolidada en $ 20000. En noviembre aparece «Saldo pendiente: Luz» por $ 25000, con vencimiento el 18/11.',
+    );
+  });
+
+  it('Postergar en diciembre: el mes siguiente es de otro año y lo dice', () => {
+    const entry: ClosingPendingEntry = {
+      ...power,
+      dueDate: '2026-12-31',
+      resolution: 'CARRY_OVER',
+      consolidatedAmount: 20000,
+      carriedOverEntry: {
+        period: '2027-01', origin: 'CARRIED_OVER', name: 'Saldo pendiente: Luz', kind: 'EXPENSE', accountId: 12,
+        accountName: 'Banco', currency: 'ARS', dueDate: '2027-01-31', budgetedAmount: 25000, sourceEntryId: 1,
+      },
+    };
+
+    expect(effectText(entry, '2026-12', money)).toContain('En enero 2027 aparece');
+    expect(effectText(entry, '2026-12', money)).toContain('con vencimiento el 31/01.');
+  });
+
+  it('Postergar con pendiente 0: consolida y no crea nada', () => {
+    const entry = { ...power, actualAmount: 50000, pendingAmount: 0, resolution: 'CARRY_OVER' as const, consolidatedAmount: 50000 };
+
+    expect(effectText(entry, '2026-10', money)).toBe(
+      'Queda consolidada en $ 50000. No queda nada pendiente: no se crea ninguna partida.',
+    );
+  });
+
+  it('Cerrar con lo registrado: descarta el pendiente, sin movimientos queda en 0', () => {
+    expect(effectText({ ...power, resolution: 'CLOSE_AS_IS', consolidatedAmount: 20000 }, '2026-10', money)).toBe(
+      'Queda consolidada en $ 20000. Se descarta el pendiente de $ 25000.',
+    );
+    const unpaid = { ...power, actualAmount: 0, pendingAmount: 45000, resolution: 'CLOSE_AS_IS' as const, consolidatedAmount: 0 };
+    expect(effectText(unpaid, '2026-10', money)).toBe('Queda consolidada en $ 0. Se descarta el pendiente de $ 45000.');
+    const covered = { ...power, pendingAmount: 0, resolution: 'CLOSE_AS_IS' as const, consolidatedAmount: 20000 };
+    expect(effectText(covered, '2026-10', money)).toBe('Queda consolidada en $ 20000.');
+  });
+
+  it('con pendiente 0 aclara que las dos opciones dan lo mismo', () => {
+    expect(sameEffectNote({ ...power, pendingAmount: 0 })).toBe(
+      'No queda nada pendiente: las dos opciones tienen el mismo efecto.',
+    );
+    expect(sameEffectNote(power)).toBeNull();
+  });
+
+  it('nombra el mes, con el año solo si cambia', () => {
+    expect(monthName('2026-11', '2026-10')).toBe('noviembre');
+    expect(monthName('2027-01', '2026-12')).toBe('enero 2027');
+  });
+
+  it('explica por qué no se puede avanzar a «Saldos»', () => {
+    expect(nextStepHint(3, 2, false)).toBe('Falta elegir qué hacer con 2 partidas pendientes.');
+    expect(nextStepHint(3, 1, false)).toBe('Falta elegir qué hacer con 1 partida pendiente.');
+    expect(nextStepHint(3, 0, false)).toBe(
+      'Todas las partidas pendientes tienen una resolución. El paso «Saldos» estará disponible más adelante.',
+    );
+    expect(nextStepHint(0, 0, false)).toBe('No hay nada que resolver. El paso «Saldos» estará disponible más adelante.');
+    expect(nextStepHint(3, 0, true)).toBe('Todas las partidas pendientes tienen una resolución.');
   });
 });

@@ -164,6 +164,112 @@ tbody th {
   color: var(--mat-sys-error);
 }
 
+.bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notice,
+.problem-text,
+.note,
+.effect {
+  margin: 0;
+}
+
+.problem-text {
+  color: var(--mat-sys-error);
+}
+
+.note {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.resolutions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px 16px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+}
+
+.entry-name {
+  padding: 0 4px;
+  font: var(--mat-sys-title-medium);
+}
+
+.entry-details {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.amounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 32px;
+  margin: 0;
+
+  div {
+    display: flex;
+    gap: 8px;
+  }
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    white-space: nowrap;
+  }
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.option {
+  flex: 1 1 280px;
+  padding: 8px 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+}
+
+.option-text {
+  margin: 0;
+  // Alineado con el texto del botón de opción.
+  padding-left: 40px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.effect:empty {
+  display: none;
+}
+
+.effect {
+  font: var(--mat-sys-body-large);
+}
+
+.next {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 a:focus-visible,
 button:focus-visible,
 .title:focus-visible {

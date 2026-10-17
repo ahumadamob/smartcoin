@@ -67,10 +67,83 @@
       <section class="section" aria-labelledby="pending-heading">
         <h2 id="pending-heading" class="heading">Partidas pendientes</h2>
         @if (current.pendingEntries.length === 0) {
-          <p class="empty" role="status" data-testid="no-pending">No hay partidas pendientes en este mes.</p>
+          <p class="empty" role="status" data-testid="no-pending">
+            @if (canChoose()) {
+              No hay partidas pendientes en este mes: no hay nada que resolver.
+            } @else {
+              No hay partidas pendientes en este mes.
+            }
+          </p>
+        } @else if (canChoose()) {
+          <p class="hint" data-testid="resolutions-intro">{{ intro }}</p>
+          <div class="bulk">
+            <button mat-stroked-button type="button" (click)="chooseAll('CARRY_OVER')" data-testid="all-carry-over">
+              Postergar saldo en todas
+            </button>
+            <button mat-stroked-button type="button" (click)="chooseAll('CLOSE_AS_IS')" data-testid="all-close-as-is">
+              Cerrar con lo registrado en todas
+            </button>
+          </div>
+          @if (removedEntries()) {
+            <p class="notice" role="status" data-testid="removed-entries">{{ removedNotice }}</p>
+          }
+          @if (updateError(); as message) {
+            <p class="problem-text" role="alert" data-testid="update-error">{{ message }}</p>
+          }
+          <ul class="resolutions" data-testid="pending-entries">
+            @for (entry of current.pendingEntries; track entry.id) {
+              <li [attr.data-entry-id]="entry.id" data-testid="pending-entry">
+                <fieldset class="entry">
+                  <legend [id]="'entry-' + entry.id" class="entry-name">{{ entry.name }}</legend>
+                  <p class="entry-details">
+                    {{ kindLabels[entry.kind] }} · {{ entry.accountName }} · vence el
+                    {{ entry.dueDate | date: dateFormat }} · {{ statusLabels[entry.status] }}
+                  </p>
+                  <dl class="amounts" data-testid="amounts">
+                    <div>
+                      <dt>Presupuestado</dt>
+                      <dd>{{ entry.budgetedAmount | money: entry.currency }}</dd>
+                    </div>
+                    <div>
+                      <dt>Real</dt>
+                      <dd>{{ entry.actualAmount | money: entry.currency }}</dd>
+                    </div>
+                    <div>
+                      <dt>Pendiente</dt>
+                      <dd>{{ entry.pendingAmount | money: entry.currency }}</dd>
+                    </div>
+                  </dl>
+                  <mat-radio-group
+                    class="options"
+                    [attr.aria-labelledby]="'entry-' + entry.id"
+                    [value]="choice(entry)"
+                    (change)="choose(entry, $event)"
+                  >
+                    @for (option of options; track option.value) {
+                      <div class="option">
+                        <mat-radio-button
+                          [value]="option.value"
+                          [attr.data-testid]="'choice-' + option.value"
+                          [aria-describedby]="'entry-' + entry.id + '-' + option.value"
+                          >{{ option.label }}</mat-radio-button
+                        >
+                        <p [id]="'entry-' + entry.id + '-' + option.value" class="option-text">
+                          {{ option.description }}
+                        </p>
+                      </div>
+                    }
+                  </mat-radio-group>
+                  @if (sameEffectNote(entry); as note) {
+                    <p class="note" data-testid="same-effect">{{ note }}</p>
+                  }
+                  <p class="effect" aria-live="polite" data-testid="effect">{{ effect(entry) }}</p>
+                </fieldset>
+              </li>
+            }
+          </ul>
         } @else {
           <div class="table-wrapper">
-            <table aria-labelledby="pending-heading" data-testid="pending-entries">
+            <table aria-labelledby="pending-heading" data-testid="pending-table">
               <thead>
                 <tr>
                   <th scope="col">Vencimiento</th>
@@ -99,6 +172,9 @@
               </tbody>
             </table>
           </div>
+          <p class="hint" data-testid="choose-later">
+            Cuando se pueda cerrar el mes, acá vas a elegir qué hacer con cada una.
+          </p>
         }
       </section>
 
@@ -109,7 +185,7 @@
             No hay cuentas abiertas al {{ current.lastDay | date: dateFormat }}.
           </p>
         } @else {
-          <p class="hint">Saldo calculado al {{ current.lastDay | date: dateFormat }}, con los movimientos y transferencias hasta ese día.</p>
+          <p class="hint" data-testid="accounts-hint">Saldo calculado al {{ current.lastDay | date: dateFormat }}, con los movimientos y transferencias hasta ese día.</p>
           @for (group of accountGroups(); track group.currency) {
             <table class="accounts" [attr.aria-label]="'Cuentas en ' + group.label.toLowerCase()" data-testid="account-group">
               <caption>{{ group.label }}</caption>
@@ -133,6 +209,21 @@
           }
         }
       </section>
+
+      @if (canChoose()) {
+        <div class="next">
+          <button
+            mat-flat-button
+            type="button"
+            [disabled]="!canAdvance()"
+            aria-describedby="next-hint"
+            data-testid="next-step"
+          >
+            {{ nextLabel }}
+          </button>
+          <p id="next-hint" class="hint" role="status" data-testid="next-hint">{{ nextHint() }}</p>
+        </div>
+      }
     }
   }
 </div>
