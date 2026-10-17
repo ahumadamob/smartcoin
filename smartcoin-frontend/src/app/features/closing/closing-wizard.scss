@@ -129,12 +129,28 @@ table.accounts {
   max-width: 480px;
 }
 
+// Con las mismas columnas en cada moneda, los saldos de pesos y de dólares quedan alineados.
 table.balances {
-  max-width: 760px;
+  max-width: 800px;
+  table-layout: fixed;
+
+  thead th:nth-child(1) {
+    width: 30%;
+  }
+
+  thead th:nth-child(2),
+  thead th:nth-child(4) {
+    width: 21%;
+  }
+
+  thead th:nth-child(3) {
+    width: 28%;
+  }
 }
 
 .balance-field {
-  width: 200px;
+  width: 100%;
+  max-width: 200px;
 }
 
 // La fila del efecto va pegada a la de su cuenta y no se dibuja si todavía no hay nada que decir.
