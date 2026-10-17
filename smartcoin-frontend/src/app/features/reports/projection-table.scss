@@ -1,0 +1,122 @@
+.projection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+// El contenedor scrollea en los dos sentidos: así el encabezado (arriba) y la columna del mes (a la izquierda) quedan
+// a la vista en una pantalla de escritorio. Enfocable con el teclado para recorrerlo con las flechas.
+.table-wrapper {
+  overflow: auto;
+  max-height: calc(100vh - 300px);
+  min-height: 240px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font: var(--mat-sys-body-medium);
+}
+
+th,
+td {
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+  white-space: nowrap;
+}
+
+thead th {
+  position: sticky;
+  z-index: 2;
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface-variant);
+  background: var(--mat-sys-surface-container);
+}
+
+thead tr:first-child th {
+  top: 0;
+}
+
+thead tr:nth-child(2) th {
+  top: 41px;
+}
+
+.month-head,
+.month {
+  position: sticky;
+  left: 0;
+  text-transform: capitalize;
+}
+
+.month-head {
+  z-index: 3;
+}
+
+tbody .month {
+  z-index: 1;
+  font: inherit;
+  font-weight: 500;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+}
+
+.group {
+  text-align: center;
+  border-left: 1px solid var(--mat-sys-outline-variant);
+}
+
+.number {
+  text-align: right;
+}
+
+.subtotal {
+  font-weight: 500;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+}
+
+tbody td.subtotal {
+  background: var(--mat-sys-surface-container-low);
+}
+
+.mark {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font: var(--mat-sys-label-small);
+  white-space: nowrap;
+}
+
+.mark-shortfall {
+  color: var(--mat-sys-error);
+}
+
+.shortfall {
+  color: var(--mat-sys-error);
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

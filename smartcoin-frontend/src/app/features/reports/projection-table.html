@@ -1,0 +1,60 @@
+<section class="projection" aria-label="Proyección de saldos">
+  @if (projection().accounts.length === 0) {
+    <p class="empty" role="status">Todavía no hay cuentas para proyectar.</p>
+  } @else {
+    <div class="table-wrapper" role="region" aria-label="Saldos proyectados por mes" tabindex="0">
+      <table>
+        <caption class="visually-hidden">
+          Saldo proyectado de cada cuenta al último día de cada mes, con el subtotal de cada moneda
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" rowspan="2" class="month-head">Mes</th>
+            @for (group of groups(); track group.currency) {
+              <th scope="colgroup" [attr.colspan]="group.accounts.length + 1" class="group" data-testid="group">
+                {{ group.currency === 'ARS' ? 'Pesos ($)' : 'Dólares (US$)' }}
+              </th>
+            }
+          </tr>
+          <tr>
+            @for (group of groups(); track group.currency) {
+              @for (account of group.accounts; track account.index) {
+                <th scope="col" class="number" data-testid="account-head">{{ account.name }}</th>
+              }
+              <th scope="col" class="number subtotal" data-testid="subtotal-head">
+                Subtotal {{ group.currency === 'ARS' ? '$' : 'US$' }}
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (month of projection().months; track month.month) {
+            <tr data-testid="month-row">
+              <th scope="row" class="month" data-testid="month">{{ monthDate(month.month) | date: 'MMMM y' }}</th>
+              @for (group of groups(); track group.currency) {
+                @for (account of group.accounts; track account.index) {
+                  <td class="number" data-testid="balance" [class.shortfall]="isShortfall(balance(month, account.index))">
+                    {{ balance(month, account.index) | money: group.currency }}
+                    @if (isShortfall(balance(month, account.index))) {
+                      <span class="mark mark-shortfall">Faltante</span>
+                    }
+                  </td>
+                }
+                <td
+                  class="number subtotal"
+                  data-testid="subtotal"
+                  [class.shortfall]="isShortfall(subtotal(month, group.currency))"
+                >
+                  {{ subtotal(month, group.currency) | money: group.currency }}
+                  @if (isShortfall(subtotal(month, group.currency))) {
+                    <span class="mark mark-shortfall">Faltante</span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

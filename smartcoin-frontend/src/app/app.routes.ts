@@ -87,9 +87,8 @@ export const routes: Routes = [
       },
       {
         path: 'proyeccion',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/reports/projection').then((m) => m.ProjectionPage),
         title: 'Proyección',
-        data: { heading: 'Proyección' },
       },
       {
         path: 'planificacion',

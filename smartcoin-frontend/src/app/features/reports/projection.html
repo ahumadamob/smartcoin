@@ -1,0 +1,29 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">Proyección</h1>
+  </header>
+
+  <form [formGroup]="filters" (ngSubmit)="search()" class="filters" aria-label="Último mes a proyectar">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Hasta</mat-label>
+      <input matInput type="month" formControlName="until" />
+    </mat-form-field>
+    <button mat-stroked-button type="submit">Ver</button>
+    <span class="detail">Sin elegir, se proyecta hasta el horizonte. Nunca se suman pesos y dólares.</span>
+  </form>
+
+  <p class="assumption" data-testid="assumption">
+    Supone que cada pendiente se cobra o paga en su cuenta prevista y en su vencimiento (o hoy, si ya venció). No incluye
+    transferencias futuras.
+  </p>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">Calculando la proyección…</p>
+  } @else if (projection(); as current) {
+    <app-projection-table [projection]="current" />
+  }
+</div>
