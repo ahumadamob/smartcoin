@@ -30,7 +30,10 @@ model/categoryRequest.ts
 model/categoryResponse.ts
 model/changePasswordRequest.ts
 model/closingAccount.ts
+model/closingAccountClosing.ts
 model/closingBlocker.ts
+model/closingConsolidatedEntry.ts
+model/closingCreatedEntry.ts
 model/closingInvalidBalance.ts
 model/closingInvalidResolution.ts
 model/closingNewEntry.ts
@@ -38,6 +41,7 @@ model/closingPendingEntry.ts
 model/closingPreview.ts
 model/closingPreviewRequest.ts
 model/closingResolutionChoice.ts
+model/closingResult.ts
 model/consolidateRequest.ts
 model/consolidation.ts
 model/consolidationPreview.ts

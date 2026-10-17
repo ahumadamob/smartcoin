@@ -21,6 +21,8 @@ import { ClosingPreview } from '../model/closingPreview';
 // @ts-ignore
 import { ClosingPreviewRequest } from '../model/closingPreviewRequest';
 // @ts-ignore
+import { ClosingResult } from '../model/closingResult';
+// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 
 // @ts-ignore
@@ -37,6 +39,78 @@ export class CierreDeMesService extends BaseService {
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * Cerrar un mes
+     * Cierra el período para siempre (RN-40, D-23): no hay forma de reabrirlo. Recibe el mismo cuerpo que la simulación y vuelve a hacer todas sus validaciones con el mismo plan (RN-43); sin cuerpo, solo se cierra un mes sin pendientes ni cuentas a conciliar. En una sola transacción, y en este orden: consolida cada pendiente con su real y su resolución, sin propagar ni tocar el Concepto; crea las partidas de saldo postergado en el mes siguiente; guarda un cierre de cuenta por cada cuenta conciliada; crea las partidas de diferencia de cierre, referidas a su cierre de cuenta; y pasa el período a cerrado con su fecha de cierre. Si algo falla, no cambia nada. Orden de los errores, el primero que falla: cuerpo mal formado (400); período inexistente (404); la primera precondición de RN-38 (409 &#x60;PERIOD_CLOSED&#x60;, &#x60;PREVIOUS_PERIOD_OPEN&#x60; o &#x60;PERIOD_NOT_FINISHED&#x60;); resoluciones que no corresponden a una pendiente del período (400 en &#x60;resolutions&#x60;); saldos reales de cuentas que no se concilian (400 en &#x60;realBalances&#x60;); pendientes sin resolución (409 &#x60;UNRESOLVED_PENDING_ENTRIES&#x60;, con sus ids en &#x60;entries&#x60;); y cuentas sin saldo real (409 &#x60;MISSING_REAL_BALANCE&#x60;, con sus ids en &#x60;accounts&#x60;).
+     * @endpoint post /api/periods/{period}/close
+     * @param period Período, como YYYY-MM.
+     * @param closingPreviewRequest 
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public closePeriod(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ClosingResult>;
+    public closePeriod(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ClosingResult>>;
+    public closePeriod(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ClosingResult>>;
+    public closePeriod(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        if (period === null || period === undefined) {
+            throw new Error('Required parameter period was null or undefined when calling closePeriod.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            '*/*',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/periods/${this.configuration.encodeParam({name: "period", value: period, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}/close`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<ClosingResult>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: closingPreviewRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**
