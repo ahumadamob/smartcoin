@@ -140,7 +140,7 @@ class ClosingBalanceTest {
 	}
 
 	private Map<String, BigDecimal> balances() {
-		return service.preview(USER_ID, OCTOBER).plan().accounts().stream()
+		return service.preview(USER_ID, OCTOBER, List.of()).plan().accounts().stream()
 				.collect(Collectors.toMap(AccountLine::name, AccountLine::computedBalance));
 	}
 
@@ -167,7 +167,7 @@ class ClosingBalanceTest {
 
 	@Test
 	void theBalancesAreAskedAtTheLastDayWithTheCurrentUser() {
-		service.preview(USER_ID, OCTOBER);
+		service.preview(USER_ID, OCTOBER, List.of());
 
 		verify(movements).sumByAccountUpTo(USER_ID, LAST_DAY, EntryKind.INCOME);
 		verify(movements).sumByAccountUpTo(USER_ID, LAST_DAY, EntryKind.EXPENSE);

@@ -5,10 +5,13 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.smartcoin.account.domain.Account;
 import com.smartcoin.account.service.AccountService;
+import com.smartcoin.entry.domain.ClosingResolution;
 import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.ClosingBlockReason;
 import com.smartcoin.period.domain.ClosingPlanner;
@@ -25,13 +28,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Cierre de mes (HU-30 a HU-33, RN-38 a RN-43). HU-30: la simulación, que no modifica nada. Toda consulta lleva el
- * {@code userId} del usuario actual.
+ * Cierre de mes (HU-30 a HU-33, RN-38 a RN-43). HU-30: la simulación, que no modifica nada; HU-31 le suma las
+ * resoluciones de las pendientes. Toda consulta lleva el {@code userId} del usuario actual.
  */
 @Service
 public class ClosingService {
 
 	private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+	/** La resolución elegida para una partida pendiente (RN-39), tal como llega en el pedido. */
+	public record Resolution(long entryId, ClosingResolution resolution) {
+	}
 
 	/** Una precondición que no se cumple, con su explicación en español. */
 	public record Blocker(ClosingBlockReason reason, String detail) {
@@ -60,13 +67,16 @@ public class ClosingService {
 	}
 
 	/**
-	 * Qué falta para cerrar un período, sin modificar nada (HU-30). Si no existe para el usuario (RN-06), 404. Las
-	 * partidas y sus montos salen de las mismas consultas que la vista del mes, y los saldos de las cuatro consultas
-	 * agrupadas de {@link AccountService#balancesAt}, al último día del período. Un período cerrado no carga ni
-	 * partidas ni saldos: no tiene nada que resolver.
+	 * Qué falta para cerrar un período y qué pasaría con las resoluciones recibidas, sin modificar nada (HU-30, HU-31).
+	 * Una partida repetida en las resoluciones es un pedido mal formado: 400 en {@code resolutions}. Si el período no
+	 * existe para el usuario (RN-06), 404. Las resoluciones que no corresponden a una pendiente del período no son un
+	 * error: se informan en el plan y no se aplican (D-43). Las partidas y sus montos salen de las mismas consultas que
+	 * la vista del mes, y los saldos de las cuatro consultas agrupadas de {@link AccountService#balancesAt}, al último
+	 * día del período. Un período cerrado no carga ni partidas ni saldos: no tiene nada que resolver.
 	 */
 	@Transactional(readOnly = true)
-	public Preview preview(long userId, YearMonth month) {
+	public Preview preview(long userId, YearMonth month, List<Resolution> resolutions) {
+		Map<Long, ClosingResolution> byEntry = byEntry(resolutions);
 		BudgetPeriod period = periods.findByUserIdAndPeriodMonth(userId, month)
 				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "El período " + month
 						+ " no existe: es anterior al período inicial o posterior al horizonte."));
@@ -86,17 +96,30 @@ public class ClosingService {
 		List<AccountLine> accountLines = open ? accountLines(userId, month.atEndOfMonth()) : List.of();
 
 		Plan plan = ClosingPlanner.plan(new ClosingPlanner.Input(month, period.getStatus(), previousStatus, isStart,
-				LocalDate.now(clock), entries, accountLines));
+				LocalDate.now(clock), entries, accountLines, byEntry));
 		List<Blocker> blockers = plan.blockers().stream()
 				.map(reason -> new Blocker(reason, detail(reason, plan, firstOpen)))
 				.toList();
 		return new Preview(plan, period.getStatus(), firstOpen, blockers);
 	}
 
+	private static Map<Long, ClosingResolution> byEntry(List<Resolution> resolutions) {
+		Map<Long, ClosingResolution> byEntry = new LinkedHashMap<>();
+		for (Resolution resolution : resolutions) {
+			if (byEntry.putIfAbsent(resolution.entryId(), resolution.resolution()) != null) {
+				throw BusinessException.invalidField("resolutions",
+						"La partida " + resolution.entryId() + " tiene más de una resolución.");
+			}
+		}
+		return byEntry;
+	}
+
+	/** El nombre y la categoría son los que muestra la vista del mes: los del Concepto en una recurrente. */
 	private List<EntryLine> entryLines(long userId, BudgetPeriod period) {
 		return periodView.rows(userId, period).stream()
-				.map(row -> new EntryLine(row.id(), row.name(), row.kind(), row.accountId(), row.accountName(),
-						row.currency(), row.dueDate(), row.budgetedAmount(), row.amounts()))
+				.map(row -> new EntryLine(row.id(), row.origin(), row.name(), row.kind(), row.categoryId(),
+						row.categoryName(), row.accountId(), row.accountName(), row.currency(), row.dueDate(),
+						row.budgetedAmount(), row.amounts()))
 				.toList();
 	}
 

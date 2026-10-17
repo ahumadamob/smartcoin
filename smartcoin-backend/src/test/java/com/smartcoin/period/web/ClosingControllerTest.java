@@ -15,12 +15,15 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import javax.crypto.spec.SecretKeySpec;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import com.smartcoin.entry.domain.ClosingResolution;
 import com.smartcoin.entry.domain.EntryAmounts;
+import com.smartcoin.entry.domain.EntryOrigin;
 import com.smartcoin.entry.domain.StoredEntryStatus;
 import com.smartcoin.period.domain.ClosingBlockReason;
 import com.smartcoin.period.domain.ClosingPlanner;
@@ -30,6 +33,7 @@ import com.smartcoin.period.domain.PeriodStatus;
 import com.smartcoin.period.service.ClosingService;
 import com.smartcoin.period.service.ClosingService.Blocker;
 import com.smartcoin.period.service.ClosingService.Preview;
+import com.smartcoin.period.service.ClosingService.Resolution;
 import com.smartcoin.shared.config.WebConfig;
 import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.domain.EntryKind;
@@ -61,8 +65,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * HU-30: forma de la respuesta de POST /api/periods/{period}/closing-preview, el 400 por formato, el 404 fuera de
- * rango y el cuerpo ignorado (D-42). Servicio simulado. Se importa {@link WebConfig} por el convertidor de períodos.
+ * HU-30 y HU-31: forma de la respuesta de POST /api/periods/{period}/closing-preview, con y sin resoluciones, el 400
+ * por formato, el 404 fuera de rango y los saldos reales ignorados (D-42, D-43). Servicio simulado. Se importa {@link WebConfig} por el convertidor de períodos.
  */
 @WebMvcTest(ClosingController.class)
 @Import({ SecurityConfig.class, GlobalExceptionHandler.class, CurrentUser.class, WebConfig.class })
@@ -108,17 +112,27 @@ class ClosingControllerTest {
 		return new BigDecimal(text);
 	}
 
+	private ResultActions preview(String period, String body) throws Exception {
+		return mvc.perform(post("/api/periods/" + period + "/closing-preview").header("Authorization", bearer())
+				.contentType(MediaType.APPLICATION_JSON).content(body));
+	}
+
+	static final EntryLine POWER = new EntryLine(512L, EntryOrigin.RECURRING, "Luz", EntryKind.EXPENSE, 3L,
+			"Servicios", 12L, "Banco Nación", Currency.ARS, LocalDate.of(2026, 10, 18), amount("45000.00"),
+			EntryAmounts.of(amount("45000.00"), StoredEntryStatus.PENDING, null, amount("20000.00")));
+	static final EntryLine GAS = new EntryLine(513L, EntryOrigin.ONE_OFF, "Gas", EntryKind.EXPENSE, null, null, 12L,
+			"Banco Nación", Currency.ARS, LocalDate.of(2026, 10, 20), amount("8000.00"),
+			EntryAmounts.of(amount("8000.00"), StoredEntryStatus.PENDING, null, null));
+
 	/** Octubre con el anterior abierto, sin terminar, la luz con un pago parcial y dos cuentas. */
 	private static Preview october() {
-		EntryLine power = new EntryLine(512L, "Luz", EntryKind.EXPENSE, 12L, "Banco Nación", Currency.ARS,
-				LocalDate.of(2026, 10, 18), amount("45000.00"),
-				EntryAmounts.of(amount("45000.00"), StoredEntryStatus.PENDING, null, amount("20000.00")));
+		EntryLine power = POWER;
 		AccountLine bank = new AccountLine(12L, "Banco Nación", Currency.ARS, LocalDate.of(2026, 8, 1),
 				amount("-1500.50"));
 		AccountLine dollars = new AccountLine(13L, "Dólares", Currency.USD, LocalDate.of(2026, 9, 1),
 				amount("0.00"));
 		var plan = ClosingPlanner.plan(new ClosingPlanner.Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.OPEN, false,
-				LocalDate.of(2026, 10, 16), List.of(power), List.of(bank, dollars)));
+				LocalDate.of(2026, 10, 16), List.of(power), List.of(bank, dollars), Map.of()));
 		return new Preview(plan, PeriodStatus.OPEN, YearMonth.of(2026, 8), List.of(
 				new Blocker(ClosingBlockReason.PREVIOUS_PERIOD_OPEN, "El período anterior, 2026-09, sigue abierto."),
 				new Blocker(ClosingBlockReason.PERIOD_NOT_FINISHED, "El período 2026-10 termina el 31/10/2026.")));
@@ -126,7 +140,7 @@ class ClosingControllerTest {
 
 	@Test
 	void respondsThePreconditionsThePendingEntriesAndTheAccounts() throws Exception {
-		when(closing.preview(USER_ID, OCTOBER)).thenReturn(october());
+		when(closing.preview(USER_ID, OCTOBER, List.of())).thenReturn(october());
 
 		String body = preview("2026-10")
 				.andExpect(status().isOk())
@@ -151,6 +165,12 @@ class ClosingControllerTest {
 				.andExpect(jsonPath("$.pendingEntries[0].actualAmount").value(20000.00))
 				.andExpect(jsonPath("$.pendingEntries[0].pendingAmount").value(25000.00))
 				.andExpect(jsonPath("$.pendingEntries[0].status").value("PARTIAL"))
+				.andExpect(jsonPath("$.pendingEntries[0].resolution").isEmpty())
+				.andExpect(jsonPath("$.pendingEntries[0].consolidatedAmount").isEmpty())
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry").isEmpty())
+				.andExpect(jsonPath("$.newEntries.length()").value(0))
+				.andExpect(jsonPath("$.unresolvedEntryIds[0]").value(512))
+				.andExpect(jsonPath("$.invalidResolutions.length()").value(0))
 				.andExpect(jsonPath("$.accounts.length()").value(2))
 				.andExpect(jsonPath("$.accounts[0].id").value(12))
 				.andExpect(jsonPath("$.accounts[0].name").value("Banco Nación"))
@@ -168,8 +188,8 @@ class ClosingControllerTest {
 	@Test
 	void aClosedPeriodRespondsOkWithPeriodClosedAndEmptyLists() throws Exception {
 		var plan = ClosingPlanner.plan(new ClosingPlanner.Input(YearMonth.of(2026, 8), PeriodStatus.CLOSED, null,
-				true, LocalDate.of(2026, 10, 16), List.of(), List.of()));
-		when(closing.preview(USER_ID, YearMonth.of(2026, 8))).thenReturn(new Preview(plan, PeriodStatus.CLOSED,
+				true, LocalDate.of(2026, 10, 16), List.of(), List.of(), Map.of()));
+		when(closing.preview(USER_ID, YearMonth.of(2026, 8), List.of())).thenReturn(new Preview(plan, PeriodStatus.CLOSED,
 				YearMonth.of(2026, 9),
 				List.of(new Blocker(ClosingBlockReason.PERIOD_CLOSED, "El período 2026-08 ya está cerrado."))));
 
@@ -182,19 +202,131 @@ class ClosingControllerTest {
 				.andExpect(jsonPath("$.accounts.length()").value(0));
 	}
 
-	/** D-42: la simulación de HU-30 no lleva cuerpo; si llega uno, con resoluciones o saldos, se ignora. */
+	/** Octubre ya terminado, con la luz parcial y el gas sin movimientos, y las resoluciones recibidas. */
+	private static Preview resolved(Map<Long, ClosingResolution> resolutions) {
+		var plan = ClosingPlanner.plan(new ClosingPlanner.Input(OCTOBER, PeriodStatus.OPEN, null, true,
+				LocalDate.of(2026, 11, 2), List.of(POWER, GAS), List.of(), resolutions));
+		return new Preview(plan, PeriodStatus.OPEN, OCTOBER, List.of());
+	}
+
+	/** HU-31: con resoluciones, el efecto de cada pendiente y la partida de saldo postergado que se crearía. */
 	@Test
-	void aBodyIsIgnored() throws Exception {
-		when(closing.preview(USER_ID, OCTOBER)).thenReturn(october());
+	void withResolutionsRespondsTheEffectOfEach() throws Exception {
+		List<Resolution> received = List.of(new Resolution(512L, ClosingResolution.CARRY_OVER),
+				new Resolution(513L, ClosingResolution.CLOSE_AS_IS));
+		when(closing.preview(USER_ID, OCTOBER, received)).thenReturn(resolved(
+				Map.of(512L, ClosingResolution.CARRY_OVER, 513L, ClosingResolution.CLOSE_AS_IS)));
 
-		mvc.perform(post("/api/periods/2026-10/closing-preview").header("Authorization", bearer())
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"resolutions\":[{\"entryId\":512,\"resolution\":\"CARRY_OVER\"}],"
-						+ "\"realBalances\":[{\"accountId\":12,\"realBalance\":100}]}"))
+		String body = preview("2026-10", "{\"resolutions\":[{\"entryId\":512,\"resolution\":\"CARRY_OVER\"},"
+				+ "{\"entryId\":513,\"resolution\":\"CLOSE_AS_IS\"}]}")
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.pendingEntries.length()").value(1));
+				.andExpect(jsonPath("$.pendingEntries[0].resolution").value("CARRY_OVER"))
+				.andExpect(jsonPath("$.pendingEntries[0].consolidatedAmount").value(20000.00))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.period").value("2026-11"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.origin").value("CARRIED_OVER"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.name").value("Saldo pendiente: Luz"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.kind").value("EXPENSE"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.categoryId").value(3))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.categoryName").value("Servicios"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.accountId").value(12))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.accountName").value("Banco Nación"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.currency").value("ARS"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.dueDate").value("2026-11-18"))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.budgetedAmount").value(25000.00))
+				.andExpect(jsonPath("$.pendingEntries[0].carriedOverEntry.sourceEntryId").value(512))
+				.andExpect(jsonPath("$.pendingEntries[1].resolution").value("CLOSE_AS_IS"))
+				.andExpect(jsonPath("$.pendingEntries[1].consolidatedAmount").value(0.00))
+				.andExpect(jsonPath("$.pendingEntries[1].carriedOverEntry").isEmpty())
+				.andExpect(jsonPath("$.newEntries.length()").value(1))
+				.andExpect(jsonPath("$.newEntries[0].sourceEntryId").value(512))
+				.andExpect(jsonPath("$.unresolvedEntryIds.length()").value(0))
+				.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
 
-		verify(closing).preview(USER_ID, OCTOBER);
+		assertThat(body).contains("\"consolidatedAmount\":0.00").contains("\"budgetedAmount\":25000.00");
+	}
+
+	@Test
+	void withSomeResolutionsTheRestAreUnresolved() throws Exception {
+		List<Resolution> received = List.of(new Resolution(513L, ClosingResolution.CARRY_OVER));
+		when(closing.preview(USER_ID, OCTOBER, received)).thenReturn(resolved(
+				Map.of(513L, ClosingResolution.CARRY_OVER)));
+
+		preview("2026-10", "{\"resolutions\":[{\"entryId\":513,\"resolution\":\"CARRY_OVER\"}]}")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.pendingEntries[0].resolution").isEmpty())
+				.andExpect(jsonPath("$.pendingEntries[1].carriedOverEntry.budgetedAmount").value(8000.00))
+				.andExpect(jsonPath("$.unresolvedEntryIds.length()").value(1))
+				.andExpect(jsonPath("$.unresolvedEntryIds[0]").value(512));
+	}
+
+	/** D-43: una resolución para una partida ajena, de otro mes o consolidada no es un error de la simulación. */
+	@Test
+	void resolutionsThatDoNotApplyAreReportedWithTheirReason() throws Exception {
+		List<Resolution> received = List.of(new Resolution(999L, ClosingResolution.CARRY_OVER));
+		when(closing.preview(USER_ID, OCTOBER, received)).thenReturn(resolved(
+				Map.of(999L, ClosingResolution.CARRY_OVER)));
+
+		preview("2026-10", "{\"resolutions\":[{\"entryId\":999,\"resolution\":\"CARRY_OVER\"}]}")
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.invalidResolutions.length()").value(1))
+				.andExpect(jsonPath("$.invalidResolutions[0].entryId").value(999))
+				.andExpect(jsonPath("$.invalidResolutions[0].reason").value("NOT_IN_PERIOD"))
+				.andExpect(jsonPath("$.unresolvedEntryIds.length()").value(2));
+	}
+
+	/** Sin cuerpo, con un cuerpo vacío o sin lista: ninguna resolución, el diagnóstico de HU-30. */
+	@ParameterizedTest
+	@ValueSource(strings = { "{}", "{\"resolutions\":null}", "{\"resolutions\":[]}" })
+	void anEmptyBodyHasNoResolutions(String body) throws Exception {
+		when(closing.preview(USER_ID, OCTOBER, List.of())).thenReturn(october());
+
+		preview("2026-10", body).andExpect(status().isOk());
+
+		verify(closing).preview(USER_ID, OCTOBER, List.of());
+	}
+
+	/** Los saldos reales llegan con HU-32: hasta entonces, si se envían, se ignoran. */
+	@Test
+	void realBalancesAreIgnored() throws Exception {
+		List<Resolution> received = List.of(new Resolution(512L, ClosingResolution.CARRY_OVER));
+		when(closing.preview(USER_ID, OCTOBER, received)).thenReturn(october());
+
+		preview("2026-10", "{\"resolutions\":[{\"entryId\":512,\"resolution\":\"CARRY_OVER\"}],"
+				+ "\"realBalances\":[{\"accountId\":12,\"realBalance\":100}]}")
+				.andExpect(status().isOk());
+
+		verify(closing).preview(USER_ID, OCTOBER, received);
+	}
+
+	/** Formato del cuerpo: sin partida, sin resolución, un valor inválido o un elemento nulo. */
+	@ParameterizedTest
+	@ValueSource(strings = {
+			"{\"resolutions\":[{\"resolution\":\"CARRY_OVER\"}]}",
+			"{\"resolutions\":[{\"entryId\":512}]}",
+			"{\"resolutions\":[{\"entryId\":512,\"resolution\":\"POSTPONE\"}]}",
+			"{\"resolutions\":[null]}",
+			"{\"resolutions\":{\"512\":\"CARRY_OVER\"}}",
+	})
+	void aMalformedResolutionIsAValidationError(String body) throws Exception {
+		preview("2026-10", body)
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+		verifyNoInteractions(closing);
+	}
+
+	@Test
+	void aRepeatedEntryIsAValidationErrorInResolutions() throws Exception {
+		List<Resolution> received = List.of(new Resolution(512L, ClosingResolution.CARRY_OVER),
+				new Resolution(512L, ClosingResolution.CLOSE_AS_IS));
+		when(closing.preview(USER_ID, OCTOBER, received)).thenThrow(
+				BusinessException.invalidField("resolutions", "La partida 512 tiene más de una resolución."));
+
+		preview("2026-10", "{\"resolutions\":[{\"entryId\":512,\"resolution\":\"CARRY_OVER\"},"
+				+ "{\"entryId\":512,\"resolution\":\"CLOSE_AS_IS\"}]}")
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.errors[0].field").value("resolutions"))
+				.andExpect(jsonPath("$.errors[0].message").value("La partida 512 tiene más de una resolución."));
 	}
 
 	@ParameterizedTest
@@ -208,7 +340,7 @@ class ClosingControllerTest {
 
 	@Test
 	void aPeriodOutOfRangeIsNotFound() throws Exception {
-		when(closing.preview(USER_ID, YearMonth.of(2030, 1)))
+		when(closing.preview(USER_ID, YearMonth.of(2030, 1), List.of()))
 				.thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "El período 2030-01 no existe."));
 
 		preview("2030-01")

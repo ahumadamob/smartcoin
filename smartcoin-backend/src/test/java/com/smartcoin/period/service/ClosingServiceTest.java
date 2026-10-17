@@ -25,7 +25,9 @@ import com.smartcoin.account.domain.Account;
 import com.smartcoin.account.service.AccountService;
 import com.smartcoin.account.service.AccountService.AccountBalance;
 import com.smartcoin.budgetitem.domain.BudgetItem;
+import com.smartcoin.category.domain.Category;
 import com.smartcoin.entry.domain.BudgetEntry;
+import com.smartcoin.entry.domain.ClosingResolution;
 import com.smartcoin.entry.domain.EntryOrigin;
 import com.smartcoin.entry.domain.EntryStatus;
 import com.smartcoin.entry.domain.EntryTotal;
@@ -34,11 +36,16 @@ import com.smartcoin.entry.repository.BudgetEntryRepository;
 import com.smartcoin.movement.repository.MovementRepository;
 import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.ClosingBlockReason;
+import com.smartcoin.period.domain.ClosingPlanner.EntryEffect;
 import com.smartcoin.period.domain.ClosingPlanner.EntryLine;
+import com.smartcoin.period.domain.ClosingPlanner.InvalidResolution;
+import com.smartcoin.period.domain.ClosingPlanner.NewEntry;
+import com.smartcoin.period.domain.InvalidResolutionReason;
 import com.smartcoin.period.domain.PeriodStatus;
 import com.smartcoin.period.repository.BudgetPeriodRepository;
 import com.smartcoin.period.service.ClosingService.Blocker;
 import com.smartcoin.period.service.ClosingService.Preview;
+import com.smartcoin.period.service.ClosingService.Resolution;
 import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.domain.EntryKind;
 import com.smartcoin.shared.error.BusinessException;
@@ -49,7 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 /**
- * HU-30, RN-38, RN-39, RN-43 y RN-01: la simulación del cierre con repositorios simulados. El usuario tiene los
+ * HU-30, HU-31, RN-38 a RN-40, RN-43 y RN-01: la simulación del cierre con repositorios simulados. El usuario tiene los
  * períodos 2026-08 a 2028-10, ninguno cerrado salvo donde se indica; el reloj, salvo donde se indica, el 16/10/2026.
  */
 class ClosingServiceTest {
@@ -92,7 +99,11 @@ class ClosingServiceTest {
 	}
 
 	private Preview preview(YearMonth month, String today) {
-		return serviceAt(today).preview(USER_ID, month);
+		return preview(month, today, List.of());
+	}
+
+	private Preview preview(YearMonth month, String today, List<Resolution> resolutions) {
+		return serviceAt(today).preview(USER_ID, month, resolutions);
 	}
 
 	private BudgetPeriod period(YearMonth month) {
@@ -253,7 +264,7 @@ class ClosingServiceTest {
 	void anotherUsersPeriodIsNotFound() {
 		when(periods.findByUserIdAndPeriodMonth(eq(OTHER_USER_ID), any())).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> serviceAt("2026-10-16").preview(OTHER_USER_ID, START))
+		assertThatThrownBy(() -> serviceAt("2026-10-16").preview(OTHER_USER_ID, START, List.of()))
 				.isInstanceOfSatisfying(BusinessException.class,
 						e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
 	}
@@ -274,6 +285,143 @@ class ClosingServiceTest {
 		verify(periods, never()).findByUserIdAndPeriodMonth(eq(OTHER_USER_ID), any());
 		verify(entries, never()).findByUserIdAndPeriodIdWithDetails(eq(OTHER_USER_ID), anyLong());
 		verify(accounts, never()).balancesAt(eq(OTHER_USER_ID), any());
+	}
+
+	// Resoluciones de las pendientes (HU-31, RN-40 pasos 1 y 2, D-43).
+
+	/**
+	 * Agosto, el período inicial: la luz recurrente (Concepto «Luz», categoría Servicios) con 20.000,00 pagados, un
+	 * sueldo puntual sin movimientos y un alquiler consolidado.
+	 */
+	private List<BudgetEntry> august() {
+		Category services = new Category();
+		ReflectionTestUtils.setField(services, "id", 300L);
+		services.setName("Servicios");
+		BudgetItem item = new BudgetItem();
+		ReflectionTestUtils.setField(item, "id", 900L);
+		item.setName("Luz");
+		item.setCategory(services);
+		BudgetEntry power = entry(START, null, EntryKind.EXPENSE, "45000.00");
+		power.setOrigin(EntryOrigin.RECURRING);
+		power.setBudgetItem(item);
+		BudgetEntry salary = entry(START, "Sueldo", EntryKind.INCOME, "1000000.00");
+		BudgetEntry rent = entry(START, "Alquiler", EntryKind.EXPENSE, "450000.00");
+		rent.setStatus(StoredEntryStatus.CONSOLIDATED);
+		rent.setConsolidatedAmount(new BigDecimal("450000.00"));
+		long startId = period(START).getId();
+		when(entries.findByUserIdAndPeriodIdWithDetails(USER_ID, startId)).thenReturn(List.of(power, salary, rent));
+		when(movements.sumByEntryOfPeriod(USER_ID, startId)).thenReturn(List.of(
+				new EntryTotal(power.getId(), new BigDecimal("20000.00")),
+				new EntryTotal(rent.getId(), new BigDecimal("450000.00"))));
+		return List.of(power, salary, rent);
+	}
+
+	/** Con una sola resolución, la otra pendiente se informa sin resolver; la recurrente toma el Concepto. */
+	@Test
+	void withSomeResolutionsItSaysWhatHappensAndWhatIsMissing() {
+		List<BudgetEntry> august = august();
+		long powerId = august.get(0).getId();
+
+		Preview preview = preview(START, "2026-10-16",
+				List.of(new Resolution(powerId, ClosingResolution.CARRY_OVER)));
+
+		assertThat(preview.plan().effects()).singleElement().satisfies(effect -> {
+			assertThat(effect.entryId()).isEqualTo(powerId);
+			assertThat(effect.consolidatedAmount()).isEqualTo(new BigDecimal("20000.00"));
+		});
+		NewEntry created = preview.plan().newEntries().getFirst();
+		assertThat(created.period()).isEqualTo(SEPTEMBER);
+		assertThat(created.name()).isEqualTo("Saldo pendiente: Luz");
+		assertThat(created.categoryId()).isEqualTo(300L);
+		assertThat(created.categoryName()).isEqualTo("Servicios");
+		assertThat(created.accountId()).isEqualTo(42L);
+		assertThat(created.dueDate()).isEqualTo(LocalDate.of(2026, 9, 18));
+		assertThat(created.budgetedAmount()).isEqualTo(new BigDecimal("25000.00"));
+		assertThat(created.sourceEntryId()).isEqualTo(powerId);
+		assertThat(preview.plan().unresolvedEntryIds()).containsExactly(august.get(1).getId());
+	}
+
+	@Test
+	void withAllResolutionsNothingIsMissing() {
+		List<BudgetEntry> august = august();
+
+		Preview preview = preview(START, "2026-10-16", List.of(
+				new Resolution(august.get(1).getId(), ClosingResolution.CLOSE_AS_IS),
+				new Resolution(august.get(0).getId(), ClosingResolution.CLOSE_AS_IS)));
+
+		assertThat(preview.plan().unresolvedEntryIds()).isEmpty();
+		// En el orden de la vista del mes: mismo vencimiento, «Luz» antes que «Sueldo».
+		assertThat(preview.plan().effects()).extracting(EntryEffect::consolidatedAmount)
+				.containsExactly(new BigDecimal("20000.00"), new BigDecimal("0.00"));
+		assertThat(preview.plan().newEntries()).isEmpty();
+	}
+
+	/**
+	 * Una partida de otro mes, de otro usuario o que no existe no está entre las del período: se informa igual
+	 * (D-24); una consolidada del período, como no pendiente. Ninguna se aplica y no es un error (D-43).
+	 */
+	@Test
+	void resolutionsForEntriesOutsideThePeriodOrNotPendingAreReported() {
+		List<BudgetEntry> august = august();
+		BudgetEntry september = entry(SEPTEMBER, "Gas", EntryKind.EXPENSE, "8000.00");
+		long rentId = august.get(2).getId();
+
+		Preview preview = preview(START, "2026-10-16", List.of(
+				new Resolution(september.getId(), ClosingResolution.CARRY_OVER),
+				new Resolution(rentId, ClosingResolution.CLOSE_AS_IS),
+				new Resolution(5000L, ClosingResolution.CARRY_OVER)));
+
+		assertThat(preview.plan().invalidResolutions()).containsExactly(
+				new InvalidResolution(september.getId(), InvalidResolutionReason.NOT_IN_PERIOD),
+				new InvalidResolution(rentId, InvalidResolutionReason.NOT_PENDING),
+				new InvalidResolution(5000L, InvalidResolutionReason.NOT_IN_PERIOD));
+		assertThat(preview.plan().effects()).isEmpty();
+		assertThat(preview.plan().unresolvedEntryIds()).hasSize(2);
+		verify(entries, never()).findByUserIdAndPeriodIdWithDetails(eq(USER_ID), eq(period(SEPTEMBER).getId()));
+	}
+
+	/** Una partida con dos resoluciones es un pedido mal formado: 400 antes de leer nada. */
+	@Test
+	void aRepeatedEntryIsAValidationError() {
+		assertThatThrownBy(() -> preview(START, "2026-10-16", List.of(
+				new Resolution(1L, ClosingResolution.CARRY_OVER),
+				new Resolution(1L, ClosingResolution.CARRY_OVER))))
+				.isInstanceOfSatisfying(BusinessException.class, e -> {
+					assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+					assertThat(e.field()).isEqualTo("resolutions");
+					assertThat(e.getMessage()).isEqualTo("La partida 1 tiene más de una resolución.");
+				});
+		verifyNoInteractions(periods, entries, movements, accounts);
+	}
+
+	@Test
+	void aClosedPeriodIgnoresTheResolutions() {
+		close(START);
+
+		Preview preview = preview(START, "2026-10-16", List.of(new Resolution(1L, ClosingResolution.CARRY_OVER)));
+
+		assertThat(preview.plan().effects()).isEmpty();
+		assertThat(preview.plan().invalidResolutions()).isEmpty();
+		verifyNoInteractions(entries, movements, accounts);
+	}
+
+	/** Con resoluciones tampoco guarda nada: ni consolida ni crea partidas (HU-33). */
+	@Test
+	void thePreviewWithResolutionsSavesNothing() {
+		List<BudgetEntry> august = august();
+
+		preview(START, "2026-10-16", List.of(
+				new Resolution(august.get(0).getId(), ClosingResolution.CARRY_OVER),
+				new Resolution(august.get(1).getId(), ClosingResolution.CLOSE_AS_IS)));
+
+		verify(entries, never()).save(any());
+		verify(entries, never()).saveAll(any());
+		verify(entries, never()).saveAndFlush(any());
+		verify(periods, never()).save(any());
+		assertThat(august).extracting(BudgetEntry::getStatus)
+				.containsExactly(StoredEntryStatus.PENDING, StoredEntryStatus.PENDING, StoredEntryStatus.CONSOLIDATED);
+		assertThat(august.get(0).getConsolidatedAmount()).isNull();
+		assertThat(august.get(0).getClosingResolution()).isNull();
 	}
 
 	static Account account(long id, String name, Currency currency, String openingDate) {

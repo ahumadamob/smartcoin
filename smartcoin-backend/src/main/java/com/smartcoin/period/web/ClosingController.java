@@ -12,10 +12,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,10 +42,16 @@ public class ClosingController {
 			description = "Qué falta para cerrar el período, sin modificar nada (RN-43): si se cumplen las "
 					+ "precondiciones de RN-38 y, si no, todas las que fallan, en el orden de RN-38; las partidas "
 					+ "pendientes con real y pendiente, y las cuentas abiertas al último día del período con su "
-					+ "saldo calculado a ese día (RN-35, RN-41). Un período cerrado responde 200 con "
-					+ "`PERIOD_CLOSED` y las listas vacías. No lleva cuerpo: si se envía uno, se ignora.")
+					+ "saldo calculado a ese día (RN-35, RN-41). Con resoluciones en el cuerpo (opcional), lo que "
+					+ "pasaría con cada pendiente resuelta y las partidas de saldo postergado que se crearían en el "
+					+ "mes siguiente (RN-40, pasos 1 y 2), las pendientes que todavía no tienen resolución y las "
+					+ "resoluciones que no corresponden, que no se aplican. Los efectos se calculan aunque no se "
+					+ "cumplan las precondiciones. Un período cerrado responde 200 con `PERIOD_CLOSED` y las listas "
+					+ "vacías, e ignora las resoluciones. Los saldos reales todavía no se reciben (HU-32).")
 	@ApiResponse(responseCode = "200", description = "La simulación del cierre.")
-	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: el período no tiene el formato YYYY-MM.",
+	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: el período no tiene el formato YYYY-MM; "
+			+ "una resolución sin partida o sin valor, o con un valor inválido; o una partida con más de una "
+			+ "resolución.",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
@@ -53,7 +61,9 @@ public class ClosingController {
 	public ClosingPreviewResponse preview(
 			@Parameter(description = "Período, como YYYY-MM.", example = "2026-10",
 					schema = @Schema(type = "string", pattern = "^\\d{4}-(0[1-9]|1[0-2])$"))
-			@PathVariable YearMonth period) {
-		return ClosingPreviewResponse.from(closing.preview(currentUser.id(), period));
+			@PathVariable YearMonth period,
+			@RequestBody(required = false) @Valid ClosingPreviewRequest request) {
+		return ClosingPreviewResponse.from(closing.preview(currentUser.id(), period,
+				ClosingPreviewRequest.resolutionsOf(request)));
 	}
 }

@@ -4,11 +4,20 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import com.smartcoin.entry.domain.ClosingResolution;
+import com.smartcoin.entry.domain.EntryOrigin;
 import com.smartcoin.entry.domain.EntryStatus;
 import com.smartcoin.period.domain.ClosingBlockReason;
 import com.smartcoin.period.domain.ClosingPlanner.AccountLine;
+import com.smartcoin.period.domain.ClosingPlanner.EntryEffect;
 import com.smartcoin.period.domain.ClosingPlanner.EntryLine;
+import com.smartcoin.period.domain.ClosingPlanner.InvalidResolution;
+import com.smartcoin.period.domain.ClosingPlanner.NewEntry;
+import com.smartcoin.period.domain.InvalidResolutionReason;
 import com.smartcoin.period.domain.PeriodStatus;
 import com.smartcoin.period.service.ClosingService.Blocker;
 import com.smartcoin.period.service.ClosingService.Preview;
@@ -19,9 +28,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(name = "ClosingPreview", description = "Simulación del cierre de un período (RN-43), sin modificar nada: si "
 		+ "se cumplen las precondiciones (RN-38) y, si no, cuáles fallan; las partidas pendientes, que necesitarán "
-		+ "una resolución, y las cuentas a conciliar con su saldo calculado al último día del período (RN-39). Todos "
-		+ "los montos los calcula el backend. Un período cerrado no tiene nada que resolver ni conciliar: sus listas "
-		+ "están vacías.")
+		+ "una resolución, y las cuentas a conciliar con su saldo calculado al último día del período (RN-39). Con "
+		+ "resoluciones, qué pasaría con cada pendiente, las partidas que se crearían y las pendientes que faltan "
+		+ "resolver. Todos los montos los calcula el backend. Un período cerrado no tiene nada que resolver ni "
+		+ "conciliar: sus listas están vacías.")
 public record ClosingPreviewResponse(
 
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED, type = "string", example = "2026-10")
@@ -57,7 +67,22 @@ public record ClosingPreviewResponse(
 		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 				description = "Cuentas a conciliar: las abiertas el último día del período o antes, por moneda (ARS, "
 						+ "USD) y nombre.")
-		List<ClosingAccount> accounts) {
+		List<ClosingAccount> accounts,
+
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+				description = "Partidas que crearía el cierre en el período siguiente, en el orden de "
+						+ "`pendingEntries`. HU-31: las de saldo postergado. Vacía sin resoluciones.")
+		List<ClosingNewEntry> newEntries,
+
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+				description = "Ids de las partidas pendientes que todavía no tienen resolución, en el orden de "
+						+ "`pendingEntries`. El cierre exige que esté vacía (`UNRESOLVED_PENDING_ENTRIES`).")
+		List<Long> unresolvedEntryIds,
+
+		@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+				description = "Resoluciones recibidas que no corresponden a una partida pendiente del período, en el "
+						+ "orden en que llegaron. No se aplican; el cierre las rechazará con `VALIDATION_ERROR`.")
+		List<ClosingInvalidResolution> invalidResolutions) {
 
 	@Schema(name = "ClosingBlocker", description = "Una precondición de RN-38 que no se cumple.")
 	public record ClosingBlocker(
@@ -117,12 +142,96 @@ public record ClosingPreviewResponse(
 
 			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
 					description = "ESTIMATED: sin movimientos. PARTIAL: con movimientos.")
-			EntryStatus status) {
+			EntryStatus status,
 
-		static ClosingPendingEntry from(EntryLine line) {
+			@Schema(nullable = true, description = "La resolución recibida para esta partida; nula si todavía no "
+					+ "tiene.")
+			ClosingResolution resolution,
+
+			@Schema(nullable = true, example = "20000.00", description = "Monto con que quedaría consolidada: su "
+					+ "real, 0 si no tuvo movimientos. Nulo sin resolución.")
+			BigDecimal consolidatedAmount,
+
+			@Schema(nullable = true, description = "La partida de saldo postergado que se crearía en el mes "
+					+ "siguiente. Solo con CARRY_OVER y pendiente mayor que 0.")
+			ClosingNewEntry carriedOverEntry) {
+
+		static ClosingPendingEntry from(EntryLine line, EntryEffect effect) {
 			return new ClosingPendingEntry(line.id(), line.name(), line.kind(), line.accountId(), line.accountName(),
 					line.currency(), line.dueDate(), line.budgetedAmount(), line.amounts().actual(),
-					line.amounts().pending(), line.amounts().status());
+					line.amounts().pending(), line.amounts().status(),
+					effect == null ? null : effect.resolution(),
+					effect == null ? null : effect.consolidatedAmount(),
+					effect == null || effect.carriedOver() == null ? null : ClosingNewEntry.from(effect.carriedOver()));
+		}
+	}
+
+	@Schema(name = "ClosingNewEntry", description = "Una partida que crearía el cierre en el período siguiente, "
+			+ "pendiente y sin editar. HU-31: las de saldo postergado (RN-40, paso 1).")
+	public record ClosingNewEntry(
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, type = "string", example = "2026-11")
+			YearMonth period,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "CARRIED_OVER: saldo postergado.")
+			EntryOrigin origin,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "Saldo pendiente: Luz",
+					description = "«Saldo pendiente: <nombre>», o el mismo nombre si la original ya era un saldo "
+							+ "postergado. Si supera los 100 caracteres, el nombre original se recorta y termina en "
+							+ "«…».")
+			String name,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+			EntryKind kind,
+
+			@Schema(nullable = true, example = "3")
+			Long categoryId,
+
+			@Schema(nullable = true, example = "Servicios")
+			String categoryName,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "12")
+			Long accountId,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "Banco Nación")
+			String accountName,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+			Currency currency,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "2026-11-18",
+					description = "El vencimiento de la original más un mes, ajustado al último día del mes.")
+			LocalDate dueDate,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "25000.00",
+					description = "Presupuestado: el pendiente de la original.")
+			BigDecimal budgetedAmount,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "512",
+					description = "La partida cuyo saldo se posterga.")
+			Long sourceEntryId) {
+
+		static ClosingNewEntry from(NewEntry entry) {
+			return new ClosingNewEntry(entry.period(), entry.origin(), entry.name(), entry.kind(), entry.categoryId(),
+					entry.categoryName(), entry.accountId(), entry.accountName(), entry.currency(), entry.dueDate(),
+					entry.budgetedAmount(), entry.sourceEntryId());
+		}
+	}
+
+	@Schema(name = "ClosingInvalidResolution", description = "Una resolución recibida que no corresponde (RN-39).")
+	public record ClosingInvalidResolution(
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "513")
+			Long entryId,
+
+			@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+					description = "NOT_IN_PERIOD: la partida no es del período (es de otro mes, de otro usuario o no "
+							+ "existe). NOT_PENDING: ya está consolidada.")
+			InvalidResolutionReason reason) {
+
+		static ClosingInvalidResolution from(InvalidResolution invalid) {
+			return new ClosingInvalidResolution(invalid.entryId(), invalid.reason());
 		}
 	}
 
@@ -155,9 +264,14 @@ public record ClosingPreviewResponse(
 
 	static ClosingPreviewResponse from(Preview preview) {
 		var plan = preview.plan();
+		Map<Long, EntryEffect> effects = plan.effects().stream()
+				.collect(Collectors.toMap(EntryEffect::entryId, Function.identity()));
 		return new ClosingPreviewResponse(plan.period(), preview.status(), plan.lastDay(), preview.firstOpenPeriod(),
 				plan.preconditionsMet(), preview.blockers().stream().map(ClosingBlocker::from).toList(),
-				plan.pendingEntries().stream().map(ClosingPendingEntry::from).toList(),
-				plan.accounts().stream().map(ClosingAccount::from).toList());
+				plan.pendingEntries().stream().map(line -> ClosingPendingEntry.from(line, effects.get(line.id())))
+						.toList(),
+				plan.accounts().stream().map(ClosingAccount::from).toList(),
+				plan.newEntries().stream().map(ClosingNewEntry::from).toList(), plan.unresolvedEntryIds(),
+				plan.invalidResolutions().stream().map(ClosingInvalidResolution::from).toList());
 	}
 }
