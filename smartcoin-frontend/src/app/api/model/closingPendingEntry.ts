@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { ClosingNewEntry } from './closingNewEntry';
 
 
 /**
@@ -39,6 +40,18 @@ export interface ClosingPendingEntry {
      * ESTIMATED: sin movimientos. PARTIAL: con movimientos.
      */
     status: ClosingPendingEntry.StatusEnum;
+    /**
+     * La resolución recibida para esta partida; nula si todavía no tiene.
+     */
+    resolution?: ClosingPendingEntry.ResolutionEnum | null;
+    /**
+     * Monto con que quedaría consolidada: su real, 0 si no tuvo movimientos. Nulo sin resolución.
+     */
+    consolidatedAmount?: number | null;
+    /**
+     * La partida de saldo postergado que se crearía en el mes siguiente. Solo con CARRY_OVER y pendiente mayor que 0.
+     */
+    carriedOverEntry?: ClosingNewEntry;
 }
 export namespace ClosingPendingEntry {
     export const KindEnum = {
@@ -57,6 +70,11 @@ export namespace ClosingPendingEntry {
         Consolidated: 'CONSOLIDATED',
     } as const;
     export type StatusEnum = typeof StatusEnum[keyof typeof StatusEnum];
+    export const ResolutionEnum = {
+        CarryOver: 'CARRY_OVER',
+        CloseAsIs: 'CLOSE_AS_IS',
+    } as const;
+    export type ResolutionEnum = typeof ResolutionEnum[keyof typeof ResolutionEnum];
 }
 
 

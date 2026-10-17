@@ -19,6 +19,8 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { ClosingPreview } from '../model/closingPreview';
 // @ts-ignore
+import { ClosingPreviewRequest } from '../model/closingPreviewRequest';
+// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
 
 // @ts-ignore
@@ -39,17 +41,18 @@ export class CierreDeMesService extends BaseService {
 
     /**
      * Simular el cierre de un mes
-     * Qué falta para cerrar el período, sin modificar nada (RN-43): si se cumplen las precondiciones de RN-38 y, si no, todas las que fallan, en el orden de RN-38; las partidas pendientes con real y pendiente, y las cuentas abiertas al último día del período con su saldo calculado a ese día (RN-35, RN-41). Un período cerrado responde 200 con &#x60;PERIOD_CLOSED&#x60; y las listas vacías. No lleva cuerpo: si se envía uno, se ignora.
+     * Qué falta para cerrar el período, sin modificar nada (RN-43): si se cumplen las precondiciones de RN-38 y, si no, todas las que fallan, en el orden de RN-38; las partidas pendientes con real y pendiente, y las cuentas abiertas al último día del período con su saldo calculado a ese día (RN-35, RN-41). Con resoluciones en el cuerpo (opcional), lo que pasaría con cada pendiente resuelta y las partidas de saldo postergado que se crearían en el mes siguiente (RN-40, pasos 1 y 2), las pendientes que todavía no tienen resolución y las resoluciones que no corresponden, que no se aplican. Los efectos se calculan aunque no se cumplan las precondiciones. Un período cerrado responde 200 con &#x60;PERIOD_CLOSED&#x60; y las listas vacías, e ignora las resoluciones. Los saldos reales todavía no se reciben (HU-32).
      * @endpoint post /api/periods/{period}/closing-preview
      * @param period Período, como YYYY-MM.
+     * @param closingPreviewRequest 
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public previewClosing(period: string, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ClosingPreview>;
-    public previewClosing(period: string, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ClosingPreview>>;
-    public previewClosing(period: string, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ClosingPreview>>;
-    public previewClosing(period: string, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public previewClosing(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ClosingPreview>;
+    public previewClosing(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ClosingPreview>>;
+    public previewClosing(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ClosingPreview>>;
+    public previewClosing(period: string, closingPreviewRequest?: ClosingPreviewRequest, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: '*/*' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         if (period === null || period === undefined) {
             throw new Error('Required parameter period was null or undefined when calling previewClosing.');
         }
@@ -72,6 +75,15 @@ export class CierreDeMesService extends BaseService {
         const localVarTransferCache: boolean = options?.transferCache ?? true;
 
 
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
         let responseType_: 'text' | 'json' | 'blob' = 'json';
         if (localVarHttpHeaderAcceptSelected) {
             if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
@@ -88,6 +100,7 @@ export class CierreDeMesService extends BaseService {
         return this.httpClient.request<ClosingPreview>('post', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                body: closingPreviewRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

@@ -8,12 +8,14 @@
  * Do not edit the class manually.
  */
 import { ClosingBlocker } from './closingBlocker';
+import { ClosingNewEntry } from './closingNewEntry';
+import { ClosingInvalidResolution } from './closingInvalidResolution';
 import { ClosingPendingEntry } from './closingPendingEntry';
 import { ClosingAccount } from './closingAccount';
 
 
 /**
- * Simulación del cierre de un período (RN-43), sin modificar nada: si se cumplen las precondiciones (RN-38) y, si no, cuáles fallan; las partidas pendientes, que necesitarán una resolución, y las cuentas a conciliar con su saldo calculado al último día del período (RN-39). Todos los montos los calcula el backend. Un período cerrado no tiene nada que resolver ni conciliar: sus listas están vacías.
+ * Simulación del cierre de un período (RN-43), sin modificar nada: si se cumplen las precondiciones (RN-38) y, si no, cuáles fallan; las partidas pendientes, que necesitarán una resolución, y las cuentas a conciliar con su saldo calculado al último día del período (RN-39). Con resoluciones, qué pasaría con cada pendiente, las partidas que se crearían y las pendientes que faltan resolver. Todos los montos los calcula el backend. Un período cerrado no tiene nada que resolver ni conciliar: sus listas están vacías.
  */
 export interface ClosingPreview { 
     period: string;
@@ -45,6 +47,18 @@ export interface ClosingPreview {
      * Cuentas a conciliar: las abiertas el último día del período o antes, por moneda (ARS, USD) y nombre.
      */
     accounts: Array<ClosingAccount>;
+    /**
+     * Partidas que crearía el cierre en el período siguiente, en el orden de `pendingEntries`. HU-31: las de saldo postergado. Vacía sin resoluciones.
+     */
+    newEntries: Array<ClosingNewEntry>;
+    /**
+     * Ids de las partidas pendientes que todavía no tienen resolución, en el orden de `pendingEntries`. El cierre exige que esté vacía (`UNRESOLVED_PENDING_ENTRIES`).
+     */
+    unresolvedEntryIds: Array<number>;
+    /**
+     * Resoluciones recibidas que no corresponden a una partida pendiente del período, en el orden en que llegaron. No se aplican; el cierre las rechazará con `VALIDATION_ERROR`.
+     */
+    invalidResolutions: Array<ClosingInvalidResolution>;
 }
 export namespace ClosingPreview {
     export const StatusEnum = {

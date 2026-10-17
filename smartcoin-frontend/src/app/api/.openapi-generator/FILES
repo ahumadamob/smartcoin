@@ -31,8 +31,12 @@ model/categoryResponse.ts
 model/changePasswordRequest.ts
 model/closingAccount.ts
 model/closingBlocker.ts
+model/closingInvalidResolution.ts
+model/closingNewEntry.ts
 model/closingPendingEntry.ts
 model/closingPreview.ts
+model/closingPreviewRequest.ts
+model/closingResolutionChoice.ts
 model/consolidateRequest.ts
 model/consolidation.ts
 model/consolidationPreview.ts
