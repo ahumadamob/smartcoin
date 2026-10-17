@@ -55,6 +55,10 @@ public class AccountService {
 	public record AccountList(List<AccountView> accounts, List<CurrencySubtotal> subtotals) {
 	}
 
+	/** Una cuenta con su saldo calculado a una fecha (RN-35). */
+	public record AccountBalance(Account account, BigDecimal balance) {
+	}
+
 	private final AccountRepository accounts;
 	private final BudgetItemRepository items;
 	private final BudgetEntryRepository entries;
@@ -85,6 +89,19 @@ public class AccountService {
 				.map(account -> view(userId, account, totals))
 				.toList();
 		return new AccountList(views, subtotals(views));
+	}
+
+	/**
+	 * Todas las cuentas del usuario, por moneda y nombre, con su saldo al día {@code date} (RN-35): el cierre de mes lo
+	 * pide al último día del período (HU-30). Las mismas cuatro consultas agrupadas que el saldo a hoy, sin importar
+	 * cuántas cuentas haya. No filtra por fecha de apertura: eso lo decide quien pide el saldo.
+	 */
+	@Transactional(readOnly = true)
+	public List<AccountBalance> balancesAt(long userId, LocalDate date) {
+		Map<Long, Totals> totals = totalsUpTo(userId, date);
+		return accounts.findByUserIdOrderByCurrencyAscNameAsc(userId).stream()
+				.map(account -> new AccountBalance(account, balanceOf(account, totals)))
+				.toList();
 	}
 
 	@Transactional(readOnly = true)
@@ -172,7 +189,8 @@ public class AccountService {
 
 	/**
 	 * Totales de movimientos y transferencias con fecha menor o igual a {@code date}, por cuenta (RN-35): cuatro
-	 * consultas agrupadas, sin importar cuántas cuentas haya. El cierre de mes reutiliza esta consulta con otra fecha.
+	 * consultas agrupadas, sin importar cuántas cuentas haya. El cierre de mes la usa con el último día del período
+	 * ({@link #balancesAt}).
 	 */
 	private Map<Long, Totals> totalsUpTo(long userId, LocalDate date) {
 		Map<Long, BigDecimal> income = byAccount(movements.sumByAccountUpTo(userId, date, EntryKind.INCOME));

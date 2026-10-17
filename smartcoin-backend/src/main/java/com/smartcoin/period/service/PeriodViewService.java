@@ -92,14 +92,7 @@ public class PeriodViewService {
 				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "El período " + periodMonth
 						+ " no existe: es anterior al período inicial o posterior al horizonte."));
 		List<YearMonth> existing = periods.findPeriodMonthsByUserId(userId);
-		LocalDate today = LocalDate.now(clock);
-
-		Map<Long, BigDecimal> movementTotals = movements.sumByEntryOfPeriod(userId, period.getId()).stream()
-				.collect(Collectors.toMap(EntryTotal::entryId, EntryTotal::total));
-		List<EntryRow> rows = entries.findByUserIdAndPeriodIdWithDetails(userId, period.getId()).stream()
-				.map(entry -> row(entry, movementTotals.get(entry.getId()), today))
-				.sorted(ORDER)
-				.toList();
+		List<EntryRow> rows = rows(userId, period);
 
 		List<CurrencyTotals> totals = MonthTotals.calculate(rows.stream()
 				.map(r -> new MonthTotals.Line(r.kind(), r.currency(), r.budgetedAmount(), r.amounts().actual(),
@@ -108,6 +101,22 @@ public class PeriodViewService {
 		return new View(periodMonth, period.getStatus(), Collections.min(existing), YearMonth.now(clock),
 				Collections.max(existing), rows.stream().filter(r -> r.kind() == EntryKind.INCOME).toList(),
 				rows.stream().filter(r -> r.kind() == EntryKind.EXPENSE).toList(), totals);
+	}
+
+	/**
+	 * Las partidas de un período del usuario con sus valores derivados, en el orden de RN-44. Dos consultas, ninguna
+	 * por fila: todas con su Concepto, categoría y cuenta, y las sumas de movimientos de todo el período. La usa
+	 * también la simulación del cierre (HU-30), para que sus montos sean los de la vista del mes. Lee asociaciones: va
+	 * dentro de la transacción de quien la llama.
+	 */
+	public List<EntryRow> rows(long userId, BudgetPeriod period) {
+		LocalDate today = LocalDate.now(clock);
+		Map<Long, BigDecimal> movementTotals = movements.sumByEntryOfPeriod(userId, period.getId()).stream()
+				.collect(Collectors.toMap(EntryTotal::entryId, EntryTotal::total));
+		return entries.findByUserIdAndPeriodIdWithDetails(userId, period.getId()).stream()
+				.map(entry -> row(entry, movementTotals.get(entry.getId()), today))
+				.sorted(ORDER)
+				.toList();
 	}
 
 	/**
