@@ -119,18 +119,18 @@ public final class CashFlowCalculator {
 			}
 		}
 		for (PendingLine line : input.pending()) {
-			if (line.currency() != currency || line.pendingAmount().signum() <= 0) {
+			if (line.currency() != currency || !PendingEntryRule.counts(line.pendingAmount())) {
 				continue;
 			}
-			LocalDate effective = line.dueDate().isBefore(input.today()) ? input.today() : line.dueDate();
-			BigDecimal signed = line.kind() == EntryKind.INCOME ? line.pendingAmount() : line.pendingAmount().negate();
+			LocalDate effective = PendingEntryRule.effectiveDate(line.dueDate(), input.today());
+			BigDecimal signed = PendingEntryRule.signedPending(line.kind(), line.pendingAmount());
 			if (effective.isBefore(from)) {
 				opening = opening.add(signed);
 			}
 			else if (!effective.isAfter(to)) {
 				entries.add(new Entry(effective, Group.PLANNED, CashFlowRowType.PENDING_ENTRY, line.id(),
 						line.entryName() + " · " + line.accountName(), signed, line.dueDate(),
-						line.dueDate().isBefore(input.today())));
+						PendingEntryRule.isOverdue(line.dueDate(), input.today())));
 			}
 		}
 
