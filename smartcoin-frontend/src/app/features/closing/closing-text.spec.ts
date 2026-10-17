@@ -1,16 +1,25 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ClosingAccount, ClosingNewEntry, ClosingPendingEntry, ClosingPreview } from '../../api';
 import {
+  acknowledgeLabel,
   accountsByCurrency,
   balancesIntro,
   blockerText,
+  CLOSING_STEPS,
+  closeButtonLabel,
+  closedMessage,
   closingSummary,
+  consolidationText,
   confirmationHint,
   dayAndMonth,
   differenceText,
   effectText,
+  irreversibleWarning,
   monthName,
+  newEntryText,
   nextStepHint,
   sameEffectNote,
+  stepForCloseError,
 } from './closing-text';
 
 const preview = (overrides: Partial<ClosingPreview> = {}): ClosingPreview => ({
@@ -233,5 +242,58 @@ describe('closing-text', () => {
       'No hay cuentas para conciliar. La confirmación estará disponible más adelante.',
     );
     expect(confirmationHint(3, 0, true)).toBe('Todos los saldos reales están cargados.');
+  });
+
+  // Confirmación (HU-33).
+
+  it('los tres pasos están disponibles', () => {
+    expect(CLOSING_STEPS.map((step) => step.available)).toEqual([true, true, true]);
+  });
+
+  it('avisa que el mes queda cerrado para siempre y lo pide confirmar', () => {
+    expect(irreversibleWarning('agosto 2026')).toBe(
+      'Al cerrar, agosto 2026 queda cerrado para siempre: no se puede reabrir, y ya no se pueden crear, editar ni ' +
+        'eliminar sus partidas, ni movimientos o transferencias con fecha en ese mes.',
+    );
+    expect(acknowledgeLabel('diciembre 2026')).toBe(
+      'Entiendo que diciembre 2026 queda cerrado para siempre y no se puede reabrir.',
+    );
+    expect(closeButtonLabel('agosto 2026')).toBe('Cerrar agosto 2026');
+    expect(closedMessage('agosto 2026')).toBe('Agosto 2026 quedó cerrado.');
+  });
+
+  it('en el resumen, cada pendiente con su resolución y el monto con que se consolida', () => {
+    expect(consolidationText({ ...power, resolution: 'CARRY_OVER', consolidatedAmount: 20000 }, money)).toBe(
+      'Postergar saldo: se consolida en $ 20000.',
+    );
+    expect(
+      consolidationText({ ...power, currency: 'USD', resolution: 'CLOSE_AS_IS', consolidatedAmount: 0 }, money),
+    ).toBe('Cerrar con lo registrado: se consolida en US$ 0.');
+  });
+
+  it('en el resumen, cada partida nueva con su tipo, monto y vencimiento', () => {
+    const created: ClosingNewEntry = {
+      period: '2026-11', origin: 'CARRIED_OVER', name: 'Saldo pendiente: Luz', kind: 'EXPENSE', accountId: 12,
+      accountName: 'Banco', currency: 'ARS', dueDate: '2026-11-18', budgetedAmount: 25000, sourceEntryId: 1,
+    };
+    expect(newEntryText(created, money)).toBe('Gasto por $ 25000, con vencimiento el 18/11.');
+    expect(newEntryText({ ...created, kind: 'INCOME', currency: 'USD', dueDate: '2027-01-01' }, money)).toBe(
+      'Ingreso por US$ 25000, con vencimiento el 01/01.',
+    );
+  });
+
+  it('ante un error del cierre, elige el paso al que vuelve el asistente (D-45)', () => {
+    const problem = (status: number, error: object | null) => new HttpErrorResponse({ status, error });
+    expect(stepForCloseError(problem(409, { code: 'PERIOD_CLOSED' }))).toBe(0);
+    expect(stepForCloseError(problem(409, { code: 'PREVIOUS_PERIOD_OPEN' }))).toBe(0);
+    expect(stepForCloseError(problem(409, { code: 'PERIOD_NOT_FINISHED' }))).toBe(0);
+    expect(stepForCloseError(problem(409, { code: 'UNRESOLVED_PENDING_ENTRIES', entries: [1] }))).toBe(0);
+    expect(stepForCloseError(problem(409, { code: 'MISSING_REAL_BALANCE', accounts: [1] }))).toBe(1);
+    expect(stepForCloseError(problem(400, { code: 'VALIDATION_ERROR', errors: [{ field: 'realBalances' }] }))).toBe(1);
+    expect(stepForCloseError(problem(400, { code: 'VALIDATION_ERROR', errors: [{ field: 'resolutions' }] }))).toBe(0);
+    expect(stepForCloseError(problem(400, { code: 'VALIDATION_ERROR' }))).toBe(0);
+    expect(stepForCloseError(problem(500, { code: 'INTERNAL_ERROR' }))).toBe(2);
+    expect(stepForCloseError(problem(0, null))).toBe(2);
+    expect(stepForCloseError(new Error('x'))).toBe(2);
   });
 });

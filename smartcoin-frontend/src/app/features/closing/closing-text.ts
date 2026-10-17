@@ -1,4 +1,12 @@
-import { ClosingAccount, ClosingBlocker, ClosingPendingEntry, ClosingPreview, ClosingResolutionChoice } from '../../api';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  ClosingAccount,
+  ClosingBlocker,
+  ClosingNewEntry,
+  ClosingPendingEntry,
+  ClosingPreview,
+  ClosingResolutionChoice,
+} from '../../api';
 import { FormatMoney } from '../budget/movement-text';
 
 /** Los pasos del asistente de cierre (Épica 8): pendientes, saldos y confirmación. */
@@ -8,11 +16,11 @@ export interface ClosingStep {
   available: boolean;
 }
 
-/** HU-30 y HU-31 hacen el primer paso y HU-32 el segundo; la confirmación llega con el cierre (HU-33). */
+/** HU-30 y HU-31 hacen el primer paso, HU-32 el segundo y HU-33 la confirmación, con el cierre efectivo. */
 export const CLOSING_STEPS: readonly ClosingStep[] = [
   { label: 'Pendientes', available: true },
   { label: 'Saldos', available: true },
-  { label: 'Confirmación', available: false },
+  { label: 'Confirmación', available: true },
 ];
 
 export const UNAVAILABLE_STEP_TEXT = 'Disponible más adelante';
@@ -192,4 +200,75 @@ export function confirmationHint(accountCount: number, missingCount: number, nex
   }
   const done = accountCount === 0 ? 'No hay cuentas para conciliar.' : 'Todos los saldos reales están cargados.';
   return nextAvailable ? done : `${done} ${CONFIRMATION_PENDING_TEXT}`;
+}
+
+// Confirmación y cierre efectivo (HU-33, RN-40, D-45).
+
+export const BACK_TO_BALANCES_LABEL = 'Volver a Saldos';
+
+/** El aviso de que no hay vuelta atrás (D-23). `periodName` ya viene con formato («agosto 2026»). */
+export function irreversibleWarning(periodName: string): string {
+  return (
+    `Al cerrar, ${periodName} queda cerrado para siempre: no se puede reabrir, y ya no se pueden crear, editar ni ` +
+    'eliminar sus partidas, ni movimientos o transferencias con fecha en ese mes.'
+  );
+}
+
+/** La casilla que habilita el botón de cierre (D-45). */
+export function acknowledgeLabel(periodName: string): string {
+  return `Entiendo que ${periodName} queda cerrado para siempre y no se puede reabrir.`;
+}
+
+export function closeButtonLabel(periodName: string): string {
+  return `Cerrar ${periodName}`;
+}
+
+export const RESOLUTION_LABELS: Record<Resolution, string> = {
+  CARRY_OVER: 'Postergar saldo',
+  CLOSE_AS_IS: 'Cerrar con lo registrado',
+};
+
+/** Una partida pendiente en el resumen: con qué resolución y qué monto se consolida, según la simulación. */
+export function consolidationText(entry: ClosingPendingEntry, money: FormatMoney): string {
+  const resolution = entry.resolution ? RESOLUTION_LABELS[entry.resolution] : 'Sin resolución';
+  const amount = entry.consolidatedAmount ?? entry.actualAmount;
+  return `${resolution}: se consolida en ${money(amount, entry.currency)}.`;
+}
+
+/** Una partida que crea el cierre en el mes siguiente, en el resumen. */
+export function newEntryText(entry: ClosingNewEntry, money: FormatMoney): string {
+  const kind = entry.kind === 'INCOME' ? 'Ingreso' : 'Gasto';
+  return `${kind} por ${money(entry.budgetedAmount, entry.currency)}, con vencimiento el ${dayAndMonth(entry.dueDate)}.`;
+}
+
+/** «Agosto 2026 quedó cerrado.»: `periodName` ya viene con formato. */
+export function closedMessage(periodName: string): string {
+  return `${periodName.charAt(0).toUpperCase()}${periodName.slice(1)} quedó cerrado.`;
+}
+
+/** El paso al que vuelve el asistente ante un error del cierre, según su `code` (D-45). */
+export type CloseErrorStep = 0 | 1 | 2;
+
+/**
+ * Pendientes (0): las precondiciones, el mes ya cerrado y lo que tiene que ver con las resoluciones. Saldos (1): lo
+ * que tiene que ver con los saldos reales. Cualquier otro error (sin conexión, 500) deja el asistente en Confirmación.
+ */
+export function stepForCloseError(error: unknown): CloseErrorStep {
+  if (!(error instanceof HttpErrorResponse) || typeof error.error !== 'object' || error.error === null) {
+    return 2;
+  }
+  const body = error.error as { code?: string; errors?: { field?: string }[] };
+  switch (body.code) {
+    case 'PERIOD_CLOSED':
+    case 'PREVIOUS_PERIOD_OPEN':
+    case 'PERIOD_NOT_FINISHED':
+    case 'UNRESOLVED_PENDING_ENTRIES':
+      return 0;
+    case 'MISSING_REAL_BALANCE':
+      return 1;
+    case 'VALIDATION_ERROR':
+      return body.errors?.[0]?.field === 'realBalances' ? 1 : 0;
+    default:
+      return 2;
+  }
 }

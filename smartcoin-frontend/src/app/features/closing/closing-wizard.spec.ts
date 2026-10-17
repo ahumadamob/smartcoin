@@ -3,7 +3,14 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of, Subject, throwError } from 'rxjs';
-import { CierreDeMesService, ClosingPendingEntry, ClosingPreview, ClosingPreviewRequest } from '../../api';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import {
+  CierreDeMesService,
+  ClosingPendingEntry,
+  ClosingPreview,
+  ClosingPreviewRequest,
+  ClosingResult,
+} from '../../api';
 import { provideLocale } from '../../core/locale';
 import { ClosingWizard } from './closing-wizard';
 
@@ -139,16 +146,32 @@ const OCTOBER: ClosingPreview = {
   unresolvedEntryIds: [],
 };
 
+/** Lo que respondería el cierre de agosto (solo se usan el período y el siguiente). */
+const CLOSED_AUGUST: ClosingResult = {
+  period: '2026-08',
+  status: 'CLOSED',
+  closedAt: '2026-09-02T15:00:00Z',
+  nextPeriod: '2026-09',
+  consolidatedEntries: [],
+  createdEntries: [],
+  accountClosings: [],
+};
+
 describe('ClosingWizard', () => {
   let harness: RouterTestingHarness;
-  let api: { previewClosing: ReturnType<typeof vi.fn> };
+  let api: { previewClosing: ReturnType<typeof vi.fn>; closePeriod: ReturnType<typeof vi.fn> };
+  let snackBar: { open: ReturnType<typeof vi.fn> };
+  let snackAction: Subject<void>;
 
   async function open(url: string, responses: Record<string, Observable<ClosingPreview>> = {}) {
     api = {
       previewClosing: vi.fn((period: string, request?: ClosingPreviewRequest) =>
         responses[period] ?? of({ ...augustWith(request), period }),
       ),
+      closePeriod: vi.fn(() => of(CLOSED_AUGUST)),
     };
+    snackAction = new Subject<void>();
+    snackBar = { open: vi.fn(() => ({ onAction: () => snackAction })) };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
@@ -158,6 +181,7 @@ describe('ClosingWizard', () => {
         ]),
         provideLocale(),
         { provide: CierreDeMesService, useValue: api },
+        { provide: MatSnackBar, useValue: snackBar },
       ],
     });
     harness = await RouterTestingHarness.create(url);
@@ -186,15 +210,15 @@ describe('ClosingWizard', () => {
       expect(steps.map((s) => text(s))).toEqual([
         '1 Pendientes',
         '2 Saldos',
-        '3 Confirmación Disponible más adelante',
+        '3 Confirmación',
       ]);
       expect(steps[0].getAttribute('aria-current')).toBe('step');
       expect(steps[0].getAttribute('aria-disabled')).toBeNull();
     });
 
-    it('solo la confirmación está deshabilitada; ningún paso tiene enlaces ni botones propios', () => {
+    it('ningún paso está deshabilitado ni tiene enlaces o botones propios', () => {
       const steps = all('[data-testid="step"]');
-      expect(steps.map((s) => s.getAttribute('aria-disabled'))).toEqual([null, null, 'true']);
+      expect(steps.map((s) => s.getAttribute('aria-disabled'))).toEqual([null, null, null]);
       expect(steps.every((s) => s.querySelector('a, button') === null)).toBe(true);
     });
   });
@@ -620,7 +644,7 @@ describe('ClosingWizard', () => {
 
     it('no pidió nada más que la simulación: cargar la pantalla no guarda ni calcula', () => {
       expect(api.previewClosing.mock.calls.every(([period]) => period === '2026-08')).toBe(true);
-      expect(Object.keys(api)).toEqual(['previewClosing']);
+      expect(api.closePeriod).not.toHaveBeenCalled();
     });
 
     it('una diferencia negativa anuncia el gasto en el mes siguiente, con lo que informa el backend', async () => {
@@ -751,7 +775,7 @@ describe('ClosingWizard', () => {
       expect(confirm().disabled).toBe(true);
     });
 
-    it('avanzar a «Confirmación» exige todos los saldos, y sigue deshabilitado hasta HU-33', async () => {
+    it('avanzar a «Confirmación» exige todos los saldos', async () => {
       expect(confirm().disabled).toBe(true);
       expect(text(confirm())).toBe('Siguiente: Confirmación');
       expect(confirmHint()).toBe('Falta cargar el saldo real de 3 cuentas.');
@@ -763,10 +787,12 @@ describe('ClosingWizard', () => {
       expect(confirmHint()).toBe('Falta cargar el saldo real de 1 cuenta.');
 
       await enter(13, '600');
+      expect(confirm().disabled).toBe(false);
+      expect(confirmHint()).toBe('Todos los saldos reales están cargados.');
+
+      await enter(13, '6o0');
       expect(confirm().disabled).toBe(true);
-      expect(confirmHint()).toBe(
-        'Todos los saldos reales están cargados. La confirmación estará disponible más adelante.',
-      );
+      expect(confirmHint()).toBe('Revisá el saldo real con formato inválido.');
     });
 
     it('se puede volver a «Pendientes» sin perder las elecciones ni los saldos', async () => {
@@ -824,9 +850,8 @@ describe('ClosingWizard', () => {
         'No hay cuentas abiertas al 31/08/2026: no hay saldos que conciliar.',
       );
       expect(root().querySelectorAll('input')).toHaveLength(0);
-      expect(text(root().querySelector('[data-testid="confirm-hint"]'))).toBe(
-        'No hay cuentas para conciliar. La confirmación estará disponible más adelante.',
-      );
+      expect(text(root().querySelector('[data-testid="confirm-hint"]'))).toBe('No hay cuentas para conciliar.');
+      expect(root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!.disabled).toBe(false);
     });
 
     it('un mes bloqueado no ofrece cargar saldos: muestra el diagnóstico con las cuentas', async () => {
@@ -875,6 +900,316 @@ describe('ClosingWizard', () => {
 
       expect(all('[data-testid="step"]')[0].getAttribute('aria-current')).toBe('step');
       expect(root().querySelector('[data-testid="balances-step"]')).toBeNull();
+    });
+  });
+
+  describe('confirmación (HU-33)', () => {
+    const closeButton = () => root().querySelector<HTMLButtonElement>('[data-testid="close-period"]')!;
+    const checkbox = () => root().querySelector<HTMLInputElement>('[data-testid="acknowledge"] input')!;
+    const currentStep = () => all('[data-testid="step"]').findIndex((s) => s.getAttribute('aria-current') === 'step');
+    const items = (testId: string) => all(`[data-testid="${testId}"] li`).map((li) => text(li));
+    const closeError = () => text(root().querySelector('[data-testid="close-error"]'));
+    const input = (id: number) => root().querySelector<HTMLInputElement>(`[data-testid="real-balance-${id}"]`)!;
+    const radio = (id: number, value: string) =>
+      root().querySelector<HTMLInputElement>(
+        `[data-testid="pending-entry"][data-entry-id="${id}"] [data-testid="choice-${value}"] input`,
+      )!;
+
+    async function enter(id: number, value: string) {
+      input(id).value = value;
+      input(id).dispatchEvent(new Event('input'));
+      input(id).dispatchEvent(new Event('change'));
+      await refresh();
+    }
+
+    /** La luz se posterga y el alquiler se cierra con lo registrado; el Banco tiene 1.000,00 menos. */
+    async function toConfirmation() {
+      radio(1, 'CARRY_OVER').click();
+      await refresh();
+      radio(2, 'CLOSE_AS_IS').click();
+      await refresh();
+      root().querySelector<HTMLButtonElement>('[data-testid="next-step"]')!.click();
+      await refresh();
+      await enter(12, '254000');
+      await enter(14, '-1.500,50');
+      await enter(13, '600');
+      root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!.click();
+      await refresh();
+    }
+
+    async function acknowledge() {
+      checkbox().click();
+      await refresh();
+    }
+
+    const fullBody: ClosingPreviewRequest = {
+      resolutions: [
+        { entryId: 1, resolution: 'CARRY_OVER' },
+        { entryId: 2, resolution: 'CLOSE_AS_IS' },
+      ],
+      realBalances: [
+        { accountId: 12, amount: 254000 },
+        { accountId: 14, amount: -1500.5 },
+        { accountId: 13, amount: 600 },
+      ],
+    };
+
+    const problem = (status: number, body: object) => throwError(() => new HttpErrorResponse({ status, error: body }));
+
+    beforeEach(async () => {
+      await open('/cierre/2026-08');
+      await toConfirmation();
+    });
+
+    it('es el tercer paso y vuelve a pedir la simulación con todo lo elegido y cargado', () => {
+      expect(currentStep()).toBe(2);
+      expect(root().querySelector('[data-testid="confirmation-step"]')).not.toBeNull();
+      expect(api.previewClosing.mock.lastCall).toEqual(['2026-08', fullBody]);
+    });
+
+    it('muestra el resumen que informa la simulación', () => {
+      expect(items('summary-consolidated')).toEqual([
+        'Luz Postergar saldo: se consolida en $ 20.000,00.',
+        'Alquiler cobrado Cerrar con lo registrado: se consolida en US$ 0,00.',
+      ]);
+      expect(items('summary-created')).toEqual([
+        'Saldo pendiente: Luz Gasto por $ 25.000,00, con vencimiento el 18/09.',
+        'Diferencia de cierre: Banco (ago 2026) Gasto por $ 1.000,00, con vencimiento el 01/09.',
+      ]);
+      const rows = all('[data-testid="summary-accounts"] tbody tr').map((row) => cells(row));
+      expect(rows).toEqual([
+        ['Banco', '$ 255.000,00', '$ 254.000,00', '-$ 1.000,00'],
+        ['Efectivo', '-$ 1.500,50', '-$ 1.500,50', '$ 0,00'],
+        ['Dólares', 'US$ 600,00', 'US$ 600,00', 'US$ 0,00'],
+      ]);
+      expect(text(root().querySelector('[data-testid="irreversible-warning"]'))).toBe(
+        'Al cerrar, agosto 2026 queda cerrado para siempre: no se puede reabrir, y ya no se pueden crear, editar ni ' +
+          'eliminar sus partidas, ni movimientos o transferencias con fecha en ese mes.',
+      );
+    });
+
+    it('sin pendientes ni partidas nuevas lo dice', async () => {
+      TestBed.resetTestingModule();
+      await open('/cierre/2026-08', {
+        '2026-08': of({ ...AUGUST, accounts: [], pendingEntries: [], unresolvedEntryIds: [], missingRealBalanceAccountIds: [] }),
+      });
+      root().querySelector<HTMLButtonElement>('[data-testid="next-step"]')!.click();
+      await refresh();
+      root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!.click();
+      await refresh();
+
+      expect(text(root().querySelector('[data-testid="no-consolidated"]'))).toBe(
+        'No hay partidas pendientes: no se consolida nada.',
+      );
+      expect(text(root().querySelector('[data-testid="no-created"]'))).toBe(
+        'No se crea ninguna partida en el mes siguiente.',
+      );
+      expect(text(root().querySelector('[data-testid="no-reconciled"]'))).toBe('No hay cuentas para conciliar.');
+      expect(closeButton().disabled).toBe(true);
+      await acknowledge();
+      expect(closeButton().disabled).toBe(false);
+    });
+
+    it('«Cerrar» exige marcar que no se puede deshacer (D-45)', async () => {
+      expect(text(root().querySelector('[data-testid="acknowledge"]'))).toBe(
+        'Entiendo que agosto 2026 queda cerrado para siempre y no se puede reabrir.',
+      );
+      expect(text(closeButton())).toBe('Cerrar agosto 2026');
+      expect(closeButton().disabled).toBe(true);
+
+      await acknowledge();
+      expect(checkbox().checked).toBe(true);
+      expect(closeButton().disabled).toBe(false);
+
+      await acknowledge();
+      expect(closeButton().disabled).toBe(true);
+      closeButton().click();
+      expect(api.closePeriod).not.toHaveBeenCalled();
+    });
+
+    it('mientras se recalcula el resumen no se puede marcar la casilla', async () => {
+      root().querySelector<HTMLButtonElement>('[data-testid="back-to-balances"]')!.click();
+      await refresh();
+      const pendingPreview = new Subject<ClosingPreview>();
+      api.previewClosing.mockReturnValueOnce(pendingPreview);
+      root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!.click();
+      await refresh();
+
+      expect(text(root().querySelector('[data-testid="confirmation-loading"]'))).toBe(
+        'Calculando el resumen del cierre…',
+      );
+      expect(root().querySelector('[data-testid="acknowledge"]')).toBeNull();
+      expect(closeButton().disabled).toBe(true);
+
+      pendingPreview.next(augustWith(fullBody));
+      await refresh();
+      expect(checkbox().disabled).toBe(false);
+    });
+
+    it('al cerrar envía lo elegido y lo cargado, va al mes cerrado y ofrece el siguiente', async () => {
+      await acknowledge();
+      closeButton().click();
+      await refresh();
+
+      expect(api.closePeriod).toHaveBeenCalledWith('2026-08', fullBody);
+      expect(TestBed.inject(Router).url).toBe('/presupuesto/2026-08');
+      expect(snackBar.open).toHaveBeenCalledWith('Agosto 2026 quedó cerrado.', 'Ir a septiembre 2026', {
+        duration: 10000,
+      });
+
+      snackAction.next();
+      await harness.fixture.whenStable();
+      expect(TestBed.inject(Router).url).toBe('/presupuesto/2026-09');
+    });
+
+    it('mientras cierra dice «Cerrando…» y no deja cerrar dos veces', async () => {
+      const pending = new Subject<ClosingResult>();
+      api.closePeriod.mockReturnValue(pending);
+      await acknowledge();
+
+      closeButton().click();
+      await refresh();
+      expect(text(closeButton())).toBe('Cerrando…');
+      expect(closeButton().disabled).toBe(true);
+      closeButton().click();
+      expect(api.closePeriod).toHaveBeenCalledTimes(1);
+    });
+
+    it('«Volver a Saldos» conserva lo cargado y desmarca la casilla', async () => {
+      await acknowledge();
+      root().querySelector<HTMLButtonElement>('[data-testid="back-to-balances"]')!.click();
+      await refresh();
+
+      expect(currentStep()).toBe(1);
+      expect(input(12).value).toBe('254000');
+      root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!.click();
+      await refresh();
+      expect(checkbox().checked).toBe(false);
+    });
+
+    it('si la simulación al entrar dice que falta un saldo, vuelve a «Saldos»', async () => {
+      root().querySelector<HTMLButtonElement>('[data-testid="back-to-balances"]')!.click();
+      await refresh();
+      api.previewClosing.mockReturnValueOnce(of({ ...augustWith(fullBody), missingRealBalanceAccountIds: [14] }));
+
+      root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!.click();
+      await refresh();
+
+      expect(currentStep()).toBe(1);
+    });
+
+    // Errores del cierre (D-45): se muestran y el asistente vuelve al paso que corresponde, sin perder lo cargado.
+
+    async function closeFailing(status: number, body: object) {
+      api.closePeriod.mockReturnValue(problem(status, body));
+      await acknowledge();
+      closeButton().click();
+      await refresh();
+    }
+
+    it('falta resolver una pendiente: vuelve a «Pendientes» con las elecciones', async () => {
+      await closeFailing(409, {
+        code: 'UNRESOLVED_PENDING_ENTRIES',
+        detail: 'Falta resolver 1 partida pendiente: elegí «Postergar saldo» o «Cerrar con lo registrado» en cada una.',
+        entries: [3],
+      });
+
+      expect(currentStep()).toBe(0);
+      expect(closeError()).toBe(
+        'No se cerró el mes: Falta resolver 1 partida pendiente: elegí «Postergar saldo» o «Cerrar con lo ' +
+          'registrado» en cada una.',
+      );
+      expect(radio(1, 'CARRY_OVER').checked).toBe(true);
+      expect(radio(2, 'CLOSE_AS_IS').checked).toBe(true);
+      expect(api.previewClosing.mock.lastCall).toEqual(['2026-08', fullBody]);
+      expect(TestBed.inject(Router).url).toBe('/cierre/2026-08');
+    });
+
+    it('falta un saldo real: vuelve a «Saldos» con lo cargado', async () => {
+      await closeFailing(409, { code: 'MISSING_REAL_BALANCE', detail: 'Falta el saldo real de 1 cuenta.', accounts: [15] });
+
+      expect(currentStep()).toBe(1);
+      expect(closeError()).toBe('No se cerró el mes: Falta el saldo real de 1 cuenta.');
+      expect(input(12).value).toBe('254000');
+      expect(input(14).value).toBe('-1.500,50');
+    });
+
+    it('un saldo que no corresponde vuelve a «Saldos» y una resolución, a «Pendientes»', async () => {
+      await closeFailing(400, {
+        code: 'VALIDATION_ERROR',
+        detail: 'Hay saldos reales de cuentas que no se concilian en 2026-08.',
+        errors: [{ field: 'realBalances', message: 'Hay saldos reales de cuentas que no se concilian en 2026-08.' }],
+      });
+      expect(currentStep()).toBe(1);
+
+      root().querySelector<HTMLButtonElement>('[data-testid="confirm-step"]')!.click();
+      await refresh();
+      await closeFailing(400, {
+        code: 'VALIDATION_ERROR',
+        detail: 'Hay resoluciones que no corresponden.',
+        errors: [{ field: 'resolutions', message: 'Hay resoluciones que no corresponden.' }],
+      });
+      expect(currentStep()).toBe(0);
+      expect(closeError()).toBe('No se cerró el mes: Hay resoluciones que no corresponden.');
+    });
+
+    it('el mes anterior abierto vuelve a «Pendientes»', async () => {
+      api.previewClosing.mockReturnValue(
+        of({
+          ...augustWith(fullBody),
+          preconditionsMet: false,
+          blockers: [{ code: 'PREVIOUS_PERIOD_OPEN', detail: 'El período anterior está abierto.' }],
+        }),
+      );
+      await closeFailing(409, { code: 'PREVIOUS_PERIOD_OPEN', detail: 'El período anterior, 2026-07, todavía está abierto.' });
+
+      expect(currentStep()).toBe(0);
+      expect(closeError()).toContain('2026-07');
+      expect(text(root().querySelector('[data-testid="summary"]'))).toBe('Todavía no se puede cerrar el mes.');
+    });
+
+    it('el mes ya cerrado (otra pestaña) muestra que está cerrado', async () => {
+      api.previewClosing.mockReturnValue(
+        of({
+          ...AUGUST,
+          status: 'CLOSED',
+          preconditionsMet: false,
+          blockers: [{ code: 'PERIOD_CLOSED', detail: 'El período 2026-08 ya está cerrado.' }],
+          pendingEntries: [],
+          accounts: [],
+          unresolvedEntryIds: [],
+          missingRealBalanceAccountIds: [],
+        }),
+      );
+      await closeFailing(409, { code: 'PERIOD_CLOSED', detail: 'El período 2026-08 ya está cerrado.' });
+
+      expect(currentStep()).toBe(0);
+      expect(closeError()).toBe('No se cerró el mes: El período 2026-08 ya está cerrado.');
+      expect(text(root().querySelector('[data-testid="blocker"]'))).toBe('El mes ya está cerrado.');
+      expect(link('Volver al presupuesto del mes')!.getAttribute('href')).toBe('/presupuesto/2026-08');
+    });
+
+    it('otro error deja el asistente en «Confirmación», con la casilla sin marcar', async () => {
+      await closeFailing(500, { code: 'INTERNAL_ERROR', detail: 'Ocurrió un error inesperado.' });
+
+      expect(currentStep()).toBe(2);
+      expect(closeError()).toBe('No se cerró el mes: Ocurrió un error inesperado.');
+      expect(checkbox().checked).toBe(false);
+      expect(closeButton().disabled).toBe(true);
+      expect(snackBar.open).not.toHaveBeenCalled();
+    });
+
+    it('sin conexión lo dice y no pierde nada', async () => {
+      api.closePeriod.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
+      await acknowledge();
+      closeButton().click();
+      await refresh();
+
+      expect(currentStep()).toBe(2);
+      expect(closeError()).toBe(
+        'No se cerró el mes: No se pudo conectar con el servidor. Probá de nuevo en unos minutos.',
+      );
+      expect(items('summary-consolidated')).toHaveLength(2);
     });
   });
 

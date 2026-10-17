@@ -26,6 +26,10 @@ const MESSAGES: Record<string, string> = {
   ENTRY_HAS_MOVEMENTS: 'La partida tiene movimientos: no se puede eliminar.',
   DATE_OUT_OF_RANGE:
     'La fecha está fuera del rango permitido: no puede ser anterior a la ventana de la partida ni a la apertura de la cuenta, ni posterior a hoy.',
+  PREVIOUS_PERIOD_OPEN: 'El mes anterior todavía está abierto: los meses se cierran en orden.',
+  PERIOD_NOT_FINISHED: 'El mes todavía no terminó: se puede cerrar desde su último día.',
+  UNRESOLVED_PENDING_ENTRIES: 'Falta elegir qué hacer con alguna partida pendiente.',
+  MISSING_REAL_BALANCE: 'Falta cargar el saldo real de alguna cuenta.',
   TRANSFER_AMOUNTS_MISMATCH:
     'Las dos cuentas son de la misma moneda: el monto que sale y el que entra tienen que ser iguales.',
 };

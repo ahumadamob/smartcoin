@@ -43,6 +43,9 @@
   } @else if (loading()) {
     <p role="status">Cargando lo que falta para cerrar el mes…</p>
   } @else if (preview(); as current) {
+    @if (closeError(); as message) {
+      <p class="problem-text" role="alert" data-testid="close-error">No se cerró el mes: {{ message }}</p>
+    }
     @if (step() === 0) {
     <section class="diagnosis" aria-labelledby="diagnosis-heading" data-testid="diagnosis">
       <h2 id="diagnosis-heading" class="heading" [class.blocked]="!current.preconditionsMet" data-testid="summary">
@@ -229,7 +232,7 @@
         </div>
       }
     }
-    } @else {
+    } @else if (step() === 1) {
       <section class="section" aria-labelledby="balances-heading" data-testid="balances-step">
         <h2 id="balances-heading" class="heading">Saldos reales</h2>
         <p class="hint" data-testid="balances-intro">{{ balancesIntro((current.lastDay | date: dateFormat) ?? '') }}</p>
@@ -296,10 +299,108 @@
             [disabled]="!canConfirm()"
             aria-describedby="confirm-hint"
             data-testid="confirm-step"
+            (click)="goTo(2)"
           >
             {{ confirmationLabel }}
           </button>
           <p id="confirm-hint" class="hint" role="status" data-testid="confirm-hint">{{ confirmHint() }}</p>
+        </div>
+      </section>
+    } @else {
+      <section class="section" aria-labelledby="confirmation-heading" data-testid="confirmation-step">
+        <h2 id="confirmation-heading" class="heading">Resumen del cierre</h2>
+        @if (updateError(); as message) {
+          <p class="problem-text" role="alert" data-testid="update-error">{{ message }}</p>
+        }
+        @if (updating()) {
+          <p role="status" data-testid="confirmation-loading">Calculando el resumen del cierre…</p>
+        } @else {
+          <h3 id="consolidated-heading" class="subheading">Partidas que se consolidan</h3>
+          @if (current.pendingEntries.length === 0) {
+            <p class="empty" data-testid="no-consolidated">No hay partidas pendientes: no se consolida nada.</p>
+          } @else {
+            <ul class="summary-list" aria-labelledby="consolidated-heading" data-testid="summary-consolidated">
+              @for (entry of current.pendingEntries; track entry.id) {
+                <li [attr.data-entry-id]="entry.id">
+                  <span class="summary-name">{{ entry.name }}</span> {{ consolidation(entry) }}
+                </li>
+              }
+            </ul>
+          }
+
+          <h3 id="created-heading" class="subheading">Partidas que se crean en el mes siguiente</h3>
+          @if (current.newEntries.length === 0) {
+            <p class="empty" data-testid="no-created">No se crea ninguna partida en el mes siguiente.</p>
+          } @else {
+            <ul class="summary-list" aria-labelledby="created-heading" data-testid="summary-created">
+              @for (entry of current.newEntries; track $index) {
+                <li>
+                  <span class="summary-name">{{ entry.name }}</span> {{ newEntry(entry) }}
+                </li>
+              }
+            </ul>
+          }
+
+          <h3 id="reconciled-heading" class="subheading">Cuentas conciliadas</h3>
+          @if (accountGroups().length === 0) {
+            <p class="empty" data-testid="no-reconciled">No hay cuentas para conciliar.</p>
+          } @else {
+            @for (group of accountGroups(); track group.currency) {
+              <table class="accounts summary-accounts" [attr.aria-label]="'Cuentas en ' + group.label.toLowerCase()" data-testid="summary-accounts">
+                <caption>{{ group.label }}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Cuenta</th>
+                    <th scope="col" class="number">Saldo calculado</th>
+                    <th scope="col" class="number">Saldo real</th>
+                    <th scope="col" class="number">Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (account of group.accounts; track account.id) {
+                    <tr [attr.data-account-id]="account.id">
+                      <th scope="row">{{ account.name }}</th>
+                      <td class="number" [class.negative]="account.computedBalance < 0">
+                        {{ account.computedBalance | money: account.currency }}
+                      </td>
+                      <td class="number" [class.negative]="(account.realBalance ?? 0) < 0">
+                        {{ account.realBalance | money: account.currency }}
+                      </td>
+                      <td class="number" [class.negative]="(account.difference ?? 0) < 0" data-testid="summary-difference">
+                        {{ account.difference | money: account.currency }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          }
+
+          <p class="warning" data-testid="irreversible-warning">{{ irreversibleWarning(periodName()) }}</p>
+          <mat-checkbox
+            class="acknowledge"
+            [checked]="acknowledged()"
+            [disabled]="!readyToClose() || closing()"
+            (change)="acknowledge($event)"
+            data-testid="acknowledge"
+            >{{ acknowledgeLabel(periodName()) }}</mat-checkbox
+          >
+        }
+        <div class="next">
+          <button mat-button type="button" (click)="goTo(1)" data-testid="back-to-balances">{{ backToBalancesLabel }}</button>
+          <button
+            mat-flat-button
+            type="button"
+            [disabled]="!canClose()"
+            data-testid="close-period"
+            (click)="close()"
+          >
+            @if (closing()) {
+              Cerrando…
+            } @else {
+              {{ closeButtonLabel(periodName()) }}
+            }
+          </button>
         </div>
       </section>
     }

@@ -16,19 +16,22 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxChange, MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatRadioChange, MatRadioModule } from '@angular/material/radio';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, EMPTY, map, Subject, switchMap } from 'rxjs';
 import {
   CierreDeMesService,
   ClosingAccount,
+  ClosingNewEntry,
   ClosingPendingEntry,
   ClosingPreview,
   ClosingPreviewRequest,
 } from '../../api';
-import { messageFor } from '../../core/error-messages';
+import { detailFor, messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { parseAmount } from '../../shared/amount';
 import { CurrencyCode, MoneyPipe } from '../../shared/pipes/money.pipe';
@@ -37,24 +40,32 @@ import { KIND_LABELS } from '../budget-items/budget-item-labels';
 import { ENTRY_STATUS_LABELS } from '../budget/entry-table';
 import { isPeriod } from '../budget/period-nav';
 import {
+  acknowledgeLabel,
   accountsByCurrency,
   BACK_STEP_LABEL,
+  BACK_TO_BALANCES_LABEL,
   BALANCE_FORMAT_ERROR,
   balancesIntro,
   blockerText,
   CLOSING_STEPS,
+  closeButtonLabel,
+  closedMessage,
   closingSummary,
   CONFIRMATION_STEP_LABEL,
+  consolidationText,
   confirmationHint,
   differenceText,
   effectText,
+  irreversibleWarning,
   NEXT_STEP_LABEL,
+  newEntryText,
   nextStepHint,
   REMOVED_ENTRIES_NOTICE,
   Resolution,
   RESOLUTION_OPTIONS,
   RESOLUTIONS_INTRO,
   sameEffectNote,
+  stepForCloseError,
   UNAVAILABLE_STEP_TEXT,
 } from './closing-text';
 
@@ -88,9 +99,12 @@ function amountFormat(control: AbstractControl): ValidationErrors | null {
  * elección vuelve a pedir la simulación y se muestra lo que va a pasar según el backend. Para avanzar a «Saldos» hay que
  * resolverlas todas. HU-32 habilita «Saldos»: para cada cuenta a conciliar se carga el saldo real y, con cada uno, se
  * vuelve a pedir la simulación para mostrar la diferencia y su efecto según el backend. Para avanzar a «Confirmación»
- * hay que cargarlos todos; ese paso sigue deshabilitado hasta el cierre efectivo (HU-33). Las elecciones y los saldos
- * viven en la pantalla (también al volver a «Pendientes»): no se guarda nada hasta el cierre. Todos los montos vienen
- * del backend: acá no se suma ni se resta nada.
+ * hay que cargarlos todos. HU-33 hace «Confirmación»: vuelve a pedir la simulación y muestra su resumen (qué se
+ * consolida, qué se crea en el mes siguiente y la diferencia de cada cuenta), avisa que no se puede deshacer y pide una
+ * casilla para habilitar «Cerrar <mes>» (D-45). El cierre (`POST /api/periods/{period}/close`) lleva al presupuesto del
+ * mes cerrado con un aviso que ofrece el mes siguiente; ante un error, lo muestra y vuelve al paso que corresponde, sin
+ * perder lo cargado. Las elecciones y los saldos viven en la pantalla (también al volver de paso): no se guarda nada
+ * hasta el cierre. Todos los montos vienen del backend: acá no se suma ni se resta nada.
  */
 @Component({
   selector: 'app-closing-wizard',
@@ -98,6 +112,7 @@ function amountFormat(control: AbstractControl): ValidationErrors | null {
   imports: [
     DatePipe,
     MatButtonModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatInputModule,
     MatRadioModule,
@@ -112,6 +127,9 @@ function amountFormat(control: AbstractControl): ValidationErrors | null {
 export class ClosingWizard implements OnInit {
   private readonly api = inject(CierreDeMesService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly periodPipe = new PeriodPipe();
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly title = viewChild<ElementRef<HTMLElement>>('title');
@@ -127,7 +145,7 @@ export class ClosingWizard implements OnInit {
 
   /** Las resoluciones elegidas, por id de partida. Se pierden al cambiar de mes o recargar: no se guardan. */
   protected readonly choices = signal<ReadonlyMap<number, Resolution>>(new Map());
-  /** El paso actual: 0 «Pendientes», 1 «Saldos». */
+  /** El paso actual: 0 «Pendientes», 1 «Saldos», 2 «Confirmación». */
   protected readonly step = signal(0);
   /** Los saldos reales cargados y válidos, por id de cuenta. Se pierden al cambiar de mes o recargar. */
   protected readonly balances = signal<ReadonlyMap<number, number>>(new Map());
@@ -168,6 +186,33 @@ export class ClosingWizard implements OnInit {
   /** Cambia cuando se escribe un texto de saldo inválido, para que la pista lo vea. */
   private readonly invalidTexts = signal<ReadonlySet<number>>(new Set());
 
+  // Confirmación (HU-33).
+
+  /** La casilla «Entiendo que … queda cerrado para siempre» (D-45); se desmarca al salir del paso. */
+  protected readonly acknowledged = signal(false);
+  /** Si el cierre está en camino. */
+  protected readonly closing = signal(false);
+  /** El error del último intento de cierre, que se muestra en el paso al que volvió el asistente. */
+  protected readonly closeError = signal<string | null>(null);
+  /** El mes con formato, para los textos: «agosto 2026». */
+  protected readonly periodName = computed(() => this.periodPipe.transform(this.preview()?.period ?? this.period()));
+  /** Todo listo según la última simulación: precondiciones, resoluciones y saldos, sin nada inválido ni en camino. */
+  protected readonly readyToClose = computed(() => {
+    const current = this.preview();
+    return (
+      current !== null &&
+      this.canChoose() &&
+      !this.updating() &&
+      this.updateError() === null &&
+      current.unresolvedEntryIds.length === 0 &&
+      current.missingRealBalanceAccountIds.length === 0 &&
+      current.invalidResolutions.length === 0 &&
+      current.invalidBalances.length === 0 &&
+      !this.hasInvalidText()
+    );
+  });
+  protected readonly canClose = computed(() => this.readyToClose() && this.acknowledged() && !this.closing());
+
   protected readonly steps = CLOSING_STEPS;
   protected readonly unavailableStepText = UNAVAILABLE_STEP_TEXT;
   protected readonly dateFormat = DATE_FORMAT;
@@ -184,6 +229,10 @@ export class ClosingWizard implements OnInit {
   protected readonly balancesIntro = balancesIntro;
   protected readonly removedNotice = REMOVED_ENTRIES_NOTICE;
   protected readonly sameEffectNote = sameEffectNote;
+  protected readonly backToBalancesLabel = BACK_TO_BALANCES_LABEL;
+  protected readonly irreversibleWarning = irreversibleWarning;
+  protected readonly acknowledgeLabel = acknowledgeLabel;
+  protected readonly closeButtonLabel = closeButtonLabel;
 
   ngOnInit(): void {
     let first = true;
@@ -240,6 +289,9 @@ export class ClosingWizard implements OnInit {
         this.updating.set(false);
         this.updateError.set(null);
         this.removedEntries.set(false);
+        this.acknowledged.set(false);
+        this.closing.set(false);
+        this.closeError.set(null);
         if (!isPeriod(period)) {
           this.fail({ unavailable: true, message: 'La dirección no corresponde a un mes válido.' });
           return;
@@ -278,18 +330,21 @@ export class ClosingWizard implements OnInit {
   }
 
   private simulate(): void {
-    const period = this.period()!;
-    const resolutions = [...this.choices()].map(([entryId, resolution]) => ({ entryId, resolution }));
-    const realBalances = [...this.balances()].map(([accountId, amount]) => ({ accountId, amount }));
     this.updating.set(true);
     this.updateError.set(null);
-    this.requests.next({ period, body: { resolutions, realBalances } });
+    this.requests.next({ period: this.period()!, body: this.requestBody() });
   }
 
   // Paso «Saldos» (HU-32).
 
   protected goTo(step: number): void {
     this.step.set(step);
+    this.acknowledged.set(false);
+    this.closeError.set(null);
+    if (step === 2) {
+      // El resumen sale de una simulación nueva, con todo lo elegido y cargado.
+      this.simulate();
+    }
     afterNextRender(() => this.title()?.nativeElement.focus(), { injector: this.injector });
   }
 
@@ -337,6 +392,67 @@ export class ClosingWizard implements OnInit {
     this.simulate();
   }
 
+  // Paso «Confirmación» (HU-33).
+
+  /** Las pendientes en el resumen: con qué resolución y monto se consolida cada una, según la simulación. */
+  protected consolidation(entry: ClosingPendingEntry): string {
+    return consolidationText(entry, (amount, currency: CurrencyCode) => this.money.transform(amount, currency));
+  }
+
+  protected newEntry(entry: ClosingNewEntry): string {
+    return newEntryText(entry, (amount, currency: CurrencyCode) => this.money.transform(amount, currency));
+  }
+
+  protected acknowledge(event: MatCheckboxChange): void {
+    this.acknowledged.set(event.checked);
+  }
+
+  /**
+   * Cierra el mes con lo elegido y lo cargado. Al terminar lleva al presupuesto del mes cerrado, con un aviso que
+   * ofrece ir al siguiente (D-45). Ante un error, lo muestra, vuelve a pedir la simulación y vuelve al paso que
+   * corresponde, sin perder las elecciones ni los saldos.
+   */
+  protected close(): void {
+    if (!this.canClose()) {
+      return;
+    }
+    const period = this.period()!;
+    const name = this.periodName();
+    this.closing.set(true);
+    this.closeError.set(null);
+    this.api
+      .closePeriod(period, this.requestBody())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.closing.set(false);
+          const bar = this.snackBar.open(
+            closedMessage(name),
+            `Ir a ${this.periodPipe.transform(result.nextPeriod)}`,
+            { duration: 10000 },
+          );
+          bar.onAction().subscribe(() => void this.router.navigate(['/presupuesto', result.nextPeriod]));
+          void this.router.navigate(['/presupuesto', result.period]);
+        },
+        error: (e: unknown) => {
+          this.closing.set(false);
+          this.acknowledged.set(false);
+          this.closeError.set(detailFor(e));
+          const step = stepForCloseError(e);
+          this.step.set(step);
+          this.simulate();
+          afterNextRender(() => this.title()?.nativeElement.focus(), { injector: this.injector });
+        },
+      });
+  }
+
+  private requestBody(): ClosingPreviewRequest {
+    return {
+      resolutions: [...this.choices()].map(([entryId, resolution]) => ({ entryId, resolution })),
+      realBalances: [...this.balances()].map(([accountId, amount]) => ({ accountId, amount })),
+    };
+  }
+
   private hasInvalidText(): boolean {
     return this.invalidTexts().size > 0;
   }
@@ -378,9 +494,12 @@ export class ClosingWizard implements OnInit {
     }
     this.preview.set(preview);
     this.updating.set(false);
-    // Si dejó de estar todo resuelto (otra pestaña), se vuelve a «Pendientes».
-    if (this.step() > 0 && preview.unresolvedEntryIds.length > 0) {
+    // Si dejó de estar todo resuelto (otra pestaña) o el mes ya no se puede cerrar, se vuelve a «Pendientes»; si
+    // falta algún saldo, a «Saldos».
+    if (this.step() > 0 && (preview.unresolvedEntryIds.length > 0 || !preview.preconditionsMet)) {
       this.step.set(0);
+    } else if (this.step() > 1 && preview.missingRealBalanceAccountIds.length > 0) {
+      this.step.set(1);
     }
   }
 
