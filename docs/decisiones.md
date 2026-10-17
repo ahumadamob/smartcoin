@@ -296,6 +296,14 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 - **Consultas**: períodos del usuario (horizonte), `AccountService.balancesAt(hoy)`, las partidas pendientes del usuario de todas las monedas con vencimiento hasta el último día proyectado y la suma de los movimientos de esas partidas. Cuatro consultas fijas, sin importar cuántas cuentas, meses o partidas haya.
 - **No incluye**: transferencias futuras (no existen, S-09), ni lo que no es una partida pendiente.
 
+**D-48. Vista de varios meses.** *Confirmada* (HU-36): las cuatro dudas (totales, partidas sin Concepto, qué filas aparecen y rango) se resolvieron con el usuario antes de escribir código, todas por la opción recomendada. Sigue a RN-17 y RN-44 y no agrega supuestos.
+
+- **Totales por mes y moneda**: estimado de ingresos, estimado de gastos y resultado, como en la vista del mes (RN-44). Se calculan en el backend con `MonthTotals` sobre las mismas filas que la vista del mes; el frontend no suma. Hay un total por cada moneda que tiene partidas en ese mes; un mes sin partidas de una moneda no la informa y la pantalla muestra «—».
+- **Filas**: dos secciones, Ingresos y Gastos. En cada una, primero los Conceptos (por nombre sin distinguir mayúsculas y luego por id) y debajo las partidas sin Concepto agrupadas en **una fila por origen, tipo y moneda** («Puntuales», «Saldos postergados», «Diferencias de cierre»), con el estimado sumado de cada mes y la cantidad de partidas. Un clic abre el mes, donde está el detalle. Solo aparecen las filas con al menos una partida en el rango: un Concepto finalizado o por comenzar sin partidas en el rango no se muestra. No hace falta leer los Conceptos aparte.
+- **Celdas**: un Concepto tiene como máximo una partida por período (RN-13), así que su celda trae esa partida: id, estimado (RN-17), estado mostrado (RN-16), si está editada y si está consolidada, calculados con la misma fila que la vista del mes (`PeriodViewService.row`). Sin partida, la celda es `null` y la pantalla muestra «—», nunca 0. En una celda agrupada, `entryId` y `status` son `null`, `manual` vale si alguna está editada y `consolidated` si todas están consolidadas. La moneda de cada celda es la de la cuenta de su partida; la de una fila de Concepto, la de su cuenta por defecto.
+- **Rango**: `from` y `to` (`YYYY-MM`). Sin ninguno, 12 meses desde el actual; solo `from`, 12 meses desde ahí sin pasar del horizonte; solo `to`, 12 meses hasta ahí sin bajar del período inicial. Máximo 24 meses, entre el período inicial y el horizonte; si no, 400 `VALIDATION_ERROR` en `from` (invertido o anterior al período inicial) o en `to` (posterior al horizonte o más de 24 meses). Se responde 400, y no 404, porque son parámetros de consulta y no un recurso (RN-06). Un mes cerrado lleva «Cerrado» en el encabezado, como texto.
+- **Consultas**: períodos del usuario (período inicial y horizonte), los períodos del rango (su estado), las partidas del rango con cuenta, categoría, Concepto, categoría y cuenta por defecto del Concepto, y las sumas de movimientos de todas ellas. Cuatro consultas fijas, sin importar cuántos Conceptos, meses o partidas haya; todas con `userId`.
+
 ## Supuestos tomados al redactar
 
 **S-01. La ventana de anticipación vale para ingresos y gastos.** Pagar el alquiler de noviembre el 28 de octubre es tan común como cobrar antes. Si se prefiere solo para ingresos, se cambia RN-21.
@@ -332,7 +340,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **S-17. Categorías opcionales**, sin tipo (sirven para ingresos y gastos).
 
-**S-18. Flujo de caja, proyección de saldos y vista de varios meses (HU-34 a HU-36) son propuestas.** Se confirman antes de implementarlas. Las tres historias de la Épica 9 se confirmaron: *HU-34* (D-46), *HU-35* (D-47) y *HU-36* (D-48).
+**S-18. Flujo de caja, proyección de saldos y vista de varios meses (HU-34 a HU-36) se confirmaron antes de implementarlas.** Las tres historias de la Épica 9 se confirmaron: *HU-34* (D-46), *HU-35* (D-47) y *HU-36* (D-48).
 
 **S-19. El nombre de un Concepto puede repetirse.** El modelo no tiene un índice único en `budget_item` y ninguna regla lo pide; dos Conceptos "Seguro" con distinta cuenta son razonables. Agregado en HU-10.
 

@@ -436,6 +436,14 @@ Aclaraciones (HU-35, D-47):
 - El pendiente se proyecta en la cuenta prevista de la partida, aunque un pago real haya salido de otra cuenta de la misma moneda. Por eso el subtotal de una moneda del mes actual coincide con el saldo final del flujo de caja (RN-45) de esa moneda, pero la distribución entre cuentas puede diferir.
 - `until` (mes, por defecto el horizonte) no puede ser anterior al mes actual ni posterior al horizonte: 400 `VALIDATION_ERROR` en `until`. No incluye transferencias futuras.
 
+**RN-47. Vista de varios meses.** Para un rango de hasta 24 meses, muestra los Conceptos en filas y los meses en columnas. Cada celda es el estimado (RN-17) de la partida del Concepto en ese mes, con su estado (RN-16) y si está editada o consolidada. Las partidas sin Concepto van agrupadas por origen, tipo y moneda. Al pie, por mes y moneda, estimado de ingresos, estimado de gastos y resultado (RN-44).
+
+Aclaraciones (HU-36, D-48):
+
+- Cada celda y cada total son los de la vista de ese mes (RN-44): se calculan con el mismo código, no aparte. Nunca se suman ARS y USD.
+- Solo aparecen las filas con al menos una partida en el rango. Una celda sin partida no tiene valor (no es 0).
+- Sin extremos, 12 meses desde el actual. El rango no puede ser anterior al período inicial ni posterior al horizonte, ni estar invertido, ni tener más de 24 meses: 400 `VALIDATION_ERROR` en `from` o `to`.
+
 ## 11. Usuarios y acceso
 
 **RN-47. Alta de usuario.** `POST /api/admin/users` con el header `X-Admin-Key`. La clave se compara en tiempo constante con la variable `APP_ADMIN_KEY`; si la variable no existe o está vacía, el endpoint rechaza siempre. No hay clave por defecto. Clave ausente o incorrecta: 401. Datos: email (se guarda en minúsculas y es único: `EMAIL_ALREADY_EXISTS`), contraseña inicial (RN-51) y período inicial (por defecto, el actual; no puede ser posterior al actual). El usuario queda habilitado, con cambio de contraseña obligatorio y con sus períodos creados (RN-07).
