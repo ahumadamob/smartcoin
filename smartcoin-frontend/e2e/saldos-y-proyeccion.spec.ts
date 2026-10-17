@@ -1,7 +1,7 @@
 import { Page, expect, test } from '@playwright/test';
 import { API_URL, startPeriod, startSession } from './support';
 
-/** Épica 9 · Saldos y proyección. HU-34 (flujo de caja por fecha) y HU-35 (proyección de saldos). Cada describe usa un usuario propio. */
+/** Épica 9 · Saldos y proyección. HU-34 (flujo de caja por fecha), HU-35 (proyección de saldos) y HU-36 (vista de varios meses). Cada describe usa un usuario propio. */
 
 const opening = `${startPeriod()}-01`;
 
@@ -397,5 +397,213 @@ test.describe('HU-35 · proyección de saldos por cuenta', () => {
 
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(monthRows()).toHaveCount(1);
+  });
+});
+
+test.describe('HU-36 · vista de varios meses', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let page: Page;
+  let token: string;
+  let sueldoNext: number;
+
+  const api = async (path: string, init?: { method?: string; body?: unknown }, expected = 300) => {
+    const response = await page.request.fetch(`${API_URL}${path}`, {
+      method: init?.method ?? 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      data: init?.body,
+    });
+    if (expected === 300) {
+      expect(response.status(), path).toBeLessThan(300);
+      return response.json();
+    }
+    expect(response.status(), path).toBe(expected);
+    return response.json();
+  };
+
+  /** El período `offset` meses después del actual (YYYY-MM). */
+  const period = (offset: number) => iso(new Date(today.getFullYear(), today.getMonth() + offset, 1)).slice(0, 7);
+  const cell = (row: number, column: number) =>
+    page.locator(`[data-testid="cell"][data-row="${row}"][data-column="${column}"]`);
+  const pesos = (amount: number) => `${amount < 0 ? '-' : ''}$ ${Math.abs(amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+  const dollars = (amount: number) => `${amount < 0 ? '-' : ''}US$ ${Math.abs(amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`;
+  const totalRow = (index: number) => page.getByTestId('total-row').nth(index);
+
+  test.beforeAll(async ({ browser, playwright }) => {
+    page = await browser.newPage();
+    ({ token } = await startSession(page, playwright));
+
+    const ids: Record<string, number> = {};
+    for (const [name, currency, initialBalance] of [
+      ['Banco', 'ARS', 3000000],
+      ['Caja USD', 'USD', 1000],
+    ] as const) {
+      const created = await api('/api/accounts', {
+        method: 'POST',
+        body: { name, type: 'BANK', currency, initialBalance, openingDate: opening },
+      });
+      ids[name] = created.id;
+    }
+
+    // Un Concepto mensual, uno bimestral y uno en dólares, todos desde el mes actual.
+    for (const [name, kind, account, periodicity, dueDay, amount] of [
+      ['Sueldo', 'INCOME', 'Banco', 'MONTHLY', 25, 1000000],
+      ['Seguro', 'EXPENSE', 'Banco', 'BIMONTHLY', 10, 60000],
+      ['Hosting', 'EXPENSE', 'Caja USD', 'MONTHLY', 5, 20],
+    ] as const) {
+      await api('/api/budget-items', {
+        method: 'POST',
+        body: {
+          name,
+          kind,
+          defaultAccountId: ids[account],
+          periodicity,
+          dueDay,
+          dueMonthOffset: 0,
+          startPeriod: currentPeriod,
+          estimationRule: 'LAST_VALUE',
+          currentAmount: amount,
+        },
+      });
+    }
+
+    // Consolidar el sueldo del mes actual (cobrado por completo) y editar el del mes siguiente.
+    const current = await api(`/api/periods/${currentPeriod}`);
+    const sueldoNow = current.incomes.find((e: { name: string }) => e.name === 'Sueldo').id;
+    await api(`/api/entries/${sueldoNow}/movements`, {
+      method: 'POST',
+      body: { date: isoDay(0), amount: 1000000, accountId: ids['Banco'] },
+    });
+    await api(`/api/entries/${sueldoNow}/consolidate`, { method: 'POST', body: {} });
+    const next = await api(`/api/periods/${period(1)}`);
+    sueldoNext = next.incomes.find((e: { name: string }) => e.name === 'Sueldo').id;
+    await api(`/api/entries/${sueldoNext}`, { method: 'PATCH', body: { budgetedAmount: 1200000 } });
+
+    await page.goto('/planificacion');
+  });
+
+  test.afterAll(async () => {
+    await page.close();
+  });
+
+  test('sin elegir muestra 12 meses desde el actual y las filas por tipo', async () => {
+    await expect(page.getByRole('heading', { level: 1, name: 'Varios meses' })).toBeVisible();
+    await expect(page.getByLabel('Desde')).toHaveValue(currentPeriod);
+    await expect(page.getByLabel('Hasta')).toHaveValue(period(11));
+    await expect(page.getByTestId('month-head')).toHaveCount(12);
+    await expect(page.getByTestId('month-head').first()).toContainText('Mes actual');
+    await expect(page.getByTestId('section')).toHaveText([/Ingresos/, /Gastos/]);
+    await expect(page.getByTestId('row-name')).toHaveText([/Sueldo/, /Hosting/, /Seguro/]);
+  });
+
+  test('los estimados con sus marcas: consolidada, editada, bimestral con celdas vacías y dólares', async () => {
+    await expect(cell(0, 0)).toContainText(pesos(1000000));
+    await expect(cell(0, 0).getByTestId('mark-consolidated')).toHaveText('Consolidada');
+    await expect(cell(0, 1)).toContainText(pesos(1200000));
+    await expect(cell(0, 1).getByTestId('mark-edited')).toHaveText('Editada');
+    await expect(cell(0, 2)).toContainText(pesos(1000000));
+    await expect(cell(0, 2).locator('.mark')).toHaveCount(0);
+
+    await expect(cell(1, 0)).toContainText(dollars(20));
+    await expect(cell(1, 5)).toContainText(dollars(20));
+
+    await expect(cell(2, 0)).toContainText(pesos(60000));
+    await expect(cell(2, 1)).toContainText('Sin partida');
+    await expect(cell(2, 1)).not.toContainText('0,00');
+    await expect(cell(2, 2)).toContainText(pesos(60000));
+  });
+
+  test('los totales por mes y moneda están separados y coinciden con la vista de cada mes', async () => {
+    // Pesos: ingresos, gastos y resultado; dólares: lo mismo, sin sumarse a los pesos.
+    await expect(totalRow(0).getByTestId('total-income').nth(0)).toHaveText(pesos(1000000));
+    await expect(totalRow(1).getByTestId('total-expense').nth(0)).toHaveText(pesos(60000));
+    await expect(totalRow(2).getByTestId('total-result').nth(0)).toHaveText(pesos(940000));
+    await expect(totalRow(1).getByTestId('total-expense').nth(1)).toHaveText(pesos(0));
+    await expect(totalRow(2).getByTestId('total-result').nth(1)).toHaveText(pesos(1200000));
+    await expect(totalRow(5).getByTestId('total-result').nth(0)).toHaveText(dollars(-20));
+
+    // Tres meses distintos: cada celda y cada total son los de la vista del mes.
+    const grid = await api(`/api/budget-grid?from=${currentPeriod}&to=${period(11)}`);
+    for (const column of [0, 1, 2]) {
+      const view = await api(`/api/periods/${period(column)}`);
+      const entries = [...view.incomes, ...view.expenses];
+      for (const row of grid.rows) {
+        const found = entries.find((e: { budgetItemId: number }) => e.budgetItemId === row.budgetItemId);
+        expect(row.cells[column]?.forecast, `${row.name} ${period(column)}`).toBe(found?.forecastAmount);
+        expect(row.cells[column]?.entryId).toBe(found?.id);
+      }
+      for (const total of grid.totals[column].currencies) {
+        const expected = view.totals.find((t: { currency: string }) => t.currency === total.currency);
+        expect(total.incomeForecast).toBe(expected.income.forecastAmount);
+        expect(total.expenseForecast).toBe(expected.expense.forecastAmount);
+        expect(total.result).toBe(expected.result);
+      }
+    }
+  });
+
+  test('con el teclado: las celdas se recorren con flechas, tienen foco visible y Enter abre el mes', async () => {
+    await cell(0, 0).focus();
+    await expect(cell(0, 0)).toBeFocused();
+    await expect(cell(0, 0)).toHaveCSS('outline-style', 'solid');
+
+    await page.keyboard.press('ArrowRight');
+    await expect(cell(0, 1)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(cell(1, 1)).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+
+    await expect(page).toHaveURL(new RegExp(`/presupuesto/${period(1)}$`));
+    await expect(page.getByRole('heading', { level: 1, name: /Presupuesto de/ })).toBeVisible();
+    // La partida editada, en la vista de ese mes.
+    await expect(page.getByRole('row', { name: /Sueldo/ })).toContainText('1.200.000,00');
+  });
+
+  test('un clic en una celda abre ese mes', async () => {
+    await page.goto('/planificacion');
+    await cell(2, 2).click();
+
+    await expect(page).toHaveURL(new RegExp(`/presupuesto/${period(2)}$`));
+    await expect(page.getByRole('row', { name: /Seguro/ })).toContainText('60.000,00');
+  });
+
+  test('error: un rango invertido o de más de 24 meses muestra el error del backend y no deja la grilla anterior', async () => {
+    await page.goto('/planificacion');
+    await expect(page.getByTestId('month-head')).toHaveCount(12);
+
+    await page.getByLabel('Desde').fill(period(5));
+    await page.getByLabel('Hasta').fill(period(2));
+    await page.getByRole('button', { name: 'Ver' }).click();
+    await expect(page.getByRole('alert')).toContainText('no puede ser posterior');
+    await expect(page.getByTestId('month-head')).toHaveCount(0);
+
+    await page.getByLabel('Desde').fill(period(0));
+    await page.getByLabel('Hasta').fill(period(24));
+    await page.getByRole('button', { name: 'Ver' }).click();
+    await expect(page.getByRole('alert')).toContainText('24 meses');
+
+    // Un rango válido vuelve a mostrar la grilla.
+    await page.getByLabel('Hasta').fill(period(3));
+    await page.getByRole('button', { name: 'Ver' }).click();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByTestId('month-head')).toHaveCount(4);
+  });
+
+  test('por la API: rango fuera de los períodos, invertido o demasiado largo es 400 en su campo', async () => {
+    const before = await api(`/api/budget-grid?from=2000-01&to=2000-03`, undefined, 400);
+    expect(before.code).toBe('VALIDATION_ERROR');
+    expect(before.errors[0].field).toBe('from');
+
+    const inverted = await api(`/api/budget-grid?from=${period(5)}&to=${period(2)}`, undefined, 400);
+    expect(inverted.errors[0].field).toBe('from');
+
+    const beyond = await api(`/api/budget-grid?from=${period(0)}&to=2099-01`, undefined, 400);
+    expect(beyond.errors[0].field).toBe('to');
+
+    const tooLong = await api(`/api/budget-grid?from=${startPeriod()}&to=${period(24)}`, undefined, 400);
+    expect(tooLong.errors[0].field).toBe('to');
+
+    const malformed = await api(`/api/budget-grid?from=ayer`, undefined, 400);
+    expect(malformed.code).toBe('VALIDATION_ERROR');
   });
 });

@@ -22,6 +22,20 @@ test.beforeEach(async ({ page }) => {
       },
     }),
   );
+  await page.route(/\/api\/budget-grid(\?.*)?$/, (route) =>
+    route.fulfill({
+      json: {
+        from: '2026-10',
+        to: '2026-10',
+        currentPeriod: '2026-10',
+        startPeriod: '2026-08',
+        horizon: '2028-10',
+        months: [{ period: '2026-10', status: 'OPEN' }],
+        rows: [],
+        totals: [{ period: '2026-10', currencies: [] }],
+      },
+    }),
+  );
   await page.route(/\/api\/projection(\?.*)?$/, (route) =>
     route.fulfill({ json: { from: '2026-10', until: '2028-10', accounts: [], months: [] } }),
   );
