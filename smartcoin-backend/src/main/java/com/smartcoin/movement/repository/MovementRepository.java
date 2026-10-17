@@ -111,4 +111,16 @@ public interface MovementRepository extends JpaRepository<Movement, Long> {
 			group by e.id""")
 	List<EntryTotal> sumByPendingEntriesDueUntil(@Param("userId") Long userId, @Param("status") StoredEntryStatus status,
 			@Param("currency") Currency currency, @Param("dueUntil") LocalDate dueUntil);
+
+	/**
+	 * HU-35 (RN-17): como {@link #sumByPendingEntriesDueUntil}, pero de todas las monedas; es la misma selección de
+	 * partidas que {@code BudgetEntryRepository.findPendingUntil}.
+	 */
+	@Query("""
+			select new com.smartcoin.entry.domain.EntryTotal(e.id, sum(m.amount))
+			from Movement m join m.entry e
+			where m.userId = :userId and e.status = :status and e.dueDate <= :dueUntil
+			group by e.id""")
+	List<EntryTotal> sumByPendingEntriesUntil(@Param("userId") Long userId, @Param("status") StoredEntryStatus status,
+			@Param("dueUntil") LocalDate dueUntil);
 }

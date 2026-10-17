@@ -88,4 +88,15 @@ public interface BudgetEntryRepository extends JpaRepository<BudgetEntry, Long> 
 			where e.userId = :userId and e.status = :status and a.currency = :currency and e.dueDate <= :dueUntil""")
 	List<BudgetEntry> findPendingForCashFlow(@Param("userId") Long userId, @Param("status") StoredEntryStatus status,
 			@Param("currency") Currency currency, @Param("dueUntil") LocalDate dueUntil);
+
+	/**
+	 * HU-35 (RN-46): como {@link #findPendingForCashFlow}, pero de todas las monedas, para proyectar las cuentas de una
+	 * vez. Con su cuenta y su Concepto en la misma consulta.
+	 */
+	@Query("""
+			select e from BudgetEntry e
+			join fetch e.account
+			where e.userId = :userId and e.status = :status and e.dueDate <= :dueUntil""")
+	List<BudgetEntry> findPendingUntil(@Param("userId") Long userId, @Param("status") StoredEntryStatus status,
+			@Param("dueUntil") LocalDate dueUntil);
 }
