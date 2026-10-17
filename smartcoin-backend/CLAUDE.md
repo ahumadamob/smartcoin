@@ -122,7 +122,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 | `MonthTotals` | RN-44: totales por moneda de ingresos y de gastos, y resultado |
 | `MovementDateValidator` | RN-21: ventana, apertura, fecha futura, y la fecha más temprana que admite una partida (HU-20) |
 | `BalanceCalculator` | RN-35 |
-| `ClosingPlanner` | RN-38 a RN-40: a partir de los datos del período, el plan de cierre. HU-30: precondiciones (todas las que fallan), partidas pendientes y cuentas a conciliar; HU-31: resoluciones de las pendientes, monto con que se consolida cada una y partidas de saldo postergado (D-43); HU-32: saldos reales, diferencia de cada cuenta y partida de diferencia de cierre (D-44), referida a la cuenta conciliada hasta que HU-33 guarde los cierres de cuenta |
+| `ClosingPlanner` | RN-38 a RN-40: a partir de los datos del período, el plan de cierre. HU-30: precondiciones (todas las que fallan), partidas pendientes y cuentas a conciliar; HU-31: resoluciones de las pendientes, monto con que se consolida cada una y partidas de saldo postergado (D-43); HU-32: saldos reales, diferencia de cada cuenta y partida de diferencia de cierre (D-44), referida a la cuenta conciliada; HU-33 guarda el cierre de cuenta y le asigna `source_closing_id`. El cierre efectivo (`ClosingService.close`) usa el mismo plan que la simulación y rechaza lo que esta informa como dato (D-45) |
 
 ## Convenciones
 
@@ -131,7 +131,7 @@ Reglas puras previstas, cada una con su test unitario exhaustivo:
 - **Seguridad**: emisión del JWT con `NimbusJwtEncoder` y validación con el Resource Server, HS256 con `APP_JWT_SECRET`. Claims: `sub` (id del usuario), `cv` (versión de credenciales), `iat`, `exp`. En cada pedido, un filtro carga el usuario y aplica RN-50 (habilitado, versión, cambio obligatorio).
 - **Clave de administración**: se compara con `MessageDigest.isEqual` sobre los bytes, nunca con `equals`.
 - **Generación de partidas** (RN-13): siempre con `EntryGenerator.generate(Concepto, horizonte)`, dentro de la transacción del caso de uso y después de `HorizonService.ensureHorizon`, que crea los períodos destino.
-- **Transacciones**: consolidar, pago rápido, eliminar con alcance y cerrar el mes son una sola transacción cada uno.
+- **Transacciones**: consolidar, pago rápido, eliminar con alcance y cerrar el mes son una sola transacción cada uno. Consolidar y desconsolidar bloquean el Concepto (D-36); cerrar el mes bloquea el período (D-45), siempre como primera lectura.
 - **Errores**: las reglas lanzan `BusinessException(code, detail)`; un `@RestControllerAdvice` las convierte a `ProblemDetail` con `code` y el HTTP de la tabla de códigos de `reglas-de-negocio.md`. Los errores de Bean Validation salen como `VALIDATION_ERROR` con `errors` por campo. Un dato del cuerpo que solo se puede validar con datos (fin anterior al inicio, referencia a una cuenta o categoría que no existe para el usuario, D-24) se lanza con `BusinessException.invalidField(campo, detail)` y sale igual. Los mensajes `detail` van en español.
 - **API**:
   - Prefijo `/api`, JSON en `camelCase`.

@@ -348,6 +348,13 @@ Aclaraciones del paso 3 (HU-32, D-44):
 - El saldo real puede ser 0 o negativo, con hasta 2 decimales. El saldo calculado es el de RN-35 y RN-41 al último día: no cambia por las resoluciones de los pasos 1 y 2.
 - Con diferencia 0 no se crea nada. En diciembre, la partida va a enero del año siguiente, con vencimiento el 01/01.
 
+Aclaraciones del cierre efectivo (HU-33, D-45):
+
+- **Orden de guardado**, dentro de la transacción: consolidar las pendientes; crear las partidas de saldo postergado; guardar los cierres de cuenta (uno por cada cuenta conciliada, también con diferencia 0); crear las partidas de diferencia, referidas al cierre de cuenta recién guardado; y cerrar el período. Si algo falla, no cambia nada.
+- La fecha de consolidación de las partidas consolidadas en el cierre es la misma que la fecha de cierre del período, del `Clock`. Esas partidas conservan su presupuestado y su marca de editada.
+- Las partidas creadas por el cierre quedan pendientes, sin editar y sin Concepto, en el período siguiente.
+- Un segundo cierre del mismo período al mismo tiempo espera y responde `PERIOD_CLOSED`: el cierre bloquea el período antes de leer nada.
+
 **RN-41. Saldos que cruzan meses.** El saldo calculado suma los movimientos por su fecha, sin importar el período de su partida. Los dos sueldos de diciembre cobrados el 25/11 y el 30/11 forman parte del saldo de fin de noviembre, que es lo que muestra el banco. Cerrar noviembre no exige consolidar las partidas de diciembre, pero sí bloquea los movimientos con fecha en noviembre, también los de esas partidas. Por eso los cobros anticipados tienen que cargarse antes de cerrar el mes en que ocurren.
 
 **RN-42. Diferencia de cierre.** La partida de diferencia es una partida presupuestada más. Mientras no se consolide, el saldo calculado sigue arrastrando la diferencia; para corregirlo se registra un movimiento por su monto y se consolida. Si al cerrar el mes siguiente sigue pendiente, se resuelve como cualquier otra: con Cerrar con lo registrado, la diferencia vuelve a aparecer en la conciliación de ese mes. El saldo inicial del mes siguiente es el saldo calculado, no el real, para no contar la diferencia dos veces.
@@ -380,6 +387,11 @@ Aclaraciones (HU-32, D-44):
 - Con saldos reales informa, para cada cuenta con saldo, el real, la diferencia y la partida de diferencia que se crearía (ninguna si la diferencia es 0), que se suma a las de saldo postergado entre las partidas que se crearían; y las cuentas a conciliar que todavía no tienen saldo real. Los efectos se calculan aunque no se cumplan las precondiciones.
 - Un saldo real para una cuenta que no se concilia en el período (abierta después de su último día, de otro usuario o inexistente) no es un error de la simulación: se informa y no se aplica. El cierre lo rechaza con `VALIDATION_ERROR` (RN-39). Una cuenta con dos saldos es un pedido mal formado: `VALIDATION_ERROR` también en la simulación. Un período cerrado ignora los saldos.
 - La falta de saldo real es un 409 `MISSING_REAL_BALANCE` solo en el cierre efectivo; la simulación la informa como dato que falta.
+
+Aclaraciones (HU-33, D-45):
+
+- El cierre recibe el mismo cuerpo que la simulación (opcional: un mes sin pendientes ni cuentas a conciliar se cierra sin cuerpo) y arma el mismo plan. **Orden de los errores**, el primero que falla: una partida o cuenta repetida (400); el período (404); la primera precondición de RN-38 (409); las resoluciones que no corresponden (400 en `resolutions`); los saldos reales que no corresponden (400 en `realBalances`); las pendientes sin resolución (409 `UNRESOLVED_PENDING_ENTRIES`, con `entries`); y las cuentas sin saldo real (409 `MISSING_REAL_BALANCE`, con `accounts`).
+- Responde 200 con lo aplicado: las partidas consolidadas con su resolución y su monto, las partidas creadas con su id y los cierres de cuenta con su diferencia.
 
 ## 10. Vistas
 
@@ -424,7 +436,7 @@ La fecha efectiva es el vencimiento, o hoy si ya venció. Se informan subtotales
 
 ## Códigos de error
 
-Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un campo `code` adicional. Cuando el error se debe a otras partidas, se agrega `entries` con sus ids; cuando es de validación de campos, `errors` con el detalle por campo.
+Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un campo `code` adicional. Cuando el error se debe a otras partidas, se agrega `entries` con sus ids; cuando se debe a cuentas, `accounts` con sus ids; cuando es de validación de campos, `errors` con el detalle por campo.
 
 ```json
 {
@@ -464,6 +476,6 @@ Todas las respuestas de error usan el formato Problem Details (RFC 9457) con un 
 | `TRANSFER_AMOUNTS_MISMATCH` | 409 | Montos distintos en una transferencia de la misma moneda. |
 | `PREVIOUS_PERIOD_OPEN` | 409 | Cerrar un mes con el anterior abierto. |
 | `PERIOD_NOT_FINISHED` | 409 | Cerrar un mes antes de su último día. |
-| `UNRESOLVED_PENDING_ENTRIES` | 409 | Cerrar sin resolver todas las partidas pendientes. |
-| `MISSING_REAL_BALANCE` | 409 | Cerrar sin el saldo real de todas las cuentas. |
+| `UNRESOLVED_PENDING_ENTRIES` | 409 | Cerrar sin resolver todas las partidas pendientes (con `entries`). |
+| `MISSING_REAL_BALANCE` | 409 | Cerrar sin el saldo real de todas las cuentas (con `accounts`). |
 | `INTERNAL_ERROR` | 500 | Error inesperado. El `detail` es genérico y no expone datos internos. |
