@@ -7,7 +7,6 @@ const changePassword = () =>
 
 const budgetMonth = () => import('./features/budget/budget-month').then((m) => m.BudgetMonth);
 
-const placeholder = () => import('./shared/page-placeholder').then((m) => m.PagePlaceholder);
 
 // Pantallas vacías: cada historia reemplaza su `loadComponent` por la pantalla real.
 export const routes: Routes = [
@@ -92,9 +91,8 @@ export const routes: Routes = [
       },
       {
         path: 'planificacion',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/reports/budget-grid').then((m) => m.BudgetGridPage),
         title: 'Varios meses',
-        data: { heading: 'Varios meses' },
       },
     ],
   },

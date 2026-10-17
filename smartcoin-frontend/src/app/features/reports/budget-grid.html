@@ -1,0 +1,35 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title">Varios meses</h1>
+  </header>
+
+  <form [formGroup]="filters" (ngSubmit)="search()" class="filters" aria-label="Meses a mostrar">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Desde</mat-label>
+      <input matInput type="month" formControlName="from" [attr.min]="grid()?.startPeriod" [attr.max]="grid()?.horizon" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Hasta</mat-label>
+      <input matInput type="month" formControlName="to" [attr.min]="grid()?.startPeriod" [attr.max]="grid()?.horizon" />
+    </mat-form-field>
+    <button mat-stroked-button type="submit">Ver</button>
+    <span class="detail">
+      Hasta 24 meses, entre el período inicial y el horizonte. Sin elegir, 12 meses desde el actual. Nunca se suman pesos
+      y dólares.
+    </span>
+  </form>
+
+  <p class="detail" data-testid="hint">
+    Estimado de cada partida. Con Enter o un clic en una celda se abre el presupuesto de ese mes.
+  </p>
+
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">Cargando los meses…</p>
+  } @else if (grid(); as current) {
+    <app-budget-grid-table [grid]="current" (openMonth)="openMonth($event)" />
+  }
+</div>

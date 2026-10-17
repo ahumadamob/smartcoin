@@ -1,0 +1,177 @@
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+// El contenedor scrollea en los dos sentidos: así el encabezado de meses (arriba) y los nombres (a la izquierda) quedan
+// a la vista en una pantalla de escritorio.
+.table-wrapper {
+  overflow: auto;
+  max-height: calc(100vh - 300px);
+  min-height: 240px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font: var(--mat-sys-body-medium);
+}
+
+th,
+td {
+  padding: 8px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+  white-space: nowrap;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface-variant);
+  background: var(--mat-sys-surface-container);
+}
+
+.name-head,
+.name {
+  position: sticky;
+  left: 0;
+  min-width: 200px;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+}
+
+.name-head {
+  z-index: 3;
+}
+
+tbody .name {
+  z-index: 1;
+  font: inherit;
+  font-weight: 500;
+}
+
+.row-label,
+.row-currency {
+  display: block;
+}
+
+.row-currency {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+  font-weight: 400;
+}
+
+.section {
+  position: sticky;
+  left: 0;
+  background: var(--mat-sys-surface-container-low);
+  font: var(--mat-sys-title-small);
+}
+
+.number {
+  text-align: right;
+}
+
+.month-head {
+  min-width: 150px;
+  text-align: right;
+}
+
+.month-name {
+  display: block;
+  text-transform: capitalize;
+}
+
+.cell {
+  cursor: pointer;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-low);
+  }
+
+  // Foco visible: un contorno por dentro de la celda, para que no lo tape la celda vecina.
+  &:focus-visible {
+    outline: 3px solid var(--mat-sys-primary);
+    outline-offset: -3px;
+  }
+}
+
+.empty-cell {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.amount {
+  display: block;
+}
+
+.marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.count {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+}
+
+.mark {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font: var(--mat-sys-label-small);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mark-done {
+  color: var(--mat-sys-primary);
+  border-style: double;
+  border-width: 3px;
+}
+
+.mark-current {
+  color: var(--mat-sys-primary);
+}
+
+// Los totales cierran la tabla: se ven al llegar al final. Solo el nombre queda fijo a la izquierda.
+tfoot th,
+tfoot td {
+  background: var(--mat-sys-surface-container);
+  font-weight: 500;
+}
+
+tfoot th {
+  z-index: 1;
+}
+
+.negative {
+  color: var(--mat-sys-error);
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

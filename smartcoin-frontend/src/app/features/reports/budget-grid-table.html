@@ -1,0 +1,119 @@
+<section class="grid" aria-label="Vista de varios meses">
+  @if (grid().rows.length === 0) {
+    <p class="empty" role="status">No hay partidas en estos meses.</p>
+  } @else {
+    <div class="table-wrapper">
+      <table role="grid" aria-readonly="true">
+        <caption class="visually-hidden">
+          Estimado de cada Concepto en cada mes, con los totales por mes y moneda al pie. Enter abre el presupuesto del mes.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" class="name-head">Concepto</th>
+            @for (month of grid().months; track month.period; let c = $index) {
+              <th scope="col" class="number month-head" data-testid="month-head">
+                <span class="month-name">{{ month.period | period }}</span>
+                @if (isClosed(c)) {
+                  <span class="mark">Cerrado</span>
+                }
+                @if (isCurrent(c)) {
+                  <span class="mark mark-current">Mes actual</span>
+                }
+              </th>
+            }
+          </tr>
+        </thead>
+        @for (section of sections(); track section.kind) {
+          <tbody>
+            <tr class="section-row">
+              <th scope="colgroup" [attr.colspan]="grid().months.length + 1" class="section" data-testid="section">
+                {{ section.title }}
+              </th>
+            </tr>
+            @for (item of section.rows; track item.index) {
+              <tr data-testid="grid-row">
+                <th scope="row" class="name" data-testid="row-name">
+                  <span class="row-label">{{ label(item.row) }}</span>
+                  <span class="row-currency">{{ item.row.currency === 'ARS' ? 'Pesos' : 'Dólares' }}</span>
+                </th>
+                @for (cell of item.row.cells; track $index; let c = $index) {
+                  <td
+                    role="gridcell"
+                    class="number cell"
+                    data-testid="cell"
+                    [attr.data-row]="item.index"
+                    [attr.data-column]="c"
+                    [attr.tabindex]="isActive(item.index, c) ? 0 : -1"
+                    [class.empty-cell]="!cell"
+                    (click)="open(item.index, c)"
+                    (keydown)="onKeydown($event, item.index, c)"
+                  >
+                    @if (cell) {
+                      <span class="amount">{{ cell.forecast | money: cell.currency }}</span>
+                      <span class="marks">
+                        @if (cell.manual) {
+                          <span class="mark" data-testid="mark-edited">Editada</span>
+                        }
+                        @if (cell.consolidated) {
+                          <span class="mark mark-done" data-testid="mark-consolidated">Consolidada</span>
+                        } @else if (showPartial(cell)) {
+                          <span class="mark" data-testid="mark-partial">Parcial</span>
+                        }
+                        @if (cell.entryCount > 1) {
+                          <span class="count" data-testid="count">{{ cell.entryCount }} partidas</span>
+                        }
+                      </span>
+                    } @else {
+                      <span aria-hidden="true">—</span>
+                      <span class="visually-hidden">Sin partida</span>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        }
+        <tfoot>
+          @for (currency of currencies(); track currency) {
+            <tr class="totals-first" data-testid="total-row">
+              <th scope="row" class="name">Ingresos estimados {{ currency === 'ARS' ? '$' : 'US$' }}</th>
+              @for (month of grid().months; track month.period; let c = $index) {
+                <td class="number" data-testid="total-income">
+                  @if (total(c, currency); as t) {
+                    {{ t.incomeForecast | money: currency }}
+                  } @else {
+                    <span aria-hidden="true">—</span><span class="visually-hidden">Sin partidas</span>
+                  }
+                </td>
+              }
+            </tr>
+            <tr data-testid="total-row">
+              <th scope="row" class="name">Gastos estimados {{ currency === 'ARS' ? '$' : 'US$' }}</th>
+              @for (month of grid().months; track month.period; let c = $index) {
+                <td class="number" data-testid="total-expense">
+                  @if (total(c, currency); as t) {
+                    {{ t.expenseForecast | money: currency }}
+                  } @else {
+                    <span aria-hidden="true">—</span><span class="visually-hidden">Sin partidas</span>
+                  }
+                </td>
+              }
+            </tr>
+            <tr class="result-row" data-testid="total-row">
+              <th scope="row" class="name">Resultado {{ currency === 'ARS' ? '$' : 'US$' }}</th>
+              @for (month of grid().months; track month.period; let c = $index) {
+                <td class="number" data-testid="total-result" [class.negative]="(total(c, currency)?.result ?? 0) < 0">
+                  @if (total(c, currency); as t) {
+                    {{ t.result | money: currency }}
+                  } @else {
+                    <span aria-hidden="true">—</span><span class="visually-hidden">Sin partidas</span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tfoot>
+      </table>
+    </div>
+  }
+</section>
