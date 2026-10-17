@@ -77,9 +77,8 @@ export const routes: Routes = [
       },
       {
         path: 'cierre/:period',
-        loadComponent: placeholder,
+        loadComponent: () => import('./features/closing/closing-wizard').then((m) => m.ClosingWizard),
         title: 'Cierre de mes',
-        data: { heading: 'Cierre de mes' },
       },
       {
         path: 'flujo-de-caja',

@@ -58,7 +58,7 @@ src/app/
 | Cuentas | `/cuentas` | HU-07, HU-08 |
 | Categorías | `/categorias` | HU-09 |
 | Transferencias | `/transferencias` (lista del rango, formulario de alta con todas las cuentas distintas del origen: un monto si las monedas son iguales, dos —pesos y dólares— si no; la lista muestra el tipo de cambio; HU-27, HU-28; «Editar» y «Eliminar» por fila si el mes está abierto, con el mismo formulario y una confirmación; HU-29) | HU-27 a HU-29 |
-| Cierre de mes | `/cierre/:period` | HU-30 a HU-33 |
+| Cierre de mes | `/cierre/:period` (asistente `ClosingWizard` de tres pasos sobre `POST /api/periods/{period}/closing-preview`: pendientes, saldos y confirmación. HU-30 muestra el primero, con los motivos para no cerrar, las partidas pendientes y las cuentas con su saldo calculado agrupadas por moneda; los otros dos, deshabilitados. Se abre con «Cerrar mes» en la cabecera de la vista del mes, en todo período abierto) | HU-30 a HU-33 |
 | Flujo de caja | `/flujo-de-caja` | HU-34 |
 | Proyección | `/proyeccion` | HU-35 |
 | Varios meses | `/planificacion` | HU-36 |

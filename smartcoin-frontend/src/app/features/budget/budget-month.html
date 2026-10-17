@@ -15,11 +15,15 @@
         <span class="badge badge-current" data-testid="current">Mes actual</span>
       }
     }
-    <!-- Acciones del período (cerrar el mes: HU-30): van acá, junto a las que existen, solo si `!readonly()`. -->
-    @if (view() && !readonly()) {
-      <span class="actions">
-        <button mat-flat-button type="button" data-testid="add-entry" (click)="addEntry()">Agregar partida</button>
-      </span>
+    <!-- Acciones del período: solo si `!readonly()`. «Cerrar mes» está en todo mes abierto, aunque todavía no se pueda
+         cerrar: el asistente dice por qué (HU-30, D-42). -->
+    @if (view(); as current) {
+      @if (!readonly()) {
+        <span class="actions">
+          <button mat-flat-button type="button" data-testid="add-entry" (click)="addEntry()">Agregar partida</button>
+          <a mat-stroked-button [routerLink]="['/cierre', current.period]" data-testid="close-period">Cerrar mes</a>
+        </span>
+      }
     }
   </header>
 

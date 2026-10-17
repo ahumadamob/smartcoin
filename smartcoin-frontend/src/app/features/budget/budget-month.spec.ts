@@ -504,6 +504,7 @@ describe('BudgetMonth', () => {
     });
     const editButtons = () => Array.from(root().querySelectorAll<HTMLButtonElement>('[data-testid="edit-entry"]'));
     const addButton = () => root().querySelector<HTMLButtonElement>('[data-testid="add-entry"]');
+    const closeLink = () => root().querySelector<HTMLAnchorElement>('[data-testid="close-period"]');
     const header = (label: string) => text(section(label).querySelector('thead'));
 
     it('un período abierto tiene «Agregar partida» en la cabecera, junto al título', async () => {
@@ -514,6 +515,25 @@ describe('BudgetMonth', () => {
       expect(root().querySelector('header')!.contains(addButton())).toBe(true);
     });
 
+    it('un período abierto tiene «Cerrar mes», que lleva al asistente de ese mes (HU-30)', async () => {
+      await open('/presupuesto/2026-11', { '2026-11': of(NOVEMBER) });
+
+      const close = closeLink();
+      expect(close).not.toBeNull();
+      expect(text(close)).toBe('Cerrar mes');
+      expect(close!.getAttribute('href')).toBe('/cierre/2026-11');
+      expect(root().querySelector('header')!.contains(close)).toBe(true);
+    });
+
+    it('«Cerrar mes» está en todo período abierto, aunque todavía no se pueda cerrar (D-42)', async () => {
+      await open('/presupuesto');
+      expect(closeLink()!.getAttribute('href')).toBe('/cierre/2026-10');
+
+      TestBed.resetTestingModule();
+      await open('/presupuesto/2028-10');
+      expect(closeLink()!.getAttribute('href')).toBe('/cierre/2028-10');
+    });
+
     it('un período cerrado no tiene botón ni columna de acciones, aunque tenga partidas puntuales', async () => {
       await open('/presupuesto/2026-08', {
         '2026-08': of({ ...withEntries('CLOSED', [oneOff(), oneOff({ id: 21, origin: 'CARRIED_OVER' })]), period: '2026-08' }),
@@ -521,6 +541,7 @@ describe('BudgetMonth', () => {
 
       expect(text(root().querySelector('[data-testid="closed"]'))).toBe('Cerrado');
       expect(addButton()).toBeNull();
+      expect(closeLink()).toBeNull();
       expect(editButtons()).toHaveLength(0);
       expect(header('Gastos')).not.toContain('Acciones');
     });

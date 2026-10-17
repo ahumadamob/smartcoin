@@ -1,0 +1,138 @@
+<div class="page">
+  <header class="header">
+    <h1 class="title" tabindex="-1" #title>
+      @if (period() | period; as shown) {
+        Cierre de {{ shown }}
+      } @else {
+        Cierre de mes
+      }
+    </h1>
+    @if (preview(); as current) {
+      <a mat-button class="back" [routerLink]="['/presupuesto', current.period]">Volver al presupuesto del mes</a>
+    }
+  </header>
+
+  <ol class="steps" aria-label="Pasos del cierre">
+    @for (step of steps; track step.label; let i = $index) {
+      <li
+        class="step"
+        [class.step-current]="i === 0"
+        [class.step-disabled]="!step.available"
+        [attr.aria-current]="i === 0 ? 'step' : null"
+        [attr.aria-disabled]="step.available ? null : 'true'"
+        data-testid="step"
+      >
+        <span class="step-number" aria-hidden="true">{{ i + 1 }}</span>
+        <span class="step-label">
+          {{ step.label }}
+          @if (!step.available) {
+            <span class="step-note">{{ unavailableStepText }}</span>
+          }
+        </span>
+      </li>
+    }
+  </ol>
+
+  @if (error(); as problem) {
+    <div class="problem" role="alert">
+      <p>{{ problem.message }}</p>
+      @if (problem.unavailable) {
+        <a mat-flat-button routerLink="/presupuesto">Ir al mes actual</a>
+      }
+    </div>
+  } @else if (loading()) {
+    <p role="status">Cargando lo que falta para cerrar el mes…</p>
+  } @else if (preview(); as current) {
+    <section class="diagnosis" aria-labelledby="diagnosis-heading" data-testid="diagnosis">
+      <h2 id="diagnosis-heading" class="heading" [class.blocked]="!current.preconditionsMet" data-testid="summary">
+        {{ summary(current) }}
+      </h2>
+      @if (current.blockers.length > 0) {
+        <ul class="blockers">
+          @for (blocker of current.blockers; track blocker.code) {
+            <li data-testid="blocker" [attr.data-code]="blocker.code">
+              {{ blockerText(blocker, current) }}
+              @if (blocker.code === 'PREVIOUS_PERIOD_OPEN') {
+                <a mat-stroked-button [routerLink]="['/cierre', current.firstOpenPeriod]" data-testid="close-first-open">
+                  Ir a cerrar {{ current.firstOpenPeriod | period }}
+                </a>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    @if (!closed()) {
+      <section class="section" aria-labelledby="pending-heading">
+        <h2 id="pending-heading" class="heading">Partidas pendientes</h2>
+        @if (current.pendingEntries.length === 0) {
+          <p class="empty" role="status" data-testid="no-pending">No hay partidas pendientes en este mes.</p>
+        } @else {
+          <div class="table-wrapper">
+            <table aria-labelledby="pending-heading" data-testid="pending-entries">
+              <thead>
+                <tr>
+                  <th scope="col">Vencimiento</th>
+                  <th scope="col">Nombre</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Cuenta</th>
+                  <th scope="col" class="number">Presupuestado</th>
+                  <th scope="col" class="number">Real</th>
+                  <th scope="col" class="number">Pendiente</th>
+                  <th scope="col">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of current.pendingEntries; track entry.id) {
+                  <tr [attr.data-entry-id]="entry.id">
+                    <td class="nowrap">{{ entry.dueDate | date: dateFormat }}</td>
+                    <th scope="row">{{ entry.name }}</th>
+                    <td>{{ kindLabels[entry.kind] }}</td>
+                    <td>{{ entry.accountName }}</td>
+                    <td class="number">{{ entry.budgetedAmount | money: entry.currency }}</td>
+                    <td class="number">{{ entry.actualAmount | money: entry.currency }}</td>
+                    <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
+                    <td>{{ statusLabels[entry.status] }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+
+      <section class="section" aria-labelledby="accounts-heading">
+        <h2 id="accounts-heading" class="heading">Cuentas a conciliar</h2>
+        @if (accountGroups().length === 0) {
+          <p class="empty" role="status" data-testid="no-accounts">
+            No hay cuentas abiertas al {{ current.lastDay | date: dateFormat }}.
+          </p>
+        } @else {
+          <p class="hint">Saldo calculado al {{ current.lastDay | date: dateFormat }}, con los movimientos y transferencias hasta ese día.</p>
+          @for (group of accountGroups(); track group.currency) {
+            <table class="accounts" [attr.aria-label]="'Cuentas en ' + group.label.toLowerCase()" data-testid="account-group">
+              <caption>{{ group.label }}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Cuenta</th>
+                  <th scope="col" class="number">Saldo calculado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (account of group.accounts; track account.id) {
+                  <tr [attr.data-account-id]="account.id">
+                    <th scope="row">{{ account.name }}</th>
+                    <td class="number" [class.negative]="account.computedBalance < 0">
+                      {{ account.computedBalance | money: account.currency }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        }
+      </section>
+    }
+  }
+</div>
