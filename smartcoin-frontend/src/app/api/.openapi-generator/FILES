@@ -11,6 +11,7 @@ api/cuentas.service.ts
 api/movimientos.service.ts
 api/partidas.service.ts
 api/perodos.service.ts
+api/reportes.service.ts
 api/transferencias.service.ts
 configuration.ts
 encoder.ts
@@ -26,6 +27,8 @@ model/budgetItemGeneration.ts
 model/budgetItemListItem.ts
 model/budgetItemRequest.ts
 model/budgetItemResponse.ts
+model/cashFlow.ts
+model/cashFlowRow.ts
 model/categoryRequest.ts
 model/categoryResponse.ts
 model/changePasswordRequest.ts

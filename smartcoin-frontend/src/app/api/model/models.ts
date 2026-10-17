@@ -9,6 +9,8 @@ export * from './budgetItemGeneration';
 export * from './budgetItemListItem';
 export * from './budgetItemRequest';
 export * from './budgetItemResponse';
+export * from './cashFlow';
+export * from './cashFlowRow';
 export * from './categoryRequest';
 export * from './categoryResponse';
 export * from './changePasswordRequest';
