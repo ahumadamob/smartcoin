@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -38,13 +39,17 @@ import com.smartcoin.period.domain.BudgetPeriod;
 import com.smartcoin.period.domain.ClosingBlockReason;
 import com.smartcoin.period.domain.ClosingPlanner.EntryEffect;
 import com.smartcoin.period.domain.ClosingPlanner.EntryLine;
+import com.smartcoin.period.domain.ClosingPlanner.InvalidBalance;
 import com.smartcoin.period.domain.ClosingPlanner.InvalidResolution;
 import com.smartcoin.period.domain.ClosingPlanner.NewEntry;
+import com.smartcoin.period.domain.ClosingPlanner.Reconciliation;
+import com.smartcoin.period.domain.InvalidBalanceReason;
 import com.smartcoin.period.domain.InvalidResolutionReason;
 import com.smartcoin.period.domain.PeriodStatus;
 import com.smartcoin.period.repository.BudgetPeriodRepository;
 import com.smartcoin.period.service.ClosingService.Blocker;
 import com.smartcoin.period.service.ClosingService.Preview;
+import com.smartcoin.period.service.ClosingService.RealBalance;
 import com.smartcoin.period.service.ClosingService.Resolution;
 import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.domain.EntryKind;
@@ -103,7 +108,12 @@ class ClosingServiceTest {
 	}
 
 	private Preview preview(YearMonth month, String today, List<Resolution> resolutions) {
-		return serviceAt(today).preview(USER_ID, month, resolutions);
+		return preview(month, today, resolutions, List.of());
+	}
+
+	private Preview preview(YearMonth month, String today, List<Resolution> resolutions,
+			List<RealBalance> realBalances) {
+		return serviceAt(today).preview(USER_ID, month, resolutions, realBalances);
 	}
 
 	private BudgetPeriod period(YearMonth month) {
@@ -264,7 +274,7 @@ class ClosingServiceTest {
 	void anotherUsersPeriodIsNotFound() {
 		when(periods.findByUserIdAndPeriodMonth(eq(OTHER_USER_ID), any())).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> serviceAt("2026-10-16").preview(OTHER_USER_ID, START, List.of()))
+		assertThatThrownBy(() -> serviceAt("2026-10-16").preview(OTHER_USER_ID, START, List.of(), List.of()))
 				.isInstanceOfSatisfying(BusinessException.class,
 						e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
 	}
@@ -422,6 +432,166 @@ class ClosingServiceTest {
 				.containsExactly(StoredEntryStatus.PENDING, StoredEntryStatus.PENDING, StoredEntryStatus.CONSOLIDATED);
 		assertThat(august.get(0).getConsolidatedAmount()).isNull();
 		assertThat(august.get(0).getClosingResolution()).isNull();
+	}
+
+	// Saldos reales y diferencias (HU-32, RN-40 paso 3, D-44).
+
+	/**
+	 * Agosto, el período inicial, ya terminado, con tres cuentas: el Banco en pesos (saldo calculado 1.000,00), los
+	 * Dólares en USD (500,00, abierta el 15/08) y la Billetera, abierta el 01/09, después del último día.
+	 */
+	private Account dollars;
+	private Account wallet;
+
+	private void threeAccounts() {
+		dollars = account(43, "Dólares", Currency.USD, "2026-08-15");
+		wallet = account(44, "Billetera", Currency.ARS, "2026-09-01");
+		when(accounts.balancesAt(eq(USER_ID), any(LocalDate.class))).thenReturn(List.of(
+				new AccountBalance(bank, new BigDecimal("1000.00")),
+				new AccountBalance(dollars, new BigDecimal("500.00")),
+				new AccountBalance(wallet, new BigDecimal("0.00"))));
+	}
+
+	private Preview reconcile(RealBalance... balances) {
+		return preview(START, "2026-10-16", List.of(), List.of(balances));
+	}
+
+	private static RealBalance real(long accountId, String amount) {
+		return new RealBalance(accountId, new BigDecimal(amount));
+	}
+
+	/** Todos los saldos: la diferencia de cada cuenta y las partidas que se crearían, en el orden de las cuentas. */
+	@Test
+	void withAllTheRealBalancesEachAccountHasItsDifference() {
+		threeAccounts();
+
+		Preview preview = reconcile(real(43, "560.00"), real(42, "875.50"));
+
+		assertThat(preview.plan().reconciliations()).extracting(Reconciliation::accountId).containsExactly(42L, 43L);
+		assertThat(preview.plan().reconciliations()).extracting(Reconciliation::difference)
+				.containsExactly(new BigDecimal("-124.50"), new BigDecimal("60.00"));
+		assertThat(preview.plan().newEntries()).extracting(NewEntry::name).containsExactly(
+				"Diferencia de cierre: Banco (ago 2026)", "Diferencia de cierre: Dólares (ago 2026)");
+		assertThat(preview.plan().newEntries()).extracting(NewEntry::currency)
+				.containsExactly(Currency.ARS, Currency.USD);
+		assertThat(preview.plan().newEntries()).extracting(NewEntry::dueDate)
+				.containsOnly(LocalDate.of(2026, 9, 1));
+		assertThat(preview.plan().missingRealBalanceAccountIds()).isEmpty();
+		assertThat(preview.plan().invalidBalances()).isEmpty();
+	}
+
+	@Test
+	void withSomeRealBalancesTheOthersAreMissing() {
+		threeAccounts();
+
+		Preview preview = reconcile(real(43, "500.00"));
+
+		assertThat(preview.plan().reconciliations()).singleElement().satisfies(r -> {
+			assertThat(r.accountId()).isEqualTo(43L);
+			assertThat(r.difference()).isEqualTo(new BigDecimal("0.00"));
+			assertThat(r.differenceEntry()).isNull();
+		});
+		assertThat(preview.plan().missingRealBalanceAccountIds()).containsExactly(42L);
+		assertThat(preview.plan().newEntries()).isEmpty();
+	}
+
+	@Test
+	void withoutRealBalancesEveryAccountToReconcileIsMissing() {
+		threeAccounts();
+
+		Preview preview = reconcile();
+
+		assertThat(preview.plan().reconciliations()).isEmpty();
+		assertThat(preview.plan().missingRealBalanceAccountIds()).containsExactly(42L, 43L);
+	}
+
+	/** D-44: la abierta después del último día, la de otro usuario y la inexistente no se concilian: se informan. */
+	@Test
+	void balancesForAccountsThatDoNotApplyAreReportedAndIgnored() {
+		threeAccounts();
+
+		Preview preview = reconcile(real(44, "10.00"), real(999, "10.00"), real(42, "1000.00"));
+
+		assertThat(preview.plan().invalidBalances()).containsExactly(
+				new InvalidBalance(44L, InvalidBalanceReason.NOT_RECONCILABLE),
+				new InvalidBalance(999L, InvalidBalanceReason.NOT_RECONCILABLE));
+		assertThat(preview.plan().reconciliations()).extracting(Reconciliation::accountId).containsExactly(42L);
+		assertThat(preview.plan().missingRealBalanceAccountIds()).containsExactly(43L);
+		assertThat(preview.plan().newEntries()).isEmpty();
+	}
+
+	/** Una cuenta con dos saldos reales es un pedido mal formado: 400 en {@code realBalances}, antes de leer nada. */
+	@Test
+	void aRepeatedAccountIsAValidationError() {
+		assertThatThrownBy(() -> reconcile(real(42, "1.00"), real(43, "1.00"), real(42, "2.00")))
+				.isInstanceOfSatisfying(BusinessException.class, e -> {
+					assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+					assertThat(e.field()).isEqualTo("realBalances");
+					assertThat(e.getMessage()).isEqualTo("La cuenta 42 tiene más de un saldo real.");
+				});
+		verifyNoInteractions(periods, entries, movements, accounts);
+	}
+
+	@Test
+	void aClosedPeriodIgnoresTheRealBalances() {
+		close(START);
+
+		Preview preview = reconcile(real(42, "1.00"), real(999, "1.00"));
+
+		assertThat(preview.plan().reconciliations()).isEmpty();
+		assertThat(preview.plan().missingRealBalanceAccountIds()).isEmpty();
+		assertThat(preview.plan().invalidBalances()).isEmpty();
+		verifyNoInteractions(entries, movements, accounts);
+	}
+
+	/**
+	 * El saldo calculado es el de HU-30 a la misma fecha, también con resoluciones: consolidar no registra
+	 * movimientos. Las resoluciones y los saldos viajan en el mismo pedido.
+	 */
+	@Test
+	void theComputedBalanceDoesNotChangeWithTheResolutions() {
+		threeAccounts();
+		List<BudgetEntry> august = august();
+		when(entries.findByUserIdAndPeriodIdWithDetails(eq(USER_ID), anyLong())).thenReturn(august);
+
+		Preview plain = reconcile(real(42, "900.00"));
+		Preview resolved = preview(START, "2026-10-16", List.of(
+				new Resolution(august.get(0).getId(), ClosingResolution.CARRY_OVER),
+				new Resolution(august.get(1).getId(), ClosingResolution.CLOSE_AS_IS)), List.of(real(42, "900.00")));
+
+		assertThat(resolved.plan().accounts()).isEqualTo(plain.plan().accounts());
+		assertThat(resolved.plan().reconciliations()).isEqualTo(plain.plan().reconciliations());
+		assertThat(resolved.plan().reconciliations().getFirst().computedBalance())
+				.isEqualTo(new BigDecimal("1000.00"));
+		assertThat(resolved.plan().newEntries()).extracting(NewEntry::origin).containsExactly(
+				EntryOrigin.CARRIED_OVER, EntryOrigin.CLOSING_DIFFERENCE);
+		verify(accounts, times(2)).balancesAt(USER_ID, LocalDate.of(2026, 8, 31));
+	}
+
+	/** Con saldos tampoco guarda nada: ni cierres de cuenta ni partidas de diferencia (HU-33). */
+	@Test
+	void thePreviewWithRealBalancesSavesNothing() {
+		threeAccounts();
+
+		reconcile(real(42, "1.00"), real(43, "1.00"));
+
+		verify(entries, never()).save(any());
+		verify(entries, never()).saveAll(any());
+		verify(entries, never()).saveAndFlush(any());
+		verify(periods, never()).save(any());
+		verify(movements, never()).save(any());
+		assertThat(existing).allSatisfy(p -> assertThat(p.getStatus()).isEqualTo(PeriodStatus.OPEN));
+	}
+
+	/** Los saldos no agregan consultas: las mismas del diagnóstico, con el usuario actual. */
+	@Test
+	void realBalancesAddNoQueries() {
+		threeAccounts();
+
+		reconcile(real(42, "1.00"));
+
+		verify(accounts, times(1)).balancesAt(USER_ID, LocalDate.of(2026, 8, 31));
+		verify(accounts, never()).balancesAt(eq(OTHER_USER_ID), any());
 	}
 
 	static Account account(long id, String name, Currency currency, String openingDate) {

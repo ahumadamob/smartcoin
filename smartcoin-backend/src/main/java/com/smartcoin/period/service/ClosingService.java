@@ -1,5 +1,6 @@
 package com.smartcoin.period.service;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -29,7 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Cierre de mes (HU-30 a HU-33, RN-38 a RN-43). HU-30: la simulación, que no modifica nada; HU-31 le suma las
- * resoluciones de las pendientes. Toda consulta lleva el {@code userId} del usuario actual.
+ * resoluciones de las pendientes y HU-32 los saldos reales con sus diferencias. Toda consulta lleva el {@code userId}
+ * del usuario actual.
  */
 @Service
 public class ClosingService {
@@ -38,6 +40,10 @@ public class ClosingService {
 
 	/** La resolución elegida para una partida pendiente (RN-39), tal como llega en el pedido. */
 	public record Resolution(long entryId, ClosingResolution resolution) {
+	}
+
+	/** El saldo real informado para una cuenta (RN-39), tal como llega en el pedido. */
+	public record RealBalance(long accountId, BigDecimal amount) {
 	}
 
 	/** Una precondición que no se cumple, con su explicación en español. */
@@ -67,16 +73,20 @@ public class ClosingService {
 	}
 
 	/**
-	 * Qué falta para cerrar un período y qué pasaría con las resoluciones recibidas, sin modificar nada (HU-30, HU-31).
-	 * Una partida repetida en las resoluciones es un pedido mal formado: 400 en {@code resolutions}. Si el período no
+	 * Qué falta para cerrar un período y qué pasaría con las resoluciones y los saldos reales recibidos, sin modificar
+	 * nada (HU-30 a HU-32). Una partida repetida en las resoluciones, o una cuenta repetida en los saldos reales, es un
+	 * pedido mal formado: 400 en {@code resolutions} o {@code realBalances}, antes de leer nada. Si el período no
 	 * existe para el usuario (RN-06), 404. Las resoluciones que no corresponden a una pendiente del período no son un
-	 * error: se informan en el plan y no se aplican (D-43). Las partidas y sus montos salen de las mismas consultas que
+	 * error: se informan en el plan y no se aplican (D-43); lo mismo con un saldo real de una cuenta que no se concilia
+	 * (D-44). El saldo calculado no depende de las resoluciones: solo consolidan, no registran movimientos. Las partidas y sus montos salen de las mismas consultas que
 	 * la vista del mes, y los saldos de las cuatro consultas agrupadas de {@link AccountService#balancesAt}, al último
 	 * día del período. Un período cerrado no carga ni partidas ni saldos: no tiene nada que resolver.
 	 */
 	@Transactional(readOnly = true)
-	public Preview preview(long userId, YearMonth month, List<Resolution> resolutions) {
+	public Preview preview(long userId, YearMonth month, List<Resolution> resolutions,
+			List<RealBalance> realBalances) {
 		Map<Long, ClosingResolution> byEntry = byEntry(resolutions);
+		Map<Long, BigDecimal> byAccount = byAccount(realBalances);
 		BudgetPeriod period = periods.findByUserIdAndPeriodMonth(userId, month)
 				.orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "El período " + month
 						+ " no existe: es anterior al período inicial o posterior al horizonte."));
@@ -96,7 +106,7 @@ public class ClosingService {
 		List<AccountLine> accountLines = open ? accountLines(userId, month.atEndOfMonth()) : List.of();
 
 		Plan plan = ClosingPlanner.plan(new ClosingPlanner.Input(month, period.getStatus(), previousStatus, isStart,
-				LocalDate.now(clock), entries, accountLines, byEntry));
+				LocalDate.now(clock), entries, accountLines, byEntry, byAccount));
 		List<Blocker> blockers = plan.blockers().stream()
 				.map(reason -> new Blocker(reason, detail(reason, plan, firstOpen)))
 				.toList();
@@ -112,6 +122,17 @@ public class ClosingService {
 			}
 		}
 		return byEntry;
+	}
+
+	private static Map<Long, BigDecimal> byAccount(List<RealBalance> realBalances) {
+		Map<Long, BigDecimal> byAccount = new LinkedHashMap<>();
+		for (RealBalance balance : realBalances) {
+			if (byAccount.putIfAbsent(balance.accountId(), balance.amount()) != null) {
+				throw BusinessException.invalidField("realBalances",
+						"La cuenta " + balance.accountId() + " tiene más de un saldo real.");
+			}
+		}
+		return byAccount;
 	}
 
 	/** El nombre y la categoría son los que muestra la vista del mes: los del Concepto en una recurrente. */

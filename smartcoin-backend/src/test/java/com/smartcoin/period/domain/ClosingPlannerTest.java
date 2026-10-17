@@ -22,9 +22,11 @@ import com.smartcoin.period.domain.ClosingPlanner.AccountLine;
 import com.smartcoin.period.domain.ClosingPlanner.EntryEffect;
 import com.smartcoin.period.domain.ClosingPlanner.EntryLine;
 import com.smartcoin.period.domain.ClosingPlanner.Input;
+import com.smartcoin.period.domain.ClosingPlanner.InvalidBalance;
 import com.smartcoin.period.domain.ClosingPlanner.InvalidResolution;
 import com.smartcoin.period.domain.ClosingPlanner.NewEntry;
 import com.smartcoin.period.domain.ClosingPlanner.Plan;
+import com.smartcoin.period.domain.ClosingPlanner.Reconciliation;
 import com.smartcoin.shared.domain.Currency;
 import com.smartcoin.shared.domain.EntryKind;
 
@@ -35,7 +37,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * HU-30, RN-38 y RN-39, D-42: precondiciones del cierre (todas las que fallan, en el orden de RN-38), partidas
  * pendientes y cuentas a conciliar. HU-31, RN-40 pasos 1 y 2, D-43: resoluciones de las pendientes, con qué monto se
- * consolida cada una y las partidas de saldo postergado. «Hoy» sale de un {@code Clock} fijo en la zona de la
+ * consolida cada una y las partidas de saldo postergado. HU-32, RN-40 paso 3, D-44: saldos reales, diferencias y
+ * partidas de diferencia de cierre. «Hoy» sale de un {@code Clock} fijo en la zona de la
  * aplicación, como en el servicio.
  */
 class ClosingPlannerTest {
@@ -59,7 +62,7 @@ class ClosingPlannerTest {
 
 	private static Plan plan(YearMonth period, PeriodStatus status, PeriodStatus previous, LocalDate today) {
 		return ClosingPlanner.plan(new Input(period, status, previous, previous == null, today, List.of(), List.of(),
-				Map.of()));
+				Map.of(), Map.of()));
 	}
 
 	/**
@@ -121,7 +124,7 @@ class ClosingPlannerTest {
 	@Test
 	void aPeriodThatIsNotTheStartAlwaysHasAPrevious() {
 		assertThatThrownBy(() -> new Input(OCTOBER, PeriodStatus.OPEN, null, false, LocalDate.of(2026, 11, 1),
-				List.of(), List.of(), Map.of()))
+				List.of(), List.of(), Map.of(), Map.of()))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
@@ -165,7 +168,7 @@ class ClosingPlannerTest {
 
 	private Plan planWith(PeriodStatus status, PeriodStatus previous, LocalDate today) {
 		return ClosingPlanner.plan(new Input(OCTOBER, status, previous, false, today,
-				List.of(salary, bonus, power, covered, zero, rent), accounts, Map.of()));
+				List.of(salary, bonus, power, covered, zero, rent), accounts, Map.of(), Map.of()));
 	}
 
 	/**
@@ -224,7 +227,7 @@ class ClosingPlannerTest {
 	/** Octubre, el período inicial, ya terminado: se cumplen las precondiciones. */
 	private static Plan resolve(YearMonth period, List<EntryLine> entries, Map<Long, ClosingResolution> resolutions) {
 		return ClosingPlanner.plan(new Input(period, PeriodStatus.OPEN, null, true, period.atEndOfMonth(), entries,
-				List.of(), resolutions));
+				List.of(), resolutions, Map.of()));
 	}
 
 	private static Plan resolve(EntryLine entry, ClosingResolution resolution) {
@@ -282,7 +285,7 @@ class ClosingPlannerTest {
 
 		assertThat(plan.newEntries()).containsExactly(new NewEntry(YearMonth.of(2026, 11), EntryOrigin.CARRIED_OVER,
 				"Saldo pendiente: Luz", EntryKind.EXPENSE, 8L, "Servicios", 42L, "Banco", Currency.ARS,
-				LocalDate.of(2026, 11, 18), amount("25000.00"), 3L));
+				LocalDate.of(2026, 11, 18), amount("25000.00"), 3L, null));
 	}
 
 	/**
@@ -417,7 +420,7 @@ class ClosingPlannerTest {
 	void withSomeResolutionsTheRestAreUnresolved() {
 		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.CLOSED, false, OCTOBER_31,
 				List.of(salary, bonus, power, covered, zero, rent), accounts,
-				Map.of(power.id(), ClosingResolution.CARRY_OVER, zero.id(), ClosingResolution.CLOSE_AS_IS)));
+				Map.of(power.id(), ClosingResolution.CARRY_OVER, zero.id(), ClosingResolution.CLOSE_AS_IS), Map.of()));
 
 		assertThat(plan.effects()).extracting(EntryEffect::entryId).containsExactly(power.id(), zero.id());
 		assertThat(plan.unresolvedEntryIds()).containsExactly(bonus.id(), covered.id());
@@ -430,7 +433,7 @@ class ClosingPlannerTest {
 		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.CLOSED, false, OCTOBER_31,
 				List.of(salary, bonus, power, covered, zero, rent), accounts,
 				Map.of(bonus.id(), ClosingResolution.CARRY_OVER, power.id(), ClosingResolution.CARRY_OVER,
-						covered.id(), ClosingResolution.CARRY_OVER, zero.id(), ClosingResolution.CLOSE_AS_IS)));
+						covered.id(), ClosingResolution.CARRY_OVER, zero.id(), ClosingResolution.CLOSE_AS_IS), Map.of()));
 
 		assertThat(plan.unresolvedEntryIds()).isEmpty();
 		assertThat(plan.effects()).hasSize(4);
@@ -451,7 +454,7 @@ class ClosingPlannerTest {
 		resolutions.put(salary.id(), ClosingResolution.CLOSE_AS_IS);
 
 		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.CLOSED, false, OCTOBER_31,
-				List.of(salary, bonus, power, covered, zero, rent), accounts, resolutions));
+				List.of(salary, bonus, power, covered, zero, rent), accounts, resolutions, Map.of()));
 
 		assertThat(plan.invalidResolutions()).containsExactly(
 				new InvalidResolution(999L, InvalidResolutionReason.NOT_IN_PERIOD),
@@ -475,7 +478,7 @@ class ClosingPlannerTest {
 	@Test
 	void aBlockedOpenPeriodStillComputesTheEffects() {
 		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.OPEN, false,
-				LocalDate.of(2026, 10, 16), List.of(power), accounts, Map.of(power.id(), ClosingResolution.CARRY_OVER)));
+				LocalDate.of(2026, 10, 16), List.of(power), accounts, Map.of(power.id(), ClosingResolution.CARRY_OVER), Map.of()));
 
 		assertThat(plan.preconditionsMet()).isFalse();
 		assertThat(plan.newEntries()).hasSize(1);
@@ -486,11 +489,290 @@ class ClosingPlannerTest {
 	void aClosedPeriodIgnoresTheResolutions() {
 		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.CLOSED, PeriodStatus.CLOSED, false,
 				LocalDate.of(2026, 11, 3), List.of(power, rent), accounts,
-				Map.of(power.id(), ClosingResolution.CARRY_OVER, 999L, ClosingResolution.CLOSE_AS_IS)));
+				Map.of(power.id(), ClosingResolution.CARRY_OVER, 999L, ClosingResolution.CLOSE_AS_IS), Map.of()));
 
 		assertThat(plan.effects()).isEmpty();
 		assertThat(plan.newEntries()).isEmpty();
 		assertThat(plan.unresolvedEntryIds()).isEmpty();
 		assertThat(plan.invalidResolutions()).isEmpty();
+	}
+
+	// Conciliación (HU-32, RN-40 paso 3, D-44).
+
+	static final LocalDate NOVEMBER_2 = LocalDate.of(2026, 11, 2);
+
+	private static AccountLine account(long id, String name, Currency currency, String openingDate, String computed) {
+		return new AccountLine(id, name, currency, LocalDate.parse(openingDate), amount(computed));
+	}
+
+	/** Un período ya terminado y sin partidas, con las cuentas y los saldos reales recibidos, en ese orden. */
+	private static Plan reconcile(YearMonth period, List<AccountLine> accounts, Map<Long, BigDecimal> balances) {
+		return ClosingPlanner.plan(new Input(period, PeriodStatus.OPEN, null, true, period.atEndOfMonth().plusDays(1),
+				List.of(), accounts, Map.of(), balances));
+	}
+
+	private static Plan reconcile(AccountLine account, String real) {
+		return reconcile(OCTOBER, List.of(account), Map.of(account.id(), amount(real)));
+	}
+
+	/**
+	 * La diferencia es real menos calculado y la partida es un ingreso si es positiva y un gasto si es negativa, por su
+	 * valor absoluto, vencida el día 1 del período siguiente y en la moneda de la cuenta. Con diferencia 0 no se crea
+	 * nada. El primero es el ejemplo del banco de RN-40.
+	 */
+	@ParameterizedTest(name = "[{index}] {0} {1}: calculado {2}, real {3} → diferencia {4}, {5} {6}")
+	@CsvSource(nullValues = "-", value = {
+			"Banco,     ARS, 512300.00,  509800.00,  -2500.00,  EXPENSE, 2500.00",
+			"Banco,     ARS, 512300.00,  514000.00,  1700.00,   INCOME,  1700.00",
+			"Banco,     ARS, 512300.00,  512300.00,  0.00,      -,       -",
+			// Saldos negativos: la diferencia sigue siendo real menos calculado.
+			"Banco,     ARS, -1500.50,   -2000.00,   -499.50,   EXPENSE, 499.50",
+			"Banco,     ARS, -1500.50,   -1000.00,   500.50,    INCOME,  500.50",
+			"Banco,     ARS, -1500.50,   250.00,     1750.50,   INCOME,  1750.50",
+			"Banco,     ARS, 100.00,     -50.00,     -150.00,   EXPENSE, 150.00",
+			"Banco,     ARS, -100.00,    -100.00,    0.00,      -,       -",
+			// Un saldo real en 0 y un calculado en 0.
+			"Banco,     ARS, 100.00,     0.00,       -100.00,   EXPENSE, 100.00",
+			"Banco,     ARS, 0.00,       0.00,       0.00,      -,       -",
+			// Una cuenta en dólares: la partida queda en USD.
+			"Dólares,   USD, 1000.00,    1200.00,    200.00,    INCOME,  200.00",
+			"Dólares,   USD, 1000.00,    1000.00,    0.00,      -,       -",
+			// Un centavo.
+			"Banco,     ARS, 10.00,      10.01,      0.01,      INCOME,  0.01",
+	})
+	void theDifferenceIsRealMinusComputed(String name, Currency currency, String computed, String real,
+			String difference, EntryKind kind, String budgeted) {
+		AccountLine account = account(10, name, currency, "2026-08-01", computed);
+
+		Plan plan = reconcile(account, real);
+
+		Reconciliation reconciliation = plan.reconciliations().getFirst();
+		assertThat(reconciliation.accountId()).isEqualTo(10L);
+		assertThat(reconciliation.computedBalance()).isEqualTo(amount(computed));
+		assertThat(reconciliation.realBalance()).isEqualTo(amount(real));
+		assertThat(reconciliation.difference()).isEqualTo(amount(difference));
+		if (kind == null) {
+			assertThat(reconciliation.differenceEntry()).isNull();
+			assertThat(plan.newEntries()).isEmpty();
+			return;
+		}
+		NewEntry entry = reconciliation.differenceEntry();
+		assertThat(entry).isEqualTo(new NewEntry(YearMonth.of(2026, 11), EntryOrigin.CLOSING_DIFFERENCE,
+				"Diferencia de cierre: " + name + " (oct 2026)", kind, null, null, 10L, name, currency,
+				LocalDate.of(2026, 11, 1), amount(budgeted), null, 10L));
+		assertThat(plan.newEntries()).containsExactly(entry);
+		assertThat(plan.missingRealBalanceAccountIds()).isEmpty();
+		assertThat(plan.invalidBalances()).isEmpty();
+	}
+
+	/** El ejemplo del banco de RN-40, con todas las partes de la partida. */
+	@Test
+	void theBankExampleOfRn40() {
+		Plan plan = reconcile(account(12, "Banco", Currency.ARS, "2026-08-01", "512300.00"), "509800.00");
+
+		assertThat(plan.newEntries()).containsExactly(new NewEntry(YearMonth.of(2026, 11),
+				EntryOrigin.CLOSING_DIFFERENCE, "Diferencia de cierre: Banco (oct 2026)", EntryKind.EXPENSE, null,
+				null, 12L, "Banco", Currency.ARS, LocalDate.of(2026, 11, 1), amount("2500.00"), null, 12L));
+	}
+
+	/** Los saldos reales con otra escala (sin decimales, con un ceros de más) dan la misma diferencia con 2 decimales. */
+	@ParameterizedTest(name = "[{index}] real {0}")
+	@CsvSource({ "509800", "509800.0", "509800.000", "509800.00" })
+	void aRealBalanceWithAnotherScaleGivesTheSameDifference(String real) {
+		Reconciliation reconciliation = reconcile(account(12, "Banco", Currency.ARS, "2026-08-01", "512300.00"),
+				real).reconciliations().getFirst();
+
+		assertThat(reconciliation.difference()).isEqualTo(amount("-2500.00"));
+		assertThat(reconciliation.realBalance().scale()).isEqualTo(2);
+		assertThat(reconciliation.differenceEntry().budgetedAmount()).isEqualTo(amount("2500.00"));
+	}
+
+	@Test
+	void moreThanTwoDecimalsInARealBalanceIsRejected() {
+		assertThatThrownBy(() -> reconcile(account(12, "Banco", Currency.ARS, "2026-08-01", "10.00"), "10.005"))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	/** Cada mes abreviado, de la tabla fija (D-44): tres letras, minúsculas y sin punto. */
+	@ParameterizedTest(name = "{0} → {1}")
+	@CsvSource({
+			"2026-01, ene", "2026-02, feb", "2026-03, mar", "2026-04, abr", "2026-05, may", "2026-06, jun",
+			"2026-07, jul", "2026-08, ago", "2026-09, sep", "2026-10, oct", "2026-11, nov", "2026-12, dic",
+	})
+	void theMonthIsAbbreviatedFromAFixedTable(String period, String abbreviation) {
+		YearMonth month = YearMonth.parse(period);
+
+		Plan plan = reconcile(month, List.of(account(10, "Banco", Currency.ARS, "2020-01-01", "100.00")),
+				Map.of(10L, amount("90.00")));
+
+		assertThat(plan.newEntries().getFirst().name())
+				.isEqualTo("Diferencia de cierre: Banco (" + abbreviation + " " + month.getYear() + ")");
+		assertThat(plan.newEntries().getFirst().period()).isEqualTo(month.plusMonths(1));
+		assertThat(plan.newEntries().getFirst().dueDate()).isEqualTo(month.plusMonths(1).atDay(1));
+	}
+
+	/** Diciembre: la partida va a enero del año siguiente, y el nombre lleva el mes y el año que se cierran. */
+	@Test
+	void theDecemberClosingGoesToJanuaryOfTheNextYear() {
+		Plan plan = reconcile(YearMonth.of(2026, 12), List.of(account(10, "Banco", Currency.ARS, "2026-08-01",
+				"100.00")), Map.of(10L, amount("160.00")));
+
+		assertThat(plan.newEntries()).containsExactly(new NewEntry(YearMonth.of(2027, 1),
+				EntryOrigin.CLOSING_DIFFERENCE, "Diferencia de cierre: Banco (dic 2026)", EntryKind.INCOME, null, null,
+				10L, "Banco", Currency.ARS, LocalDate.of(2027, 1, 1), amount("60.00"), null, 10L));
+	}
+
+	/**
+	 * «Diferencia de cierre: » tiene 22 caracteres y « (oct 2026)» 11: la cuenta entra hasta con 67. Con más, se recorta
+	 * a 66 y se agrega «…», y el mes queda intacto; el total es 100 (D-44).
+	 */
+	@ParameterizedTest(name = "[{index}] cuenta de {0} caracteres")
+	@CsvSource({ "66", "67", "68", "84", "100" })
+	void aLongAccountNameIsCutAndTheMonthIsKept(int length) {
+		String name = name(length);
+
+		String differenceName = ClosingPlanner.differenceName(name, OCTOBER);
+
+		if (length <= 67) {
+			assertThat(differenceName).isEqualTo("Diferencia de cierre: " + name + " (oct 2026)");
+		}
+		else {
+			assertThat(differenceName).isEqualTo("Diferencia de cierre: " + name(66) + "… (oct 2026)");
+		}
+		assertThat(differenceName.length()).isEqualTo(Math.min(100, 33 + length));
+	}
+
+	/** El corte no deja un espacio antes de «…» ni parte un emoji, como en D-43. */
+	@Test
+	void theAccountCutDropsTrailingSpacesAndDoesNotSplitAnEmoji() {
+		assertThat(ClosingPlanner.differenceName(name(65) + " " + name(20), OCTOBER))
+				.isEqualTo("Diferencia de cierre: " + name(65) + "… (oct 2026)");
+		assertThat(ClosingPlanner.differenceName(name(65) + "💡" + name(20), OCTOBER))
+				.isEqualTo("Diferencia de cierre: " + name(65) + "… (oct 2026)");
+	}
+
+	/** La partida de una cuenta de nombre largo conserva el nombre completo de la cuenta en su campo. */
+	@Test
+	void theEntryOfALongAccountNameKeepsTheAccountName() {
+		Plan plan = reconcile(account(10, name(100), Currency.ARS, "2026-08-01", "100.00"), "90.00");
+
+		NewEntry entry = plan.newEntries().getFirst();
+		assertThat(entry.name()).hasSize(100).endsWith("… (oct 2026)");
+		assertThat(entry.accountName()).isEqualTo(name(100));
+	}
+
+	/** Los sin saldo real se informan y no tienen diferencia; los demás se concilian igual, en el orden de las cuentas. */
+	@Test
+	void accountsWithoutARealBalanceAreMissing() {
+		List<AccountLine> accounts = List.of(
+				account(10, "Banco", Currency.ARS, "2026-08-01", "100.00"),
+				account(11, "Billetera", Currency.ARS, "2026-10-31", "50.00"),
+				account(13, "Dólares", Currency.USD, "2026-10-15", "10.00"));
+
+		Plan plan = reconcile(OCTOBER, accounts, Map.of(13L, amount("12.00"), 10L, amount("100.00")));
+
+		assertThat(plan.reconciliations()).extracting(Reconciliation::accountId).containsExactly(10L, 13L);
+		assertThat(plan.missingRealBalanceAccountIds()).containsExactly(11L);
+		assertThat(plan.newEntries()).extracting(NewEntry::sourceAccountId).containsExactly(13L);
+	}
+
+	@Test
+	void withoutRealBalancesEveryAccountIsMissing() {
+		Plan plan = planWith(PeriodStatus.OPEN, PeriodStatus.CLOSED, OCTOBER_31);
+
+		assertThat(plan.reconciliations()).isEmpty();
+		assertThat(plan.missingRealBalanceAccountIds()).containsExactly(10L, 11L, 13L);
+		assertThat(plan.invalidBalances()).isEmpty();
+	}
+
+	/**
+	 * D-44: un saldo para una cuenta abierta después del último día, que no existe o es ajena se informa en el orden en
+	 * que llegó y no se aplica; las demás cuentas se concilian.
+	 */
+	@Test
+	void balancesThatDoNotApplyAreReportedAndIgnored() {
+		Map<Long, BigDecimal> balances = new LinkedHashMap<>();
+		balances.put(999L, amount("1.00"));
+		balances.put(12L, amount("1.00"));
+		balances.put(10L, amount("900.00"));
+
+		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.CLOSED, false,
+				OCTOBER_31, List.of(), accounts, Map.of(), balances));
+
+		assertThat(plan.invalidBalances()).containsExactly(
+				new InvalidBalance(999L, InvalidBalanceReason.NOT_RECONCILABLE),
+				new InvalidBalance(12L, InvalidBalanceReason.NOT_RECONCILABLE));
+		assertThat(plan.reconciliations()).extracting(Reconciliation::accountId).containsExactly(10L);
+		assertThat(plan.missingRealBalanceAccountIds()).containsExactly(11L, 13L);
+		assertThat(plan.newEntries()).hasSize(1);
+	}
+
+	/** La cuenta abierta el último día se concilia; la abierta al día siguiente, no. */
+	@Test
+	void anAccountOpenedTheLastDayIsReconciledButNotTheNextDay() {
+		Plan plan = reconcile(OCTOBER, List.of(account(11, "Billetera", Currency.ARS, "2026-10-31", "50.00"),
+				account(12, "Efectivo", Currency.ARS, "2026-11-01", "50.00")),
+				Map.of(11L, amount("40.00"), 12L, amount("40.00")));
+
+		assertThat(plan.reconciliations()).extracting(Reconciliation::accountId).containsExactly(11L);
+		assertThat(plan.invalidBalances()).containsExactly(
+				new InvalidBalance(12L, InvalidBalanceReason.NOT_RECONCILABLE));
+	}
+
+	/** Las resoluciones de HU-31 y los saldos de HU-32 conviven: primero los saldos postergados, después las diferencias. */
+	@Test
+	void carriedOverEntriesComeBeforeTheDifferenceEntries() {
+		Map<Long, BigDecimal> balances = new LinkedHashMap<>();
+		balances.put(13L, amount("20.00"));
+		balances.put(10L, amount("900.00"));
+
+		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.CLOSED, false, OCTOBER_31,
+				List.of(power, zero), accounts, Map.of(power.id(), ClosingResolution.CARRY_OVER,
+						zero.id(), ClosingResolution.CLOSE_AS_IS), balances));
+
+		assertThat(plan.newEntries()).extracting(NewEntry::origin).containsExactly(EntryOrigin.CARRIED_OVER,
+				EntryOrigin.CLOSING_DIFFERENCE, EntryOrigin.CLOSING_DIFFERENCE);
+		assertThat(plan.newEntries()).extracting(NewEntry::accountName).containsExactly("Banco", "Banco", "Dólares");
+		assertThat(plan.newEntries().get(0).sourceEntryId()).isEqualTo(power.id());
+		assertThat(plan.newEntries().get(0).sourceAccountId()).isNull();
+		assertThat(plan.newEntries().get(1).sourceEntryId()).isNull();
+		assertThat(plan.newEntries().get(1).sourceAccountId()).isEqualTo(10L);
+		assertThat(plan.newEntries().get(2).sourceAccountId()).isEqualTo(13L);
+	}
+
+	/** El saldo calculado no cambia con las resoluciones: solo consolidan y no registran movimientos (HU-31). */
+	@Test
+	void theResolutionsDoNotChangeTheComputedBalance() {
+		Map<Long, BigDecimal> balances = Map.of(10L, amount("900.00"));
+		Plan without = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.CLOSED, false,
+				OCTOBER_31, List.of(power), accounts, Map.of(), balances));
+		Plan with = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.CLOSED, false,
+				OCTOBER_31, List.of(power), accounts, Map.of(power.id(), ClosingResolution.CARRY_OVER), balances));
+
+		assertThat(with.reconciliations()).isEqualTo(without.reconciliations());
+		assertThat(with.accounts()).isEqualTo(without.accounts());
+	}
+
+	/** Bloqueado por las precondiciones, las diferencias se calculan igual (D-44). */
+	@Test
+	void aBlockedOpenPeriodStillComputesTheDifferences() {
+		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.OPEN, PeriodStatus.OPEN, false,
+				LocalDate.of(2026, 10, 16), List.of(), accounts, Map.of(), Map.of(10L, amount("900.00"))));
+
+		assertThat(plan.preconditionsMet()).isFalse();
+		assertThat(plan.reconciliations()).hasSize(1);
+		assertThat(plan.newEntries()).hasSize(1);
+	}
+
+	/** Un período cerrado ignora los saldos: ni diferencias, ni faltantes, ni inválidos (D-44). */
+	@Test
+	void aClosedPeriodIgnoresTheRealBalances() {
+		Plan plan = ClosingPlanner.plan(new Input(OCTOBER, PeriodStatus.CLOSED, PeriodStatus.CLOSED, false,
+				NOVEMBER_2, List.of(), accounts, Map.of(), Map.of(10L, amount("900.00"), 999L, amount("1.00"))));
+
+		assertThat(plan.reconciliations()).isEmpty();
+		assertThat(plan.missingRealBalanceAccountIds()).isEmpty();
+		assertThat(plan.invalidBalances()).isEmpty();
+		assertThat(plan.newEntries()).isEmpty();
 	}
 }

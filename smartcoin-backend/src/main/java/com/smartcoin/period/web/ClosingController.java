@@ -46,12 +46,16 @@ public class ClosingController {
 					+ "pasaría con cada pendiente resuelta y las partidas de saldo postergado que se crearían en el "
 					+ "mes siguiente (RN-40, pasos 1 y 2), las pendientes que todavía no tienen resolución y las "
 					+ "resoluciones que no corresponden, que no se aplican. Los efectos se calculan aunque no se "
-					+ "cumplan las precondiciones. Un período cerrado responde 200 con `PERIOD_CLOSED` y las listas "
-					+ "vacías, e ignora las resoluciones. Los saldos reales todavía no se reciben (HU-32).")
+					+ "cumplan las precondiciones. Con saldos reales (opcional), la diferencia de cada cuenta (real "
+					+ "menos calculado), las partidas de diferencia de cierre que se crearían en el mes siguiente "
+					+ "junto con las de saldo postergado (RN-40, paso 3), las cuentas que todavía no tienen saldo "
+					+ "real y los saldos que no corresponden, que no se aplican. Un período cerrado responde 200 con "
+					+ "`PERIOD_CLOSED` y las listas vacías, e ignora las resoluciones y los saldos.")
 	@ApiResponse(responseCode = "200", description = "La simulación del cierre.")
 	@ApiResponse(responseCode = "400", description = "VALIDATION_ERROR: el período no tiene el formato YYYY-MM; "
-			+ "una resolución sin partida o sin valor, o con un valor inválido; o una partida con más de una "
-			+ "resolución.",
+			+ "una resolución sin partida o sin valor, o con un valor inválido; una partida con más de una "
+			+ "resolución; un saldo real sin cuenta, sin monto o con más de 2 decimales; o una cuenta con más de "
+			+ "un saldo real.",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
 	@ApiResponse(responseCode = "401", description = "UNAUTHORIZED: token ausente, inválido, vencido o revocado.",
 			content = @Content(mediaType = PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
@@ -64,6 +68,6 @@ public class ClosingController {
 			@PathVariable YearMonth period,
 			@RequestBody(required = false) @Valid ClosingPreviewRequest request) {
 		return ClosingPreviewResponse.from(closing.preview(currentUser.id(), period,
-				ClosingPreviewRequest.resolutionsOf(request)));
+				ClosingPreviewRequest.resolutionsOf(request), ClosingPreviewRequest.realBalancesOf(request)));
 	}
 }
