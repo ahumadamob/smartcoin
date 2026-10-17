@@ -162,6 +162,30 @@ describe('CashFlowPage', () => {
     expect(root().querySelector('[data-testid="opening-balance"]')!.textContent).toContain('$ 1,00');
   });
 
+  it('no pisa una fecha que el usuario escribió mientras el pedido volaba', async () => {
+    const pending = new Subject<CashFlow>();
+    await setup(pending);
+
+    type('Desde', '2026-11-05');
+    pending.next(flow());
+    fixture.detectChanges();
+
+    expect(input('Desde').value).toBe('2026-11-05');
+    expect(input('Hasta').value).toBe('2026-10-31');
+  });
+
+  it('con las dos fechas pedidas no cambia lo que muestran los campos', async () => {
+    await setup();
+    type('Desde', '2026-11-01');
+    type('Hasta', '2026-11-30');
+    getCashFlow.mockReturnValue(of(flow({ from: '2026-11-01', to: '2026-11-30' })));
+
+    submit();
+
+    expect(input('Desde').value).toBe('2026-11-01');
+    expect(input('Hasta').value).toBe('2026-11-30');
+  });
+
   it('los campos tienen etiqueta y el botón es de envío', async () => {
     await setup();
 

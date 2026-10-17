@@ -68,8 +68,15 @@ export class CashFlowPage implements OnInit {
     this.pending = this.reports.getCashFlow(currency, from || undefined, to || undefined).subscribe({
       next: (flow) => {
         this.flow.set(flow);
-        // La pantalla muestra el rango que resolvió el backend, también cuando se pidió sin fechas.
-        this.filters.patchValue({ from: flow.from, to: flow.to }, { emitEvent: false });
+        // La pantalla muestra el rango que resolvió el backend cuando se pidió sin una fecha. Lo que el usuario escribió
+        // mientras el pedido volaba no se pisa.
+        const { controls } = this.filters;
+        if (!from && controls.from.value === '') {
+          controls.from.setValue(flow.from, { emitEvent: false });
+        }
+        if (!to && controls.to.value === '') {
+          controls.to.setValue(flow.to, { emitEvent: false });
+        }
         this.loading.set(false);
       },
       error: (e: unknown) => {
