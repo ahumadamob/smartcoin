@@ -65,10 +65,9 @@
   color: var(--p-red-700);
 }
 
-// Foco visible en los campos (T-19): Nora solo cambia el color del borde, y en `p-select` ni eso al llegar con el
-// teclado. Llevan el mismo anillo de 2 px que los botones.
-.p-inputtext:focus-visible,
-.p-select:has(:focus-visible),
+// Foco visible del botón de radio (T-19): lleva el mismo anillo de 2 px que los botones. Los campos de texto y
+// `p-select` no lo necesitan: Aura ya marca el foco cambiando el color del borde, y sumarle el anillo dejaba un borde
+// doble.
 .p-radiobutton:has(:focus-visible) {
   outline: var(--p-focus-ring-width) var(--p-focus-ring-style) var(--p-focus-ring-color);
   outline-offset: var(--p-focus-ring-offset);

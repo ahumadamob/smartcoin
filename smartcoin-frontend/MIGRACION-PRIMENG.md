@@ -9,12 +9,12 @@ En esta primera sesión se migraron el layout (menú lateral, barra superior y m
 | Qué | Cómo |
 |---|---|
 | Paquetes | `primeng` 22.1.4, `@primeuix/themes` 3.1.0 y `primeicons` 8.0.2. PrimeNG trae `@primeicons/angular` y `@primeui/license-manager`. Angular CDK ya estaba. |
-| Tema | `core/primeng.ts`: preset **Nora** tal cual, con su primario esmeralda. Las esquinas son de 2 px en campos, botones, tablas y diálogos y de 4 px en tarjetas, y el foco es de 2 px. Para subir todo a 4 px, se ponen en `{border.radius.sm}` los tokens `semantic.formField.borderRadius`, `semantic.content.borderRadius` y `semantic.overlay.modal.borderRadius` con `definePreset`. |
+| Tema | `core/primeng.ts`: preset **Aura** tal cual, el de la demo de Sakai, con su primario esmeralda. Las esquinas son de 6 px en campos, botones y tablas y de 12 px en tarjetas y diálogos. Se había empezado con Nora (esquinas de 2 px) y se cambió a Aura para que los botones y grupos de botones se vean como en la demo. |
 | Modo oscuro | Desactivado (`darkModeSelector: false` y `color-scheme: light`). |
 | Capas CSS | PrimeNG va en la capa `primeng`. Los estilos sin capa (Material y los de cada componente) le ganan sin pelear por especificidad. Material y PrimeNG no comparten clases (`.mat-*`/`.mdc-*` contra `.p-*`) ni variables (`--mat-sys-*` contra `--p-*`). |
 | Idioma | `core/primeng-es.ts`, pasado como `translation`. Solo cubre los textos propios de PrimeNG (cerrar, listas vacías, etiquetas `aria`). Montos, fechas y períodos se siguen mostrando con `money`, `DATE_FORMAT` y `period`. Las fechas se cargan con `<input type="date">` nativo con `pInputText`: no se usa `p-datepicker`. |
 | Licencia | `providePrimeNG({ license })`. La clave sale de la variable de entorno `PRIMEUI_LICENSE_KEY` (en `~/.bashrc`, como `APP_ADMIN_KEY`). `scripts/primeui-license.mjs` la escribe en `src/app/core/primeui-license.generated.ts`, que está en `.gitignore`, y corre como `prestart`, `prebuild` y `pretest`. Sin la variable, la aplicación funciona, pero PrimeNG avisa en la consola y muestra el cartel «Invalid PrimeUI License». La verificación es local, sin conexión, y la clave queda dentro del JS compilado, porque se verifica en el navegador. |
-| Letra | `html { font-size: 14px }`, como Sakai. Achica también, un poco, las pantallas que siguen con Material. La fuente sigue siendo Roboto/system-ui: Sakai usa Lato desde un CDN externo y no se trajo. |
+| Letra | `html { font-size: 14px }`, como Sakai. Achica también, un poco, las pantallas que siguen con Material. La fuente es Lato, como Sakai, cargada desde Google Fonts en `src/index.html` (400 y 700; con `system-ui` de respaldo). Requiere conexión a internet. |
 | Tailwind | No se usa. Sakai solo lo necesita para el configurador de tema y las páginas de ejemplo, y su reset (preflight) desarmaría las pantallas de Material. |
 
 ### Qué se tomó de Sakai
@@ -90,7 +90,7 @@ También se corrigió lo que tiene Sakai de accesibilidad: botones con solo un �
   - La ayuda y el error se enlazan con `[pt]="{ label: { 'aria-describedby': … } }"`.
   - Las opciones se muestran ya formateadas, por ejemplo con `period`.
 - **Radios**: `p-radiobutton` con `inputId`, una `<label for>` al lado y un contenedor `role="radiogroup"` con `aria-labelledby`. La descripción de cada opción se enlaza con `[pt]="{ input: { 'aria-describedby': … } }"`.
-- **Foco visible**: `src/styles/_patterns.scss` agrega a `.p-inputtext`, `.p-select` y `.p-radiobutton` el mismo anillo de 2 px que tienen los botones. Nora solo cambiaba el color del borde, y en `p-select` ni eso al llegar con el teclado.
+- **Foco visible**: `src/styles/_patterns.scss` solo agrega a `.p-radiobutton` el anillo de 2 px de los botones. En `.p-inputtext` y `.p-select` no hace falta con Aura: marca el foco con el color del borde, y sumarle el anillo dejaba un borde doble.
 
 ### Tablas
 
@@ -138,8 +138,8 @@ PrimeIcons solo como decoración: siempre con `aria-hidden="true"` y al lado de 
   - El diálogo no tiene `aria-labelledby`; lo resuelve `appDialogTitle`.
   - El contenido se desplaza entero, título y acciones incluidos, y no tiene relleno arriba. Lo resuelven `.app-dialog .dialog-title` y `.dialog-actions` en `_patterns.scss`, fijos con su propio relleno.
 - **Disparador de `p-select`**: es un `role="button"` con la etiqueta en inglés «dropdown trigger». Se oculta a los lectores de pantalla con un pass-through global en `core/primeng.ts`.
-- **Contraste del aviso**: el aviso `success` de Nora es verde lleno, y un botón `outlined` adentro casi no se ve. Por eso se usa `contrast` con el botón en `secondary`.
-- **Tamaño del bundle**: el bundle inicial pasó de 384 kB (95 kB comprimido) en `main` a 776 kB (168 kB comprimido). El aumento está en `main.js`, que se carga al arrancar: el preset Nora completo (unos 124 kB sin comprimir, con los tokens de todos los componentes), el motor de estilos de PrimeNG, su configuración y la verificación de la licencia. Supera el aviso de 500 kB de `angular.json`, pero no el error de 1 MB. Sacar Material va a ahorrar algo; para bajarlo en serio hay que investigar si el tema se puede cargar solo con los componentes que se usan.
+- **Contraste del aviso**: el aviso `success` (con Nora; revisar con Aura) es verde lleno, y un botón `outlined` adentro casi no se ve. Por eso se usa `contrast` con el botón en `secondary`.
+- **Tamaño del bundle**: el bundle inicial pasó de 384 kB (95 kB comprimido) en `main` a 776 kB (168 kB comprimido). El aumento está en `main.js`, que se carga al arrancar: el preset completo (medido con Nora) (unos 124 kB sin comprimir, con los tokens de todos los componentes), el motor de estilos de PrimeNG, su configuración y la verificación de la licencia. Supera el aviso de 500 kB de `angular.json`, pero no el error de 1 MB. Sacar Material va a ahorrar algo; para bajarlo en serio hay que investigar si el tema se puede cargar solo con los componentes que se usan.
 
 ## Lo que falta migrar
 
