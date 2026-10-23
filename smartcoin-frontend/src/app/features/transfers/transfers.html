@@ -13,17 +13,16 @@
   </header>
 
   @if (error(); as message) {
-    <p-message class="page-error" severity="error" variant="simple" size="small">{{ message }}</p-message>
+    <p-message class="page-error" severity="error" variant="simple" size="small">{{
+      message
+    }}</p-message>
   }
 
   @if (formOpen()) {
     <section class="form-section" aria-labelledby="transfer-form-title">
-      <h2 class="subtitle" id="transfer-form-title">
-        {{ editing() ? 'Editar transferencia' : 'Nueva transferencia' }}
-      </h2>
+      <h2 class="subtitle" id="transfer-form-title">Nueva transferencia</h2>
       <app-transfer-form
         [accounts]="accounts()"
-        [transfer]="editing()"
         (saved)="onSaved($event)"
         (cancelled)="closeForm()"
       />
@@ -52,7 +51,9 @@
           <li class="row" data-testid="transfer">
             <span class="date">{{ transfer.date | date: dateFormat }}</span>
             <div class="info">
-              <span class="name">{{ transfer.sourceAccountName }} → {{ transfer.targetAccountName }}</span>
+              <span class="name"
+                >{{ transfer.sourceAccountName }} → {{ transfer.targetAccountName }}</span
+              >
               @if (kindOf(transfer); as kind) {
                 <span class="detail" data-testid="exchange">
                   {{ kind }}
@@ -77,18 +78,11 @@
                   class="action"
                   [fluid]="true"
                   type="button"
-                  label="Editar"
-                  icon="pi pi-pencil"
-                  [ariaLabel]="'Editar la transferencia del ' + (transfer.date | date: dateFormat)"
-                  (onClick)="edit(transfer)"
-                />
-                <p-button
-                  class="action"
-                  [fluid]="true"
-                  type="button"
                   label="Eliminar"
                   icon="pi pi-trash"
-                  [ariaLabel]="'Eliminar la transferencia del ' + (transfer.date | date: dateFormat)"
+                  [ariaLabel]="
+                    'Eliminar la transferencia del ' + (transfer.date | date: dateFormat)
+                  "
                   (onClick)="confirmDelete(transfer)"
                 />
               </p-buttongroup>

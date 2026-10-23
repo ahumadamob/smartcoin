@@ -246,7 +246,7 @@ test.describe('HU-28 · comprar y vender dólares', () => {
   });
 });
 
-test.describe('HU-29 · corregir o eliminar una transferencia', () => {
+test.describe('HU-29 · eliminar una transferencia (por ahora no se editan)', () => {
   test.describe.configure({ mode: 'serial' });
 
   let page: Page;
@@ -321,50 +321,9 @@ test.describe('HU-29 · corregir o eliminar una transferencia', () => {
     await page.close();
   });
 
-  test('corregir el monto: la lista muestra el nuevo y /cuentas los saldos nuevos', async () => {
-    await item('Caja chica').getByRole('button', { name: /Editar/ }).click();
-
-    await expect(page.getByRole('heading', { name: 'Editar transferencia' })).toBeVisible();
-    await expect(page.getByLabel('Monto', { exact: true })).toHaveValue('50000,00');
-    await page.getByLabel('Monto', { exact: true }).fill('45.000,00');
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
-
-    await expect(page.getByText('Transferencia corregida.')).toBeVisible();
-    await expect(item('Caja chica')).toContainText('$ 45.000,00');
-
-    expect(await balances()).toMatchObject({ Galicia: 3705000, 'Caja chica': 55000, 'Caja en dólares': 1100 });
-    await page.goto('/cuentas');
-    const row = (name: string) => page.getByRole('listitem').filter({ hasText: name });
-    await expect(row('Galicia').getByTestId('balance')).toHaveText('$ 3.705.000,00');
-    await expect(row('Caja chica').getByTestId('balance')).toHaveText('$ 55.000,00');
-  });
-
-  test('corregir una compra de dólares: carga los dos montos y recalcula el tipo de cambio', async () => {
-    await showFromOpening();
-    await item('Caja en dólares').getByRole('button', { name: /Editar/ }).click();
-
-    await expect(page.getByLabel('Monto en pesos')).toHaveValue('1250000,00');
-    await expect(page.getByLabel('Monto en dólares')).toHaveValue('1000,00');
-    await page.getByLabel('Monto en pesos').fill('1.300.000,00');
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
-
-    await expect(page.getByText('Compra de dólares corregida. Tipo de cambio: $ 1.300,00.')).toBeVisible();
-    await expect(item('Caja en dólares').getByTestId('exchange')).toContainText('Tipo de cambio $ 1.300,00');
-    expect(await balances()).toMatchObject({ Galicia: 3655000, 'Caja en dólares': 1100 });
-  });
-
-  test('una fecha futura al editar la rechaza el backend, no se pierde lo cargado y no cambia nada', async () => {
-    await item('Caja chica').getByRole('button', { name: /Editar/ }).click();
-    await page.getByLabel('Fecha', { exact: true }).fill(isoDay(1));
-    await page.getByLabel('Monto', { exact: true }).fill('1.000,00');
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
-
-    await expect(page.getByRole('alert')).toContainText('posterior a hoy');
-    await expect(page.getByLabel('Monto', { exact: true })).toHaveValue('1.000,00');
-    await expect(page.getByLabel('Fecha', { exact: true })).toHaveValue(isoDay(1));
-    expect(await balances()).toMatchObject({ Galicia: 3655000, 'Caja chica': 55000 });
-    await page.getByRole('button', { name: 'Cancelar' }).click();
-    await expect(page.getByRole('heading', { name: 'Editar transferencia' })).toHaveCount(0);
+  test('las filas no ofrecen editar, solo eliminar', async () => {
+    await expect(page.getByRole('button', { name: /Editar/ })).toHaveCount(0);
+    await expect(item('Caja chica').getByRole('button', { name: /Eliminar/ })).toBeVisible();
   });
 
   test('eliminar pide confirmar con los datos de la transferencia; cancelar no elimina', async () => {
@@ -372,9 +331,9 @@ test.describe('HU-29 · corregir o eliminar una transferencia', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('Galicia → Caja en dólares');
-    await expect(dialog).toContainText('$ 1.300.000,00');
+    await expect(dialog).toContainText('$ 1.250.000,00');
     await expect(dialog).toContainText('US$ 1.000,00');
-    await expect(dialog).toContainText('tipo de cambio $ 1.300,00');
+    await expect(dialog).toContainText('tipo de cambio $ 1.250,00');
     await dialog.getByRole('button', { name: 'Cancelar' }).click();
 
     await expect(page.getByTestId('transfer')).toHaveCount(2);

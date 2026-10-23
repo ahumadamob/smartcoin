@@ -28,7 +28,7 @@ import { TransferForm } from './transfer-form';
 import { exchangeKind } from './transfer-kind';
 
 /**
- * Transferencias (HU-27, HU-29): lista del rango de fechas, alta, corrección y eliminación. Sin fechas, el backend
+ * Transferencias (HU-27, HU-29): lista del rango de fechas, alta y eliminación (por ahora no se editan, aunque el backend lo permita). Sin fechas, el backend
  * devuelve el mes actual. Las reglas las decide el backend; `editable` solo dice si ofrecer las acciones (D-41).
  */
 @Component({
@@ -65,8 +65,6 @@ export class Transfers implements OnInit {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   protected readonly formOpen = signal(false);
-  /** La transferencia que se está corrigiendo; con el formulario abierto y sin ella, es un alta. */
-  protected readonly editing = signal<Transfer | null>(null);
 
   protected readonly range = new FormGroup({
     from: new FormControl('', { nonNullable: true }),
@@ -92,19 +90,11 @@ export class Transfers implements OnInit {
 
   protected openForm(): void {
     this.error.set(null);
-    this.editing.set(null);
-    this.formOpen.set(true);
-  }
-
-  protected edit(transfer: Transfer): void {
-    this.error.set(null);
-    this.editing.set(transfer);
     this.formOpen.set(true);
   }
 
   protected closeForm(): void {
     this.formOpen.set(false);
-    this.editing.set(null);
   }
 
   protected confirmDelete(transfer: Transfer): void {
@@ -146,9 +136,6 @@ export class Transfers implements OnInit {
     this.error.set(null);
     this.transfersApi.deleteTransfer(transfer.id).subscribe({
       next: () => {
-        if (this.editing()?.id === transfer.id) {
-          this.closeForm();
-        }
         this.snackBar.open('Transferencia eliminada.', undefined, { duration: 4000 });
         this.search();
         // La fila ya no está: el foco pasa a la acción principal de la pantalla.
@@ -170,12 +157,10 @@ export class Transfers implements OnInit {
     const kind = this.kindOf(transfer);
     const rate = transfer.exchangeRate;
     // Entre monedas distintas, el tipo de cambio que calculó el backend se ve apenas se guarda (HU-28).
-    const edited = this.editing() !== null;
-    const verb = edited ? 'corregida' : 'registrada';
     const message =
       kind !== null && rate != null
-        ? `${kind} ${verb}. Tipo de cambio: ${this.money.transform(rate, 'ARS')}.`
-        : `Transferencia ${verb}.`;
+        ? `${kind} registrada. Tipo de cambio: ${this.money.transform(rate, 'ARS')}.`
+        : 'Transferencia registrada.';
     this.snackBar.open(message, undefined, { duration: 6000 });
     // El formulario se cierra y vuelve la lista, ya con la transferencia.
     this.closeForm();

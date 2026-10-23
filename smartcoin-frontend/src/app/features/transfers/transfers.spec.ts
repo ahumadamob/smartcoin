@@ -158,32 +158,20 @@ describe('Transfers', () => {
     const buttons = (label: string) =>
       Array.from(root().querySelectorAll('button')).filter((b) => b.textContent!.trim() === label);
 
-    it('ofrece Editar y Eliminar solo en las filas editables', async () => {
+    it('ofrece Eliminar solo en las filas editables, y nunca Editar', async () => {
       await setup([transfer({ id: 1 }), transfer({ id: 2, editable: false })]);
 
-      expect(buttons('Editar')).toHaveLength(1);
       expect(buttons('Eliminar')).toHaveLength(1);
+      expect(buttons('Editar')).toHaveLength(0);
       const rows = root().querySelectorAll('[data-testid="transfer"]');
-      expect(rows[0].textContent).toContain('Editar');
-      expect(rows[1].textContent).not.toContain('Editar');
-    });
-
-    it('Editar abre el formulario con la transferencia cargada', async () => {
-      await setup([transfer()]);
-
-      buttons('Editar')[0].click();
-      fixture.detectChanges();
-
-      expect(text()).toContain('Editar transferencia');
-      expect(fixture.componentInstance['editing']()?.id).toBe(31);
-      expect(root().querySelector('app-transfer-form')).not.toBeNull();
-      expect(text()).toContain('Guardar cambios');
+      expect(rows[0].textContent).toContain('Eliminar');
+      expect(rows[1].textContent).not.toContain('Eliminar');
     });
 
     it('con el formulario abierto se oculta la lista, y al cancelar vuelve', async () => {
       await setup([transfer()]);
 
-      buttons('Editar')[0].click();
+      buttons('Nueva transferencia')[0].click();
       fixture.detectChanges();
       expect(root().querySelector('ul.list')).toBeNull();
       expect(root().querySelector('form.range')).toBeNull();

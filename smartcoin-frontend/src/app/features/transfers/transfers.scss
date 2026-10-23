@@ -69,6 +69,7 @@ $actions-width: 15rem;
 p-buttongroup {
   display: flex;
   grid-column: 4;
+  justify-content: flex-end;
   width: $actions-width;
 }
 
