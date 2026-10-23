@@ -115,7 +115,7 @@ test.describe('HU-07 · cuentas', () => {
     // El formulario sigue abierto con lo escrito, para corregirlo.
     await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('BANCO NACIÓN');
     await page.getByRole('button', { name: 'Cancelar' }).click();
-    await expect(page.getByRole('listitem')).toHaveCount(2);
+    await expect(page.getByRole('main').getByRole('listitem')).toHaveCount(2);
   });
 
   test('una fecha de apertura futura es rechazada por el backend', async () => {
