@@ -1,43 +1,58 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { MatMenuHarness } from '@angular/material/menu/testing';
-import { HarnessLoader } from '@angular/cdk/testing';
-import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { provideRouter } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { AuthService } from '../auth/auth.service';
 import { Layout } from './layout';
 
 describe('Layout', () => {
-  it('al abrirse carga el email del usuario', () => {
-    const auth = { email: signal(null), loadUser: vi.fn(), logout: vi.fn() };
+  function setup(email: string | null) {
+    const auth = { email: signal(email), loadUser: vi.fn(), logout: vi.fn() };
     TestBed.configureTestingModule({
       imports: [Layout],
-      providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
+      providers: [provideRouter([]), MessageService, { provide: AuthService, useValue: auth }],
     });
     const fixture = TestBed.createComponent(Layout);
     fixture.detectChanges();
+    return { auth, fixture, root: fixture.nativeElement as HTMLElement };
+  }
+
+  it('al abrirse carga el email del usuario', () => {
+    const { auth, root } = setup(null);
 
     expect(auth.loadUser).toHaveBeenCalledOnce();
-    expect(fixture.nativeElement.querySelector('app-user-menu')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('nav')).not.toBeNull();
+    expect(root.querySelector('app-user-menu')).not.toBeNull();
+    expect(root.querySelector('nav')).not.toBeNull();
   });
 
-  it('ya no tiene el botón suelto de cerrar sesión: está en el menú de usuario', async () => {
-    const auth = { email: signal('persona@ejemplo.com'), loadUser: vi.fn(), logout: vi.fn() };
-    TestBed.configureTestingModule({
-      imports: [Layout],
-      providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
-    });
-    const fixture = TestBed.createComponent(Layout);
-    fixture.detectChanges();
-    const loader: HarnessLoader = TestbedHarnessEnvironment.loader(fixture);
+  it('el menú lateral tiene las mismas entradas y rutas que antes, con íconos decorativos', () => {
+    const { root } = setup(null);
 
-    const buttons: HTMLButtonElement[] = Array.from(
-      fixture.nativeElement.querySelectorAll('button'),
-    );
+    const links = Array.from(root.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Principal"] a'));
+    expect(links.map((a) => [a.textContent?.trim(), a.getAttribute('href')])).toEqual([
+      ['Presupuesto', '/presupuesto'],
+      ['Conceptos', '/conceptos'],
+      ['Cuentas', '/cuentas'],
+      ['Categorías', '/categorias'],
+      ['Transferencias', '/transferencias'],
+      ['Flujo de caja', '/flujo-de-caja'],
+      ['Proyección', '/proyeccion'],
+      ['Varios meses', '/planificacion'],
+    ]);
+    expect(Array.from(root.querySelectorAll('nav i')).every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true);
+  });
+
+  it('ya no tiene el botón suelto de cerrar sesión: está en el menú de usuario, en la barra superior', async () => {
+    const { root, fixture } = setup('persona@ejemplo.com');
+
+    const buttons: HTMLButtonElement[] = Array.from(root.querySelectorAll('button'));
     expect(buttons.map((b) => b.textContent?.trim())).toEqual(['persona@ejemplo.com']);
-    const menu = await loader.getHarness(MatMenuHarness);
-    await menu.open();
-    expect((await menu.getItems()).length).toBe(2);
+    expect(buttons[0].closest('header')).not.toBeNull();
+
+    buttons[0].click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.querySelectorAll('[role="menuitem"]')).toHaveLength(2);
+    document.querySelectorAll('.p-menu').forEach((menu) => menu.remove());
   });
 });

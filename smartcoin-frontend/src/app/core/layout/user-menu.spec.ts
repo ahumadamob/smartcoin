@@ -1,7 +1,5 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { MatMenuHarness } from '@angular/material/menu/testing';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { UserMenu } from './user-menu';
@@ -19,40 +17,44 @@ describe('UserMenu', () => {
     });
     const fixture = TestBed.createComponent(UserMenu);
     fixture.detectChanges();
-    const loader = TestbedHarnessEnvironment.loader(fixture);
-    return { auth, router, fixture, menu: () => loader.getHarness(MatMenuHarness) };
+    const trigger: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+    /** Abre el menú como lo haría el usuario y devuelve sus opciones (el menú se dibuja en el `body`). */
+    async function open(): Promise<HTMLElement[]> {
+      trigger.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      return Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    }
+    return { auth, router, fixture, trigger, open };
   }
 
-  it('el disparador muestra el email del usuario', async () => {
-    const { menu } = setup();
+  afterEach(() => document.querySelectorAll('[role="menu"]').forEach((menu) => menu.closest('.p-menu')?.remove()));
 
-    expect(await (await menu()).getTriggerText()).toBe('persona@ejemplo.com');
+  it('el disparador muestra el email del usuario', () => {
+    const { trigger } = setup();
+
+    expect(trigger.textContent?.trim()).toBe('persona@ejemplo.com');
   });
 
-  it('mientras no se conoce el email muestra "Mi cuenta"', async () => {
-    const { menu } = setup(null);
+  it('mientras no se conoce el email muestra "Mi cuenta"', () => {
+    const { trigger } = setup(null);
 
-    expect(await (await menu()).getTriggerText()).toBe('Mi cuenta');
+    expect(trigger.textContent?.trim()).toBe('Mi cuenta');
   });
 
   it('ofrece "Cambiar contraseña" y "Cerrar sesión"', async () => {
-    const { menu } = setup();
-    const harness = await menu();
+    const { open } = setup();
 
-    await harness.open();
+    const items = await open();
 
-    const items = await harness.getItems();
-    expect(await Promise.all(items.map((i) => i.getText()))).toEqual([
-      'Cambiar contraseña',
-      'Cerrar sesión',
-    ]);
+    expect(items.map((i) => i.textContent?.trim())).toEqual(['Cambiar contraseña', 'Cerrar sesión']);
   });
 
   it('"Cambiar contraseña" navega a la pantalla recordando dónde estaba', async () => {
-    const { menu, router } = setup();
-    const harness = await menu();
+    const { open, router } = setup();
 
-    await harness.clickItem({ text: 'Cambiar contraseña' });
+    const [change] = await open();
+    change.querySelector<HTMLElement>('a, [data-pc-section="itemcontent"]')?.click();
 
     expect(router.navigate).toHaveBeenCalledWith(['/cambiar-contrasena'], {
       state: { returnUrl: '/cuentas' },
@@ -60,25 +62,32 @@ describe('UserMenu', () => {
   });
 
   it('"Cerrar sesión" cierra la sesión', async () => {
-    const { menu, auth } = setup();
-    const harness = await menu();
+    const { open, auth } = setup();
 
-    await harness.clickItem({ text: 'Cerrar sesión' });
+    const [, logout] = await open();
+    logout.querySelector<HTMLElement>('a, [data-pc-section="itemcontent"]')?.click();
 
     expect(auth.logout).toHaveBeenCalledOnce();
   });
 
   it('es un botón enfocable que anuncia un menú con dos opciones', async () => {
-    const { fixture } = setup();
-    const trigger: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+    const { trigger, open, fixture } = setup();
 
     trigger.focus();
-    trigger.click();
+    const items = await open();
     fixture.detectChanges();
-    await fixture.whenStable();
 
-    const items = document.querySelectorAll('[role="menuitem"]');
     expect(items).toHaveLength(2);
     expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(document.getElementById(trigger.getAttribute('aria-controls') ?? '')).not.toBeNull();
+  });
+
+  it('los íconos son decorativos', () => {
+    const { trigger } = setup();
+
+    const icons = Array.from(trigger.querySelectorAll('i'));
+    expect(icons.length).toBeGreaterThan(0);
+    expect(icons.every((icon) => icon.getAttribute('aria-hidden') === 'true')).toBe(true);
   });
 });

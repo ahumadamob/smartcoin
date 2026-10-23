@@ -1,28 +1,32 @@
-<mat-sidenav-container class="container">
-  <mat-sidenav mode="side" opened class="sidenav">
-    <mat-toolbar>Smartcoin</mat-toolbar>
-    <nav aria-label="Principal">
-      <mat-nav-list>
-        @for (item of navItems; track item.path) {
-          <a
-            mat-list-item
-            [routerLink]="item.path"
-            routerLinkActive="active"
-            [activated]="rla.isActive"
-            #rla="routerLinkActive"
-          >
-            {{ item.label }}
-          </a>
-        }
-      </mat-nav-list>
-    </nav>
-    <div class="session">
+<div class="layout-wrapper">
+  <header class="layout-topbar">
+    <div class="layout-topbar-logo-container">
+      <a class="layout-topbar-logo" routerLink="/presupuesto">Smartcoin</a>
+    </div>
+    <div class="layout-topbar-actions">
       <app-user-menu />
     </div>
-  </mat-sidenav>
-  <mat-sidenav-content class="content">
-    <main>
+  </header>
+
+  <div class="layout-sidebar">
+    <nav aria-label="Principal">
+      <ul class="layout-menu">
+        @for (item of navItems; track item.path) {
+          <li>
+            <a [routerLink]="item.path" routerLinkActive="active-route" ariaCurrentWhenActive="page">
+              <i [class]="'pi ' + item.icon + ' layout-menuitem-icon'" aria-hidden="true"></i>
+              <span class="layout-menuitem-text">{{ item.label }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </nav>
+  </div>
+
+  <div class="layout-main-container">
+    <main class="layout-main">
       <router-outlet />
     </main>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+  </div>
+</div>
+<p-toast position="top-right" />

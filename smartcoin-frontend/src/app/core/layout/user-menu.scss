@@ -1,20 +1,15 @@
 :host {
   display: block;
+  min-width: 0;
 }
 
 .trigger {
-  width: 100%;
-
-  // El texto del botón es un elemento flex que no se achica por defecto: sin esto, un email largo se sale por los
-  // dos lados en lugar de cortarse con puntos suspensivos.
-  ::ng-deep .mdc-button__label {
-    min-width: 0;
-    overflow: hidden;
-  }
+  max-width: 22rem;
 }
 
 .label {
   display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
