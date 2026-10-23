@@ -203,7 +203,7 @@ describe('Accounts', () => {
 
     expect(text()).toContain('Nueva cuenta');
     expect(root().querySelector('app-account-form')).toBeTruthy();
-    const date = Array.from(root().querySelectorAll('mat-form-field'))
+    const date = Array.from(root().querySelectorAll('.field'))
       .find((f) => f.querySelector('label')?.textContent?.includes('Fecha de apertura'))!
       .querySelector('input')!;
     expect(date.value).toBe('2026-08-01');
@@ -214,10 +214,22 @@ describe('Accounts', () => {
     click('Editar Banco');
 
     expect(text()).toContain('Editar cuenta');
-    const name = Array.from(root().querySelectorAll('mat-form-field'))
+    const name = Array.from(root().querySelectorAll('.field'))
       .find((f) => f.querySelector('label')?.textContent?.includes('Nombre'))!
       .querySelector('input')!;
     expect(name.value).toBe('Banco');
+  });
+
+  it('con el formulario abierto, la lista se oculta, y al cancelar vuelve', async () => {
+    await setup([account(1, 'Banco', 'ARS')]);
+    click('Editar Banco');
+
+    expect(root().querySelector('ul.list')).toBeNull();
+    expect(button('Editar Banco')).toBeUndefined();
+    expect(button('Nueva cuenta')).toBeUndefined();
+    click('Cancelar');
+    expect(groupNames('$ (ARS)')).toEqual(['Banco']);
+    expect(button('Nueva cuenta')).toBeTruthy();
   });
 
   it('Cancelar cierra el formulario', async () => {

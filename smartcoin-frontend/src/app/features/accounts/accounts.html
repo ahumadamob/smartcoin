@@ -11,75 +11,73 @@
   }
 
   @if (formState() !== null) {
-    <mat-card appearance="outlined" class="form-card">
-      <mat-card-header>
-        <h2 class="subtitle">{{ editedAccount() ? 'Editar cuenta' : 'Nueva cuenta' }}</h2>
-      </mat-card-header>
-      <mat-card-content>
-        <app-account-form
-          [account]="editedAccount()"
-          [suggestedOpeningDate]="suggestedOpeningDate()"
-          (saved)="onSaved($event)"
-          (cancelled)="closeForm()"
-        />
-      </mat-card-content>
-    </mat-card>
-  }
-
-  @if (loading()) {
-    <p>Cargando cuentas…</p>
-  } @else if (groups().length === 0) {
-    <p class="empty">Todavía no cargaste ninguna cuenta. Empezá con «Nueva cuenta».</p>
-  }
-
-  @for (group of groups(); track group.currency) {
-    <section class="group" [attr.aria-labelledby]="'group-' + group.currency">
-      <div class="group-header">
-        <h2 class="subtitle" [id]="'group-' + group.currency">{{ group.label }}</h2>
-        <p class="subtotal" [class.negative]="group.subtotal < 0" data-testid="subtotal">
-          <span class="detail">Subtotal</span>
-          <span class="amount">{{ group.subtotal | money: group.currency }}</span>
-        </p>
-      </div>
-      <ul class="list">
-        @for (account of group.accounts; track account.id) {
-          <li class="row">
-            <div class="info">
-              <span class="name">{{ account.name }}</span>
-              <span class="detail">
-                {{ typeLabels[account.type] }} · desde el
-                {{ account.openingDate | date: dateFormat }}
-              </span>
-            </div>
-            <div class="balance" [class.negative]="account.currentBalance < 0">
-              <span class="detail">Saldo actual</span>
-              <span class="amount" data-testid="balance">{{
-                account.currentBalance | money: account.currency
-              }}</span>
-            </div>
-            <p-buttongroup>
-              <p-button
-                class="action"
-                [fluid]="true"
-                type="button"
-                label="Editar"
-                icon="pi pi-pencil"
-                [ariaLabel]="'Editar ' + account.name"
-                (onClick)="openEdit(account)"
-              />
-              <p-button
-                class="action"
-                [fluid]="true"
-                type="button"
-                label="Eliminar"
-                icon="pi pi-trash"
-                [ariaLabel]="'Eliminar ' + account.name"
-                (onClick)="confirmDelete(account)"
-              />
-            </p-buttongroup>
-          </li>
-        }
-      </ul>
+    <section class="form-section" aria-labelledby="account-form-title">
+      <h2 class="subtitle" id="account-form-title">
+        {{ editedAccount() ? 'Editar cuenta' : 'Nueva cuenta' }}
+      </h2>
+      <app-account-form
+        [account]="editedAccount()"
+        [suggestedOpeningDate]="suggestedOpeningDate()"
+        (saved)="onSaved($event)"
+        (cancelled)="closeForm()"
+      />
     </section>
+  } @else {
+    @if (loading()) {
+      <p>Cargando cuentas…</p>
+    } @else if (groups().length === 0) {
+      <p class="empty">Todavía no cargaste ninguna cuenta. Empezá con «Nueva cuenta».</p>
+    }
+
+    @for (group of groups(); track group.currency) {
+      <section class="group" [attr.aria-labelledby]="'group-' + group.currency">
+        <div class="group-header">
+          <h2 class="subtitle" [id]="'group-' + group.currency">{{ group.label }}</h2>
+          <p class="subtotal" [class.negative]="group.subtotal < 0" data-testid="subtotal">
+            <span class="detail">Subtotal</span>
+            <span class="amount">{{ group.subtotal | money: group.currency }}</span>
+          </p>
+        </div>
+        <ul class="list">
+          @for (account of group.accounts; track account.id) {
+            <li class="row">
+              <div class="info">
+                <span class="name">{{ account.name }}</span>
+                <span class="detail">
+                  {{ typeLabels[account.type] }} · desde el
+                  {{ account.openingDate | date: dateFormat }}
+                </span>
+              </div>
+              <div class="balance" [class.negative]="account.currentBalance < 0">
+                <span class="detail">Saldo actual</span>
+                <span class="amount" data-testid="balance">{{
+                  account.currentBalance | money: account.currency
+                }}</span>
+              </div>
+              <p-buttongroup>
+                <p-button
+                  class="action"
+                  [fluid]="true"
+                  type="button"
+                  label="Editar"
+                  icon="pi pi-pencil"
+                  [ariaLabel]="'Editar ' + account.name"
+                  (onClick)="openEdit(account)"
+                />
+                <p-button
+                  class="action"
+                  [fluid]="true"
+                  type="button"
+                  label="Eliminar"
+                  icon="pi pi-trash"
+                  [ariaLabel]="'Eliminar ' + account.name"
+                  (onClick)="confirmDelete(account)"
+                />
+              </p-buttongroup>
+            </li>
+          }
+        </ul>
+      </section>
+    }
   }
 </div>

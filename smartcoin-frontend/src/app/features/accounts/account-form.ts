@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   AbstractControl,
   FormControl,
@@ -7,10 +17,15 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
+import { IconField } from 'primeng/iconfield';
+import { InputGroup } from 'primeng/inputgroup';
+import { InputGroupAddon } from 'primeng/inputgroupaddon';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
+import { Message } from 'primeng/message';
+import { Select } from 'primeng/select';
 import { AccountRequest, AccountResponse, CuentasService } from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { ACCOUNT_TYPE_LABELS, ACCOUNT_TYPES, CURRENCIES, CURRENCY_LABELS } from './account-labels';
@@ -33,7 +48,18 @@ function amountFormat(control: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-account-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [
+    Button,
+    ButtonGroup,
+    IconField,
+    InputGroup,
+    InputGroupAddon,
+    InputIcon,
+    InputText,
+    Message,
+    ReactiveFormsModule,
+    Select,
+  ],
   templateUrl: './account-form.html',
   styleUrl: './account-form.scss',
 })
@@ -49,10 +75,14 @@ export class AccountForm {
   readonly saved = output<AccountResponse>();
   readonly cancelled = output<void>();
 
-  protected readonly types = ACCOUNT_TYPES;
-  protected readonly typeLabels = ACCOUNT_TYPE_LABELS;
-  protected readonly currencies = CURRENCIES;
-  protected readonly currencyLabels = CURRENCY_LABELS;
+  protected readonly typeOptions = ACCOUNT_TYPES.map((value) => ({
+    value,
+    label: ACCOUNT_TYPE_LABELS[value],
+  }));
+  protected readonly currencyOptions = CURRENCIES.map((value) => ({
+    value,
+    label: CURRENCY_LABELS[value],
+  }));
 
   protected readonly form = new FormGroup({
     name: new FormControl('', {
@@ -67,6 +97,13 @@ export class AccountForm {
       validators: [Validators.required, amountFormat],
     }),
   });
+  /** Moneda elegida, para el símbolo que acompaña al saldo inicial. */
+  private readonly selectedCurrency = toSignal(this.form.controls.currency.valueChanges, {
+    initialValue: this.form.controls.currency.value,
+  });
+  protected readonly currencySymbol = computed(() =>
+    this.selectedCurrency() === 'USD' ? 'US$' : '$',
+  );
   protected readonly error = signal<string | null>(null);
   protected readonly submitting = signal(false);
 
@@ -78,12 +115,19 @@ export class AccountForm {
       currency: editability?.currency.editable === false ? editability.currency.reason : null,
       initialBalance:
         editability?.initialBalance.editable === false ? editability.initialBalance.reason : null,
-      openingDate: editability?.openingDate.editable === false ? editability.openingDate.reason : null,
+      openingDate:
+        editability?.openingDate.editable === false ? editability.openingDate.reason : null,
     };
   });
 
   constructor() {
     effect(() => this.load(this.account(), this.suggestedOpeningDate()));
+  }
+
+  /** Un campo se marca con error recién cuando se tocó o se intentó guardar. */
+  protected invalid(name: keyof typeof this.form.controls): boolean {
+    const control = this.form.controls[name];
+    return control.invalid && control.touched;
   }
 
   private load(account: AccountResponse | null, suggestedOpeningDate: string): void {
@@ -122,7 +166,9 @@ export class AccountForm {
     this.error.set(null);
     this.submitting.set(true);
     const call =
-      current === null ? this.api.createAccount(request) : this.api.updateAccount(current.id, request);
+      current === null
+        ? this.api.createAccount(request)
+        : this.api.updateAccount(current.id, request);
     call.subscribe({
       next: (account) => {
         this.submitting.set(false);

@@ -59,7 +59,7 @@ describe('AccountForm', () => {
   const text = () => root().textContent ?? '';
   const form = () => fixture.componentInstance['form'];
   const field = (label: string) =>
-    Array.from(root().querySelectorAll('mat-form-field')).find((f) =>
+    Array.from(root().querySelectorAll('.field')).find((f) =>
       f.querySelector('label')?.textContent?.includes(label),
     )!;
   const input = (label: string) => field(label).querySelector('input')!;

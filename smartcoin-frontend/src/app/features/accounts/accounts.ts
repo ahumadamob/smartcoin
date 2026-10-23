@@ -7,7 +7,6 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Button } from 'primeng/button';
@@ -39,7 +38,7 @@ interface CurrencyGroup {
 @Component({
   selector: 'app-accounts',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AccountForm, Button, ButtonGroup, DatePipe, MatCardModule, MoneyPipe],
+  imports: [AccountForm, Button, ButtonGroup, DatePipe, MoneyPipe],
   templateUrl: './accounts.html',
   styleUrl: './accounts.scss',
 })
