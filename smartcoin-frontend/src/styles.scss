@@ -1,6 +1,7 @@
 @use '@angular/material' as mat;
 @use 'primeicons/primeicons.css';
 @use './styles/sakai-layout';
+@use './styles/patterns';
 
 // Angular Material sigue para las pantallas que todavía no pasaron a PrimeNG (T-19). Sus estilos no van en ninguna
 // capa CSS y los de PrimeNG van en la capa `primeng`: no se pisan.
@@ -27,4 +28,10 @@ body {
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+// Un enlace con aspecto de botón (`<a pButton>`) no va subrayado, como en Sakai (_core.scss), sin tocar los demás
+// enlaces de las pantallas que siguen con Material.
+a.p-button {
+  text-decoration: none;
 }

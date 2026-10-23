@@ -1,6 +1,6 @@
 import { afterNextRender, Directive, ElementRef, inject, Injectable, Injector, Type } from '@angular/core';
 import { DialogService } from 'primeng/dynamicdialog';
-import { EMPTY, Observable, take } from 'rxjs';
+import { AsyncSubject, EMPTY, Observable, take } from 'rxjs';
 
 let nextTitleId = 0;
 
@@ -19,7 +19,10 @@ export interface DialogOptions {
 export class Dialogs {
   private readonly service = inject(DialogService);
 
-  /** Emite una vez, al cerrarse: el resultado o `undefined` si se canceló. */
+  /**
+   * Emite una vez, cuando el diálogo ya se cerró y el foco volvió (como `afterClosed` de Material): el resultado o
+   * `undefined` si se canceló. Quien lo abrió puede mover el foco después, por ejemplo si su botón ya no existe.
+   */
   open<C, D, R>(component: Type<C>, data: D, options: DialogOptions): Observable<R | undefined> {
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const ref = this.service.open(component, {
@@ -27,7 +30,10 @@ export class Dialogs {
       width: options.width,
       breakpoints: { '700px': '95vw' },
       modal: true,
+      styleClass: 'app-dialog',
       showHeader: false,
+      // PrimeNG solo escucha Escape si el diálogo se puede cerrar; sin encabezado, igual no muestra la «X».
+      closable: true,
       closeOnEscape: true,
       dismissableMask: false,
       focusOnShow: true,
@@ -38,15 +44,19 @@ export class Dialogs {
     if (ref === null) {
       return EMPTY;
     }
+    const closed = new AsyncSubject<R | undefined>();
+    let result: R | undefined;
+    ref.onClose.pipe(take(1)).subscribe((value: R | undefined) => (result = value));
     ref.onDestroy.pipe(take(1)).subscribe(() => {
-      // Si nadie movió el foco a otro lado (por ejemplo, la pantalla al volver a pedir los datos), vuelve al botón
-      // que abrió el diálogo, como hacía Material.
+      // El foco estaba adentro del diálogo, que ya no existe: vuelve al elemento que lo abrió, si sigue en la página.
       const current = document.activeElement;
       if (trigger?.isConnected && (current === null || current === document.body)) {
         trigger.focus();
       }
+      closed.next(result);
+      closed.complete();
     });
-    return ref.onClose.pipe(take(1)) as Observable<R | undefined>;
+    return closed.asObservable();
   }
 }
 

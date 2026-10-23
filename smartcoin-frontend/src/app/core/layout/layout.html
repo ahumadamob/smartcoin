@@ -29,4 +29,16 @@
     </main>
   </div>
 </div>
-<p-toast position="top-right" />
+<!-- Avisos (Notices). Se anuncian como `status`, como el snackbar de Material: no interrumpen al lector de pantalla. -->
+<p-toast position="top-right" [pt]="toastPt">
+  <ng-template #message let-message>
+    <div class="notice">
+      <p class="notice-text">{{ message.detail }}</p>
+      @if (message.data?.action; as action) {
+        <button pButton type="button" size="small" severity="secondary" (click)="notices.runAction(action)">
+          {{ action.label }}
+        </button>
+      }
+    </div>
+  </ng-template>
+</p-toast>

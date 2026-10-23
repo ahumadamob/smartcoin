@@ -1,0 +1,61 @@
+// Patrones de las pantallas que ya usan PrimeNG (T-19). Ver MIGRACION-PRIMENG.md.
+
+// Diálogos abiertos con `Dialogs` (core/dialogs.ts): el título lo pone cada diálogo con `appDialogTitle` y las
+// acciones van al pie, alineadas a la derecha, con la principal al final.
+.app-dialog {
+  // Sin el encabezado de PrimeNG (el título es del diálogo), el contenido queda arriba de todo: se le da el aire que
+  // ponía el encabezado.
+  .p-dialog-content {
+    padding-top: var(--p-overlay-modal-padding);
+  }
+
+  .dialog-title {
+    margin: 0 0 1rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+}
+
+// Campo de formulario: etiqueta arriba, control a lo ancho y, debajo, la ayuda o el error (`p-message` simple).
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+
+  > label {
+    font-weight: 600;
+  }
+
+  > input,
+  > p-select {
+    width: 100%;
+  }
+
+  > .hint {
+    color: var(--p-text-muted-color);
+  }
+}
+
+// La marca de obligatorio es visual: el campo lleva `required`, que es lo que anuncia el lector de pantalla.
+.required {
+  color: var(--p-red-700);
+}
+
+// Foco visible en los campos (T-19): Nora solo cambia el color del borde, y en `p-select` ni eso al llegar con el
+// teclado. Llevan el mismo anillo de 2 px que los botones.
+.p-inputtext:focus-visible,
+.p-select:has(:focus-visible),
+.p-radiobutton:has(:focus-visible) {
+  outline: var(--p-focus-ring-width) var(--p-focus-ring-style) var(--p-focus-ring-color);
+  outline-offset: var(--p-focus-ring-offset);
+}

@@ -1,0 +1,12 @@
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+}
+
+.notice-text {
+  margin: 0;
+  line-height: 1.4;
+}
