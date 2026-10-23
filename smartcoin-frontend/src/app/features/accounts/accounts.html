@@ -2,7 +2,7 @@
   <header class="header">
     <h1 class="title">Cuentas</h1>
     @if (formState() === null && !loading()) {
-      <button mat-flat-button type="button" (click)="openNew()">Nueva cuenta</button>
+      <p-button type="button" label="Nueva cuenta" icon="pi pi-plus" (onClick)="openNew()" />
     }
   </header>
 
@@ -47,31 +47,36 @@
             <div class="info">
               <span class="name">{{ account.name }}</span>
               <span class="detail">
-                {{ typeLabels[account.type] }} · desde el {{ account.openingDate | date: dateFormat }}
+                {{ typeLabels[account.type] }} · desde el
+                {{ account.openingDate | date: dateFormat }}
               </span>
             </div>
             <div class="balance" [class.negative]="account.currentBalance < 0">
               <span class="detail">Saldo actual</span>
-              <span class="amount" data-testid="balance">{{ account.currentBalance | money: account.currency }}</span>
+              <span class="amount" data-testid="balance">{{
+                account.currentBalance | money: account.currency
+              }}</span>
             </div>
-            <div class="row-actions">
-              <button
-                mat-button
+            <p-buttongroup>
+              <p-button
+                class="action"
+                [fluid]="true"
                 type="button"
-                (click)="openEdit(account)"
-                [attr.aria-label]="'Editar ' + account.name"
-              >
-                Editar
-              </button>
-              <button
-                mat-button
+                label="Editar"
+                icon="pi pi-pencil"
+                [ariaLabel]="'Editar ' + account.name"
+                (onClick)="openEdit(account)"
+              />
+              <p-button
+                class="action"
+                [fluid]="true"
                 type="button"
-                (click)="confirmDelete(account)"
-                [attr.aria-label]="'Eliminar ' + account.name"
-              >
-                Eliminar
-              </button>
-            </div>
+                label="Eliminar"
+                icon="pi pi-trash"
+                [ariaLabel]="'Eliminar ' + account.name"
+                (onClick)="confirmDelete(account)"
+              />
+            </p-buttongroup>
           </li>
         }
       </ul>

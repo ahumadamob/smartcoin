@@ -1,3 +1,5 @@
+$actions-width: 15rem;
+
 .page {
   display: flex;
   flex-direction: column;
@@ -38,7 +40,10 @@
 }
 
 .row {
-  display: flex;
+  display: grid;
+  // Datos, saldo y botones siempre en las mismas columnas, con los botones y el saldo de ancho fijo: el largo del
+  // contenido no los mueve.
+  grid-template-columns: minmax(0, 1fr) 12rem $actions-width;
   align-items: center;
   gap: 16px;
   padding: 12px 0;
@@ -47,7 +52,6 @@
 
 .info {
   display: flex;
-  flex: 1;
   flex-direction: column;
 }
 
@@ -70,8 +74,13 @@
   font: var(--mat-sys-title-medium);
 }
 
-.row-actions {
+p-buttongroup {
   display: flex;
+  width: $actions-width;
+}
+
+.action {
+  flex: 0 0 calc($actions-width / 2);
 }
 
 .group-header {

@@ -1,11 +1,25 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { forkJoin } from 'rxjs';
-import { AccountListResponse, AccountResponse, AutenticacinService, CurrencySubtotal, CuentasService } from '../../api';
+import {
+  AccountListResponse,
+  AccountResponse,
+  AutenticacinService,
+  CurrencySubtotal,
+  CuentasService,
+} from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { ConfirmDialog, ConfirmDialogData } from '../../shared/confirm-dialog';
@@ -25,7 +39,7 @@ interface CurrencyGroup {
 @Component({
   selector: 'app-accounts',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AccountForm, DatePipe, MatButtonModule, MatCardModule, MoneyPipe],
+  imports: [AccountForm, Button, ButtonGroup, DatePipe, MatCardModule, MoneyPipe],
   templateUrl: './accounts.html',
   styleUrl: './accounts.scss',
 })
@@ -92,9 +106,13 @@ export class Accounts implements OnInit {
     const wasNew = this.formState() === 'new';
     this.formState.set(null);
     this.reload();
-    this.snackBar.open(wasNew ? `Cuenta «${account.name}» creada.` : `Cuenta «${account.name}» guardada.`, undefined, {
-      duration: 4000,
-    });
+    this.snackBar.open(
+      wasNew ? `Cuenta «${account.name}» creada.` : `Cuenta «${account.name}» guardada.`,
+      undefined,
+      {
+        duration: 4000,
+      },
+    );
   }
 
   protected confirmDelete(account: AccountResponse): void {
