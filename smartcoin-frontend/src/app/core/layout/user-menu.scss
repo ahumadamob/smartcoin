@@ -14,3 +14,45 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+// El panel se dibuja en la capa de CDK, fuera del componente, pero sigue siendo parte de su plantilla: los estilos
+// encapsulados le llegan. Copia el aspecto de `p-menu` con los tokens del tema.
+.user-menu-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  padding: 0.25rem 0;
+  background: var(--p-overlay-popover-background);
+  color: var(--p-overlay-popover-color);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-overlay-popover-border-radius);
+  box-shadow: var(--p-overlay-popover-shadow);
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--p-list-option-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  i {
+    color: var(--p-list-option-icon-color);
+  }
+
+  &:hover,
+  &:focus {
+    background: var(--p-list-option-focus-background);
+    color: var(--p-list-option-focus-color);
+  }
+
+  &:focus-visible {
+    outline: var(--p-focus-ring-width) var(--p-focus-ring-style) var(--p-focus-ring-color);
+    outline-offset: calc(-1 * var(--p-focus-ring-width));
+  }
+}

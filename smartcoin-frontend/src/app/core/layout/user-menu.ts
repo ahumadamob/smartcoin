@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
+import { ConnectedPosition } from '@angular/cdk/overlay';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { MenuItem } from 'primeng/api';
 import { ButtonDirective } from 'primeng/button';
-import { MenuModule } from 'primeng/menu';
 import { AuthService } from '../auth/auth.service';
 
 /** Texto del disparador mientras no se conoce el email. */
@@ -11,13 +11,17 @@ const FALLBACK_LABEL = 'Mi cuenta';
 /**
  * Menú del usuario (HU-05), a la derecha de la barra superior: muestra su email y ofrece cambiar la contraseña y
  * cerrar la sesión. Al cambiar la contraseña se le pasa a la pantalla la ruta actual (`returnUrl`) para que
- * "Cancelar" vuelva a donde estaba. Es un menú emergente de PrimeNG: se recorre con las flechas, Enter elige y
- * Escape lo cierra devolviendo el foco al botón.
+ * "Cancelar" vuelva a donde estaba.
+ *
+ * El menú es el de Angular CDK con el aspecto del tema de PrimeNG (T-19), y no `p-menu`: así se conserva el manejo
+ * de teclado que tenía con Material. Al abrirlo el foco pasa a la primera opción, las flechas recorren, Enter elige
+ * y Escape cierra devolviendo el foco al botón. `p-menu` deja el foco en la lista (`aria-activedescendant`) y no
+ * marca ninguna opción al abrir.
  */
 @Component({
   selector: 'app-user-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ButtonDirective, MenuModule],
+  imports: [ButtonDirective, CdkMenu, CdkMenuItem, CdkMenuTrigger],
   templateUrl: './user-menu.html',
   styleUrl: './user-menu.scss',
 })
@@ -27,17 +31,16 @@ export class UserMenu {
 
   protected readonly email = this.auth.email;
   protected readonly fallbackLabel = FALLBACK_LABEL;
-  protected readonly open = signal(false);
-  protected readonly items: MenuItem[] = [
-    { label: 'Cambiar contraseña', icon: 'pi pi-key', command: () => this.changePassword() },
-    { label: 'Cerrar sesión', icon: 'pi pi-sign-out', command: () => this.logout() },
+  /** Debajo del botón, alineado a su borde derecho (está en la esquina de la barra superior). */
+  protected readonly positions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
   ];
 
-  private changePassword(): void {
+  protected changePassword(): void {
     void this.router.navigate(['/cambiar-contrasena'], { state: { returnUrl: this.router.url } });
   }
 
-  private logout(): void {
+  protected logout(): void {
     this.auth.logout();
   }
 }

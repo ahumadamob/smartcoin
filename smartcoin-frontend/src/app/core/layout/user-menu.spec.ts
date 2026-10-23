@@ -28,7 +28,7 @@ describe('UserMenu', () => {
     return { auth, router, fixture, trigger, open };
   }
 
-  afterEach(() => document.querySelectorAll('[role="menu"]').forEach((menu) => menu.closest('.p-menu')?.remove()));
+  afterEach(() => document.querySelectorAll('.cdk-overlay-container').forEach((overlay) => overlay.remove()));
 
   it('el disparador muestra el email del usuario', () => {
     const { trigger } = setup();
@@ -54,7 +54,7 @@ describe('UserMenu', () => {
     const { open, router } = setup();
 
     const [change] = await open();
-    change.querySelector<HTMLElement>('a, [data-pc-section="itemcontent"]')?.click();
+    change.click();
 
     expect(router.navigate).toHaveBeenCalledWith(['/cambiar-contrasena'], {
       state: { returnUrl: '/cuentas' },
@@ -65,7 +65,7 @@ describe('UserMenu', () => {
     const { open, auth } = setup();
 
     const [, logout] = await open();
-    logout.querySelector<HTMLElement>('a, [data-pc-section="itemcontent"]')?.click();
+    logout.click();
 
     expect(auth.logout).toHaveBeenCalledOnce();
   });
@@ -83,11 +83,12 @@ describe('UserMenu', () => {
     expect(document.getElementById(trigger.getAttribute('aria-controls') ?? '')).not.toBeNull();
   });
 
-  it('los íconos son decorativos', () => {
-    const { trigger } = setup();
+  it('los íconos son decorativos, en el botón y en las opciones', async () => {
+    const { trigger, open } = setup();
 
-    const icons = Array.from(trigger.querySelectorAll('i'));
-    expect(icons.length).toBeGreaterThan(0);
+    const items = await open();
+    const icons = [...Array.from(trigger.querySelectorAll('i')), ...items.flatMap((i) => Array.from(i.querySelectorAll('i')))];
+    expect(icons).toHaveLength(4);
     expect(icons.every((icon) => icon.getAttribute('aria-hidden') === 'true')).toBe(true);
   });
 });

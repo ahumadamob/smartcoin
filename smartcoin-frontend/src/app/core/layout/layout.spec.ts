@@ -53,6 +53,6 @@ describe('Layout', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(document.querySelectorAll('[role="menuitem"]')).toHaveLength(2);
-    document.querySelectorAll('.p-menu').forEach((menu) => menu.remove());
+    document.querySelectorAll('.cdk-overlay-container').forEach((overlay) => overlay.remove());
   });
 });
