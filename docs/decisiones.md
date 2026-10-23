@@ -376,7 +376,7 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 
 **T-09. El contrato manda.** springdoc genera el OpenAPI, se guarda en `docs/openapi.json` y el frontend genera su cliente desde ahí. *Confirmada.*
 
-**T-10. Frontend en Angular**, con Angular Material como biblioteca de componentes (supuesto) y Playwright para los tests de punta a punta. *Confirmada.*
+**T-10. Frontend en Angular**, con Angular Material como biblioteca de componentes (supuesto) y Playwright para los tests de punta a punta. *Confirmada.* La biblioteca de componentes está en revisión: ver T-19.
 
 **T-11. Identificadores en inglés; interfaz y documentación en español.** El glosario mapea cada término. *Supuesto.*
 
@@ -393,6 +393,8 @@ Cuando una decisión cambia, se actualiza acá y en el documento afectado en el 
 **T-17. Las partidas generadas se guardan con un solo `saveAll`.** Las claves son `IDENTITY`, y con eso Hibernate no agrupa los `INSERT` por JDBC: hay una consulta para todos los períodos destino y un `INSERT` por partida (25 como máximo por Concepto), en la misma transacción. Se prefirió a un `INSERT` por JDBC en lote, que saltea JPA y las fechas de auditoría. *Confirmada* (HU-10).
 
 **T-18. El pago rápido (HU-22) se implementa después de HU-25.** Registra un movimiento y consolida en un solo paso (RN-24), así que depende de la consolidación (HU-23) y de la elección sobre partidas editadas (HU-25). La iteración 5 queda con HU-19 a HU-21 y la 6 con HU-23, HU-24, HU-25, HU-22 y HU-26. Las reglas no cambian. *Confirmada.* (HU-22 se implementó en ese orden: D-37.)
+
+**T-19. PrimeNG con el layout de Sakai reemplaza a Angular Material como biblioteca visual.** Prueba piloto en la rama `sakai-theme`: Angular Material (T-10) no terminó de convencer, como tampoco ng-zorro ni ArchitectUI en otras ramas. Se usa PrimeNG 22 con el preset Nora de `@primeuix/themes` (esquinas de 2 px en campos, botones, tablas y diálogos, 4 px en tarjetas, y foco de 2 px), el primario esmeralda de Nora y sin modo oscuro. Del template Sakai (MIT, `primefaces/sakai-ng`) se toman solo el layout (menú lateral, barra superior con el menú de usuario a la derecha) y sus estilos, sin las páginas de ejemplo, el configurador de tema ni Tailwind. Montos, fechas y períodos se siguen mostrando con los pipes propios; PrimeNG recibe una traducción al español solo para sus textos. La clave de licencia de PrimeUI (Community License, gratuita para personas) se lee de la variable de entorno `PRIMEUI_LICENSE_KEY` y se escribe en un archivo ignorado por git antes de levantar, compilar o probar. Mientras dure la migración conviven las dos bibliotecas: el layout y la vista del mes con PrimeNG y el resto con Material; los patrones y lo que falta están en `smartcoin-frontend/MIGRACION-PRIMENG.md`. *Supuesto* hasta que se apruebe la prueba; si no se aprueba, la rama se descarta.
 
 ## Cambios respecto de lo conversado
 
