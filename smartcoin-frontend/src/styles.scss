@@ -1,7 +1,14 @@
 @use '@angular/material' as mat;
+@use 'primeicons/primeicons.css';
+@use './styles/sakai-layout';
 
+// Angular Material sigue para las pantallas que todavía no pasaron a PrimeNG (T-19). Sus estilos no van en ninguna
+// capa CSS y los de PrimeNG van en la capa `primeng`: no se pisan.
 html {
   color-scheme: light;
+  // Como en Sakai (_core.scss): PrimeNG mide en rem y con 14 px queda la densidad de la plantilla.
+  font-size: 14px;
+  line-height: 1.2;
   @include mat.theme((
     color: mat.$azure-palette,
     typography: (
@@ -14,7 +21,10 @@ html {
 
 body {
   margin: 0;
+  min-height: 100%;
   font-family: Roboto, system-ui, sans-serif;
-  background: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
+  background-color: var(--surface-ground);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

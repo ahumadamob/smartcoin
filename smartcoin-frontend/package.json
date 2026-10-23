@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "prestart": "node scripts/primeui-license.mjs",
     "start": "ng serve --proxy-config proxy.conf.json",
+    "prebuild": "node scripts/primeui-license.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
+    "pretest": "node scripts/primeui-license.mjs",
     "test": "ng test",
     "generate:api": "openapi-generator-cli generate -i ../docs/openapi.json -g typescript-angular -o src/app/api",
     "e2e": "playwright test"
@@ -21,6 +24,9 @@
     "@angular/material": "^22.2.1",
     "@angular/platform-browser": "^22.2.0",
     "@angular/router": "^22.2.0",
+    "@primeuix/themes": "^3.1.0",
+    "primeicons": "^8.0.2",
+    "primeng": "^22.1.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },

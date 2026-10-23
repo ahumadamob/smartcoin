@@ -46,3 +46,6 @@ Thumbs.db
 # Playwright
 /test-results/
 /playwright-report/
+
+# Clave de licencia de PrimeUI, generada desde PRIMEUI_LICENSE_KEY (T-19)
+/src/app/core/primeui-license.generated.ts

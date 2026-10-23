@@ -1,0 +1,211 @@
+// Layout de Sakai, portado de https://github.com/primefaces/sakai-ng (submódulo `src/assets/layout`), T-19.
+// Solo la versión de escritorio con el menú fijo y el modo claro: sin el menú superpuesto, la versión para celular,
+// el modo oscuro, el configurador de tema ni el pie. El menú no tiene submenús.
+//
+// The MIT License (MIT)
+// Copyright (c) 2018-2026 PrimeTek
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+// documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+// the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+// WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+// OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+// Variables (variables/_common.scss y _light.scss).
+:root {
+  --primary-color: var(--p-primary-color);
+  --primary-contrast-color: var(--p-primary-contrast-color);
+  --text-color: var(--p-text-color);
+  --text-color-secondary: var(--p-text-muted-color);
+  --surface-border: var(--p-content-border-color);
+  --surface-card: var(--p-content-background);
+  --surface-hover: var(--p-content-hover-background);
+  --surface-overlay: var(--p-overlay-popover-background);
+  --surface-ground: var(--p-surface-100);
+  --transition-duration: var(--p-transition-duration);
+  --content-border-radius: var(--p-content-border-radius);
+  --layout-section-transition-duration: 0.2s;
+  --element-transition-duration: var(--p-transition-duration);
+  --focus-ring-width: var(--p-focus-ring-width);
+  --focus-ring-style: var(--p-focus-ring-style);
+  --focus-ring-color: var(--p-focus-ring-color);
+  --focus-ring-offset: var(--p-focus-ring-offset);
+  --focus-ring-shadow: var(--p-focus-ring-shadow);
+}
+
+// _mixins.scss. El foco de los enlaces del menú va por dentro, con el mismo grosor que el de PrimeNG.
+@mixin focused() {
+  outline-width: var(--focus-ring-width);
+  outline-style: var(--focus-ring-style);
+  outline-color: var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: var(--focus-ring-shadow);
+}
+
+@mixin focused-inset() {
+  outline-width: var(--focus-ring-width);
+  outline-style: var(--focus-ring-style);
+  outline-color: var(--focus-ring-color);
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
+// _main.scss y _responsive.scss (escritorio, menú fijo).
+.layout-wrapper {
+  min-height: 100vh;
+}
+
+.layout-main-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 6rem 2rem 2rem 2rem;
+  margin-left: 22rem;
+}
+
+.layout-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media screen and (min-width: 1960px) {
+  .layout-main {
+    width: 1504px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+// _topbar.scss.
+.layout-topbar {
+  position: fixed;
+  height: 4rem;
+  z-index: 997;
+  left: 0;
+  top: 0;
+  width: 100%;
+  padding: 0 2rem;
+  background-color: var(--surface-card);
+  display: flex;
+  align-items: center;
+
+  .layout-topbar-logo-container {
+    width: 20rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .layout-topbar-logo {
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.5rem;
+    border-radius: var(--content-border-radius);
+    color: var(--text-color);
+    font-weight: 500;
+    gap: 0.5rem;
+    text-decoration: none;
+
+    &:focus-visible {
+      @include focused();
+    }
+  }
+
+  .layout-topbar-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 1rem;
+    min-width: 0;
+  }
+}
+
+// _menu.scss, sin submenús.
+.layout-sidebar {
+  position: fixed;
+  width: 20rem;
+  height: calc(100vh - 8rem);
+  z-index: 999;
+  overflow-y: auto;
+  user-select: none;
+  top: 6rem;
+  left: 2rem;
+  background-color: var(--surface-overlay);
+  border-radius: var(--content-border-radius);
+  padding: 0.5rem 1.5rem;
+}
+
+.layout-menu {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+
+  .layout-menuitem-root-text {
+    font-size: 0.857rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0.75rem 0;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    position: relative;
+    outline: 0 none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    border-radius: var(--content-border-radius);
+    text-decoration: none;
+    user-select: none;
+    transition: box-shadow var(--element-transition-duration);
+
+    .layout-menuitem-icon {
+      margin-right: 0.5rem;
+    }
+
+    &.active-route {
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    &:hover {
+      background-color: var(--surface-hover);
+    }
+
+    &:focus-visible {
+      @include focused-inset();
+    }
+  }
+}
+
+// _utils.scss: la tarjeta de contenido.
+.card {
+  background: var(--surface-card);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border-radius: var(--content-border-radius);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.p-toast {
+  &.p-toast-top-right,
+  &.p-toast-top-left,
+  &.p-toast-top-center {
+    top: 5rem;
+  }
+}
