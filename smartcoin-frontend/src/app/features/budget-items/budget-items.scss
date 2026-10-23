@@ -21,6 +21,10 @@
   white-space: nowrap;
 }
 
+td.actions {
+  white-space: nowrap;
+}
+
 .intro {
   max-width: 640px;
 }
@@ -33,26 +37,24 @@
 
 .filters {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 16px;
-}
-
-.error {
-  margin: 0;
-  color: var(--mat-sys-error);
-}
-
-.table-wrapper {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
 }
 
 .number {
   text-align: right;
   white-space: nowrap;
+}
+
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+}
+
+th.number,
+td.number {
+  text-align: right;
 }
 
 .detail {
@@ -61,14 +63,13 @@ table {
   font: var(--mat-sys-body-small);
 }
 
-.finished {
+.currency {
   color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
 }
 
-a:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--mat-sys-primary);
-  outline-offset: 2px;
+.finished {
+  color: var(--mat-sys-on-surface-variant);
 }
 
 .visually-hidden {

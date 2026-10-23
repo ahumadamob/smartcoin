@@ -183,9 +183,9 @@ describe('BudgetItems', () => {
   it('los filtros tienen etiqueta y las opciones incluyen «Sin categoría» y las categorías del usuario', async () => {
     await setup();
 
-    const labels = Array.from(root().querySelectorAll('mat-form-field mat-label')).map((l) => text(l));
+    const labels = Array.from(root().querySelectorAll('.filters label')).map((l) => text(l));
     expect(labels).toEqual(['Tipo', 'Categoría']);
-    expect(root().querySelectorAll('mat-select')).toHaveLength(2);
+    expect(root().querySelectorAll('p-select')).toHaveLength(2);
   });
 
   it('sin Conceptos explica cómo empezar', async () => {

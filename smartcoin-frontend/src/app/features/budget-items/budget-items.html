@@ -3,39 +3,57 @@
     <div>
       <h1 class="title">Conceptos</h1>
       <p class="intro">
-        Un Concepto es algo que se repite: un sueldo, un impuesto, un servicio. Lo definís una vez y se generan sus
-        partidas en cada período que corresponde.
+        Un Concepto es algo que se repite: un sueldo, un impuesto, un servicio. Lo definís una vez y
+        se generan sus partidas en cada período que corresponde.
       </p>
     </div>
-    <a mat-flat-button routerLink="/conceptos/nuevo">Nuevo Concepto</a>
+    <a pButton routerLink="/conceptos/nuevo"
+      ><i class="pi pi-plus" aria-hidden="true"></i>Nuevo Concepto</a
+    >
   </header>
 
   <div class="filters" role="group" aria-label="Filtros">
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Tipo</mat-label>
-      <mat-select [value]="kindFilter()" (selectionChange)="setKind($event.value)">
-        <mat-option value="ALL">Todos</mat-option>
-        <mat-option value="INCOME">{{ kindLabels['INCOME'] }}</mat-option>
-        <mat-option value="EXPENSE">{{ kindLabels['EXPENSE'] }}</mat-option>
-      </mat-select>
-    </mat-form-field>
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Categoría</mat-label>
-      <mat-select [value]="categoryFilter()" (selectionChange)="setCategory($event.value)">
-        <mat-option value="ALL">Todas</mat-option>
-        <mat-option value="NONE">Sin categoría</mat-option>
-        @for (category of categories(); track category.id) {
-          <mat-option [value]="category.id">{{ category.name }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
+    <div class="field">
+      <span class="field-label"><label id="filter-kind-label" for="filter-kind">Tipo</label></span>
+      <p-select
+        inputId="filter-kind"
+        ariaLabelledBy="filter-kind-label"
+        [options]="kindOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="kindFilter()"
+        (ngModelChange)="setKind($event)"
+      />
+    </div>
+    <div class="field">
+      <span class="field-label"
+        ><label id="filter-category-label" for="filter-category">Categoría</label></span
+      >
+      <p-select
+        inputId="filter-category"
+        ariaLabelledBy="filter-category-label"
+        [options]="categoryOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="categoryFilter()"
+        (ngModelChange)="setCategory($event)"
+      />
+    </div>
     @if (hasFilters()) {
-      <button mat-button type="button" (click)="clearFilters()">Quitar filtros</button>
+      <p-button
+        type="button"
+        label="Quitar filtros"
+        icon="pi pi-filter-slash"
+        variant="outlined"
+        (onClick)="clearFilters()"
+      />
     }
   </div>
 
   @if (error(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
+    <p-message class="page-error" severity="error" variant="simple" size="small">{{
+      message
+    }}</p-message>
   }
 
   @if (loading()) {
@@ -43,53 +61,51 @@
   } @else if (!error()) {
     @if (items().length === 0) {
       @if (hasFilters()) {
-        <p class="empty" role="status">Ningún Concepto coincide con los filtros. Probá con otros o quitalos.</p>
+        <p class="empty" role="status">
+          Ningún Concepto coincide con los filtros. Probá con otros o quitalos.
+        </p>
       } @else {
         <p class="empty" role="status">
           Todavía no cargaste ningún Concepto. Empezá con «Nuevo Concepto».
         </p>
       }
     } @else {
-      <div class="table-wrapper">
-        <table mat-table [dataSource]="items()" aria-label="Conceptos">
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>Nombre</th>
-            <td mat-cell *matCellDef="let item">{{ item.name }}</td>
-          </ng-container>
-          <ng-container matColumnDef="kind">
-            <th mat-header-cell *matHeaderCellDef>Tipo</th>
-            <td mat-cell *matCellDef="let item">{{ kindLabels[item.kind] }}</td>
-          </ng-container>
-          <ng-container matColumnDef="account">
-            <th mat-header-cell *matHeaderCellDef>Cuenta</th>
-            <td mat-cell *matCellDef="let item">
+      <p-table
+        [value]="items()"
+        [rowTrackBy]="trackById"
+        [pt]="{ table: { 'aria-label': 'Conceptos' } }"
+        size="small"
+        [scrollable]="true"
+      >
+        <ng-template #header>
+          <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Cuenta</th>
+            <th scope="col">Categoría</th>
+            <th scope="col">Periodicidad</th>
+            <th scope="col">Vencimiento</th>
+            <th scope="col">Estimación</th>
+            <th scope="col" class="number">Monto vigente</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-row>
+          @let item = asItem(row);
+          <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ kindLabels[item.kind] }}</td>
+            <td>
               {{ item.defaultAccountName }}
-              <span class="detail">{{ item.currency === 'USD' ? 'US$' : '$' }}</span>
+              <span class="currency">{{ item.currency === 'USD' ? 'US$' : '$' }}</span>
             </td>
-          </ng-container>
-          <ng-container matColumnDef="category">
-            <th mat-header-cell *matHeaderCellDef>Categoría</th>
-            <td mat-cell *matCellDef="let item">{{ item.categoryName ?? '—' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="periodicity">
-            <th mat-header-cell *matHeaderCellDef>Periodicidad</th>
-            <td mat-cell *matCellDef="let item">{{ periodicityLabels[item.periodicity] }}</td>
-          </ng-container>
-          <ng-container matColumnDef="due">
-            <th mat-header-cell *matHeaderCellDef>Vencimiento</th>
-            <td mat-cell *matCellDef="let item">{{ dueText(item.dueDay, item.dueMonthOffset) }}</td>
-          </ng-container>
-          <ng-container matColumnDef="estimation">
-            <th mat-header-cell *matHeaderCellDef>Estimación</th>
-            <td mat-cell *matCellDef="let item">{{ estimationLabels[item.estimationRule] }}</td>
-          </ng-container>
-          <ng-container matColumnDef="amount">
-            <th mat-header-cell *matHeaderCellDef class="number">Monto vigente</th>
-            <td mat-cell *matCellDef="let item" class="number">{{ item.currentAmount | money: item.currency }}</td>
-          </ng-container>
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>Estado</th>
-            <td mat-cell *matCellDef="let item" data-testid="status">
+            <td>{{ item.categoryName ?? '—' }}</td>
+            <td>{{ periodicityLabels[item.periodicity] }}</td>
+            <td>{{ dueText(item.dueDay, item.dueMonthOffset) }}</td>
+            <td>{{ estimationLabels[item.estimationRule] }}</td>
+            <td class="number">{{ item.currentAmount | money: item.currency }}</td>
+            <td data-testid="status">
               <span [class.finished]="item.status === 'FINISHED'">{{ statusText(item) }}</span>
               @if (item.status === 'FINISHED' && item.endPeriod) {
                 <span class="detail">terminó en {{ item.endPeriod | period }}</span>
@@ -99,20 +115,19 @@
                 <span class="detail">en {{ item.startPeriod | period }}</span>
               }
             </td>
-          </ng-container>
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef><span class="visually-hidden">Acciones</span></th>
-            <td mat-cell *matCellDef="let item">
-              <a mat-button [routerLink]="['/conceptos', item.id, 'editar']" [attr.aria-label]="'Editar ' + item.name">
-                Editar
+            <td class="actions">
+              <a
+                pButton
+                size="small"
+                [routerLink]="['/conceptos', item.id, 'editar']"
+                [attr.aria-label]="'Editar ' + item.name"
+              >
+                <i class="pi pi-pencil" aria-hidden="true"></i>Editar
               </a>
             </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="columns"></tr>
-          <tr mat-row *matRowDef="let row; columns: columns"></tr>
-        </table>
-      </div>
+          </tr>
+        </ng-template>
+      </p-table>
     }
   }
 </div>

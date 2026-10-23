@@ -1,12 +1,26 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTableModule } from '@angular/material/table';
+import { FormsModule } from '@angular/forms';
+import { Button, ButtonDirective } from 'primeng/button';
+import { Message } from 'primeng/message';
+import { Select } from 'primeng/select';
+import { TableModule } from 'primeng/table';
 import { catchError, EMPTY, Subject, switchMap, tap } from 'rxjs';
-import { BudgetItemListItem, CategorasService, CategoryResponse, ConceptosService } from '../../api';
+import {
+  BudgetItemListItem,
+  CategorasService,
+  CategoryResponse,
+  ConceptosService,
+} from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
@@ -23,7 +37,17 @@ type CategoryFilter = 'ALL' | 'NONE' | number;
 @Component({
   selector: 'app-budget-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatFormFieldModule, MatSelectModule, MatTableModule, MoneyPipe, PeriodPipe, RouterLink],
+  imports: [
+    Button,
+    ButtonDirective,
+    FormsModule,
+    Message,
+    MoneyPipe,
+    PeriodPipe,
+    RouterLink,
+    Select,
+    TableModule,
+  ],
   templateUrl: './budget-items.html',
   styleUrl: './budget-items.scss',
 })
@@ -32,19 +56,7 @@ export class BudgetItems implements OnInit {
   private readonly categoriesApi = inject(CategorasService);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly columns = [
-    'name',
-    'kind',
-    'account',
-    'category',
-    'periodicity',
-    'due',
-    'estimation',
-    'amount',
-    'status',
-    'actions',
-  ];
-  // `let item` en las celdas de la tabla es `any`: los textos se indexan por `string`.
+  // La fila de la tabla llega sin tipo (`asItem`): los textos se indexan por `string`.
   protected readonly kindLabels: Record<string, string> = KIND_LABELS;
   protected readonly periodicityLabels: Record<string, string> = PERIODICITY_LABELS;
   protected readonly estimationLabels: Record<string, string> = {
@@ -53,6 +65,23 @@ export class BudgetItems implements OnInit {
   };
   protected readonly dueText = dueText;
   protected readonly statusText = statusText;
+
+  protected readonly kindOptions = [
+    { value: 'ALL', label: 'Todos' },
+    { value: 'INCOME', label: KIND_LABELS['INCOME'] },
+    { value: 'EXPENSE', label: KIND_LABELS['EXPENSE'] },
+  ];
+  protected readonly categoryOptions = computed(() => [
+    { value: 'ALL', label: 'Todas' },
+    { value: 'NONE', label: 'Sin categoría' },
+    ...this.categories().map((category) => ({ value: category.id, label: category.name })),
+  ]);
+  /** Las filas se identifican por el Concepto: al volver a pedir la lista no se recrean. */
+  protected readonly trackById = (_index: number, item: BudgetItemListItem): number => item.id;
+
+  protected asItem(row: unknown): BudgetItemListItem {
+    return row as BudgetItemListItem;
+  }
 
   protected readonly items = signal<BudgetItemListItem[]>([]);
   protected readonly categories = signal<CategoryResponse[]>([]);
