@@ -45,6 +45,7 @@ También se corrigió lo que tiene Sakai de accesibilidad: botones con solo un �
   - Se cierra con `inject(DynamicDialogRef).close(resultado satisfies Resultado)`.
   - El título es un `<h2 appDialogTitle>`, que le da nombre accesible al diálogo con `aria-labelledby`. PrimeNG solo lo pone cuando usa su propio encabezado, y acá el título cambia según lo que se hace.
   - Las acciones van en `<div class="dialog-actions">`, con la principal al final.
+  - Con contenido largo, el título y las acciones quedan fijos (`position: sticky`) y solo se desplaza el medio, como con `mat-dialog-content`.
 - **Lo que garantiza `Dialogs`**:
   - El diálogo es modal y atrapa el foco.
   - El foco entra al primer elemento enfocable.
@@ -135,7 +136,7 @@ PrimeIcons solo como decoración: siempre con `aria-hidden="true"` y al lado de 
 - **Escape requiere `closable`**: PrimeNG solo escucha Escape si `closable` es verdadero. Con el manejo propio, se dejan `closable` y `closeOnEscape` en falso.
 - **Sin encabezado de PrimeNG**:
   - El diálogo no tiene `aria-labelledby`; lo resuelve `appDialogTitle`.
-  - El contenido no tiene relleno arriba; lo resuelve `.app-dialog .p-dialog-content` en `_patterns.scss`.
+  - El contenido se desplaza entero, título y acciones incluidos, y no tiene relleno arriba. Lo resuelven `.app-dialog .dialog-title` y `.dialog-actions` en `_patterns.scss`, fijos con su propio relleno.
 - **Disparador de `p-select`**: es un `role="button"` con la etiqueta en inglés «dropdown trigger». Se oculta a los lectores de pantalla con un pass-through global en `core/primeng.ts`.
 - **Contraste del aviso**: el aviso `success` de Nora es verde lleno, y un botón `outlined` adentro casi no se ve. Por eso se usa `contrast` con el botón en `secondary`.
 - **Tamaño del bundle**: el bundle inicial pasó de 384 kB (95 kB comprimido) en `main` a 776 kB (168 kB comprimido). El aumento está en `main.js`, que se carga al arrancar: el preset Nora completo (unos 124 kB sin comprimir, con los tokens de todos los componentes), el motor de estilos de PrimeNG, su configuración y la verificación de la licencia. Supera el aviso de 500 kB de `angular.json`, pero no el error de 1 MB. Sacar Material va a ahorrar algo; para bajarlo en serio hay que investigar si el tema se puede cargar solo con los componentes que se usan.

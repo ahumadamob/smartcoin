@@ -1,27 +1,38 @@
 // Patrones de las pantallas que ya usan PrimeNG (T-19). Ver MIGRACION-PRIMENG.md.
 
 // Diálogos abiertos con `Dialogs` (core/dialogs.ts): el título lo pone cada diálogo con `appDialogTitle` y las
-// acciones van al pie, alineadas a la derecha, con la principal al final.
+// acciones van al pie (`.dialog-actions`), alineadas a la derecha, con la principal al final.
 .app-dialog {
-  // Sin el encabezado de PrimeNG (el título es del diálogo), el contenido queda arriba de todo: se le da el aire que
-  // ponía el encabezado.
+  // Como `mat-dialog-title` y `mat-dialog-actions`: con contenido largo solo se desplaza el medio, y el título y las
+  // acciones quedan a la vista. Sin el encabezado de PrimeNG, el aire de arriba y de abajo lo ponen ellos.
   .p-dialog-content {
-    padding-top: var(--p-overlay-modal-padding);
+    padding-top: 0;
+    padding-bottom: 0;
   }
 
   .dialog-title {
-    margin: 0 0 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0;
+    padding: var(--p-overlay-modal-padding) 0 0.75rem;
+    background: var(--p-dialog-background, var(--p-overlay-modal-background));
     font-size: 1.25rem;
     font-weight: 600;
     line-height: 1.3;
   }
 
   .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
     display: flex;
     justify-content: flex-end;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-top: 1.5rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem 0 var(--p-overlay-modal-padding);
+    background: var(--p-dialog-background, var(--p-overlay-modal-background));
   }
 }
 
