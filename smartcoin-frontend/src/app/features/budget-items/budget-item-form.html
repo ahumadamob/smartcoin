@@ -1,205 +1,440 @@
 <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form">
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Nombre</mat-label>
-    <input matInput formControlName="name" maxlength="100" autocomplete="off" required />
-    @if (form.controls.name.hasError('required') || form.controls.name.hasError('blank')) {
-      <mat-error>Ingresá el nombre del Concepto.</mat-error>
+  <div class="field">
+    <span class="field-label">
+      <label for="item-name">Nombre</label><span class="required" aria-hidden="true">*</span>
+    </span>
+    <p-iconfield>
+      <p-inputicon class="pi pi-tag" />
+      <input
+        pInputText
+        fluid
+        id="item-name"
+        formControlName="name"
+        maxlength="100"
+        autocomplete="off"
+        required
+        [invalid]="invalid('name')"
+        [attr.aria-invalid]="invalid('name')"
+        [attr.aria-describedby]="invalid('name') ? 'item-name-error' : null"
+      />
+    </p-iconfield>
+    @if (invalid('name')) {
+      <p-message id="item-name-error" severity="error" variant="simple" size="small">
+        Ingresá el nombre del Concepto.
+      </p-message>
     }
-  </mat-form-field>
-
-  <div class="pair">
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Tipo</mat-label>
-      <mat-select formControlName="kind" required>
-        @for (kind of kinds; track kind) {
-          <mat-option [value]="kind">{{ kindLabels[kind] }}</mat-option>
-        }
-      </mat-select>
-      @if (reasons().kind; as reason) {
-        <mat-hint class="reason">{{ reason }}</mat-hint>
-      }
-      @if (form.controls.kind.hasError('required')) {
-        <mat-error>Elegí si es un ingreso o un gasto.</mat-error>
-      }
-    </mat-form-field>
-
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Periodicidad</mat-label>
-      <mat-select formControlName="periodicity" required>
-        @for (periodicity of periodicities; track periodicity) {
-          <mat-option [value]="periodicity">{{ periodicityLabels[periodicity] }}</mat-option>
-        }
-      </mat-select>
-      @if (reasons().periodicity; as reason) {
-        <mat-hint class="reason">{{ reason }}</mat-hint>
-      }
-      @if (form.controls.periodicity.hasError('required')) {
-        <mat-error>Elegí la periodicidad.</mat-error>
-      }
-    </mat-form-field>
   </div>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Cuenta por defecto</mat-label>
-    <mat-select formControlName="defaultAccountId" required>
-      @for (account of accounts(); track account.id) {
-        <mat-option [value]="account.id">{{ account.name }} · {{ currencyLabels[account.currency] }}</mat-option>
+  <div class="pair">
+    <div class="field">
+      <span class="field-label">
+        <label id="item-kind-label" for="item-kind">Tipo</label
+        ><span class="required" aria-hidden="true">*</span>
+      </span>
+      <p-select
+        inputId="item-kind"
+        ariaLabelledBy="item-kind-label"
+        formControlName="kind"
+        [options]="kindOptions"
+        optionLabel="label"
+        optionValue="value"
+        [required]="true"
+        [invalid]="invalid('kind')"
+        [pt]="{
+          label: {
+            'aria-describedby': invalid('kind')
+              ? 'item-kind-error'
+              : reasons().kind
+                ? 'item-kind-hint'
+                : null,
+          },
+        }"
+      />
+      @if (invalid('kind')) {
+        <p-message id="item-kind-error" severity="error" variant="simple" size="small">
+          Elegí si es un ingreso o un gasto.
+        </p-message>
+      } @else if (reasons().kind; as reason) {
+        <small id="item-kind-hint" class="hint reason">{{ reason }}</small>
       }
-    </mat-select>
-    @if (item(); as item) {
-      <mat-hint>
-        Solo podés cambiarla por otra cuenta en {{ currencyLabels[item.currency] }}. Las partidas pendientes sin
-        movimientos de los períodos abiertos pasan a la cuenta nueva.
-      </mat-hint>
+    </div>
+
+    <div class="field">
+      <span class="field-label">
+        <label id="item-periodicity-label" for="item-periodicity">Periodicidad</label
+        ><span class="required" aria-hidden="true">*</span>
+      </span>
+      <p-select
+        inputId="item-periodicity"
+        ariaLabelledBy="item-periodicity-label"
+        formControlName="periodicity"
+        [options]="periodicityOptions"
+        optionLabel="label"
+        optionValue="value"
+        [required]="true"
+        [invalid]="invalid('periodicity')"
+        [pt]="{
+          label: {
+            'aria-describedby': invalid('periodicity')
+              ? 'item-periodicity-error'
+              : reasons().periodicity
+                ? 'item-periodicity-hint'
+                : null,
+          },
+        }"
+      />
+      @if (invalid('periodicity')) {
+        <p-message id="item-periodicity-error" severity="error" variant="simple" size="small">
+          Elegí la periodicidad.
+        </p-message>
+      } @else if (reasons().periodicity; as reason) {
+        <small id="item-periodicity-hint" class="hint reason">{{ reason }}</small>
+      }
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="field-label">
+      <label id="item-account-label" for="item-account">Cuenta por defecto</label
+      ><span class="required" aria-hidden="true">*</span>
+    </span>
+    <p-select
+      inputId="item-account"
+      ariaLabelledBy="item-account-label"
+      formControlName="defaultAccountId"
+      [options]="accountOptions()"
+      optionLabel="label"
+      optionValue="id"
+      [required]="true"
+      [invalid]="invalid('defaultAccountId')"
+      [pt]="{
+        label: {
+          'aria-describedby': invalid('defaultAccountId')
+            ? 'item-account-error'
+            : 'item-account-hint',
+        },
+      }"
+    />
+    @if (invalid('defaultAccountId')) {
+      <p-message id="item-account-error" severity="error" variant="simple" size="small">
+        Elegí la cuenta por defecto.
+      </p-message>
+    } @else if (item(); as item) {
+      <small id="item-account-hint" class="hint">
+        Solo podés cambiarla por otra cuenta en {{ currencyLabels[item.currency] }}. Las partidas
+        pendientes sin movimientos de los períodos abiertos pasan a la cuenta nueva.
+      </small>
     } @else {
-      <mat-hint>Su moneda es la del Concepto y la de sus partidas.</mat-hint>
+      <small id="item-account-hint" class="hint"
+        >Su moneda es la del Concepto y la de sus partidas.</small
+      >
     }
-    @if (form.controls.defaultAccountId.hasError('required')) {
-      <mat-error>Elegí la cuenta por defecto.</mat-error>
-    }
-  </mat-form-field>
+  </div>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Categoría</mat-label>
-    <mat-select formControlName="categoryId">
-      <mat-option [value]="null">Sin categoría</mat-option>
-      @for (category of categories(); track category.id) {
-        <mat-option [value]="category.id">{{ category.name }}</mat-option>
-      }
-    </mat-select>
-    <mat-hint>Opcional.</mat-hint>
-  </mat-form-field>
+  <div class="field">
+    <span class="field-label"
+      ><label id="item-category-label" for="item-category">Categoría</label></span
+    >
+    <p-select
+      inputId="item-category"
+      ariaLabelledBy="item-category-label"
+      formControlName="categoryId"
+      [options]="categoryOptions()"
+      optionLabel="label"
+      optionValue="id"
+      placeholder="Sin categoría"
+      [showClear]="true"
+      [pt]="{ label: { 'aria-describedby': 'item-category-hint' } }"
+    />
+    <small id="item-category-hint" class="hint">Opcional.</small>
+  </div>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Día de vencimiento</mat-label>
-    <input matInput type="number" formControlName="dueDay" min="1" max="31" step="1" inputmode="numeric" required />
-    @if (editing()) {
-      <mat-hint>
+  <div class="field">
+    <span class="field-label">
+      <label for="item-due-day">Día de vencimiento</label
+      ><span class="required" aria-hidden="true">*</span>
+    </span>
+    <input
+      pInputText
+      id="item-due-day"
+      type="number"
+      formControlName="dueDay"
+      min="1"
+      max="31"
+      step="1"
+      inputmode="numeric"
+      required
+      [invalid]="invalid('dueDay')"
+      [attr.aria-invalid]="invalid('dueDay')"
+      [attr.aria-describedby]="invalid('dueDay') ? 'item-due-day-error' : 'item-due-day-hint'"
+    />
+    @if (invalid('dueDay')) {
+      <p-message id="item-due-day-error" severity="error" variant="simple" size="small">
+        @if (form.controls.dueDay.hasError('required')) {
+          Ingresá el día de vencimiento.
+        } @else {
+          Tiene que ser un día del 1 al 31.
+        }
+      </p-message>
+    } @else if (editing()) {
+      <small id="item-due-day-hint" class="hint">
         Del 1 al 31. Recalcula el vencimiento de las partidas pendientes de los períodos abiertos.
-      </mat-hint>
+      </small>
     } @else {
-      <mat-hint>Del 1 al 31. Si el mes no tiene ese día, vence el último día del mes.</mat-hint>
+      <small id="item-due-day-hint" class="hint">
+        Del 1 al 31. Si el mes no tiene ese día, vence el último día del mes.
+      </small>
     }
-    @if (form.controls.dueDay.hasError('required')) {
-      <mat-error>Ingresá el día de vencimiento.</mat-error>
-    } @else if (form.controls.dueDay.invalid) {
-      <mat-error>Tiene que ser un día del 1 al 31.</mat-error>
-    }
-  </mat-form-field>
+  </div>
 
-  <mat-checkbox formControlName="dueInPreviousMonth" class="offset">{{ offsetLabel }}</mat-checkbox>
+  <div class="check">
+    <p-checkbox
+      inputId="item-previous-month"
+      formControlName="dueInPreviousMonth"
+      [binary]="true"
+    />
+    <label for="item-previous-month">{{ offsetLabel }}</label>
+  </div>
 
-  <mat-checkbox formControlName="inInstallments" class="offset">Es en cuotas</mat-checkbox>
+  <div class="check">
+    <p-checkbox inputId="item-installments" formControlName="inInstallments" [binary]="true" />
+    <label for="item-installments">Es en cuotas</label>
+  </div>
   @if (reasons().installments; as reason) {
     <p class="notice reason installments-reason">{{ reason }}</p>
   }
 
   @if (inInstallments()) {
     <div class="pair">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Total de cuotas</mat-label>
-        <input matInput type="number" formControlName="installmentsTotal" min="1" step="1" inputmode="numeric" required />
-        @if (form.controls.installmentsTotal.hasError('required')) {
-          <mat-error>Ingresá el total de cuotas.</mat-error>
-        } @else if (form.controls.installmentsTotal.invalid) {
-          <mat-error>Tiene que ser un número entero, de 1 en adelante.</mat-error>
+      <div class="field">
+        <span class="field-label">
+          <label for="item-installments-total">Total de cuotas</label
+          ><span class="required" aria-hidden="true">*</span>
+        </span>
+        <input
+          pInputText
+          id="item-installments-total"
+          type="number"
+          formControlName="installmentsTotal"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          required
+          [invalid]="invalid('installmentsTotal')"
+          [attr.aria-invalid]="invalid('installmentsTotal')"
+          [attr.aria-describedby]="
+            invalid('installmentsTotal') ? 'item-installments-total-error' : null
+          "
+        />
+        @if (invalid('installmentsTotal')) {
+          <p-message
+            id="item-installments-total-error"
+            severity="error"
+            variant="simple"
+            size="small"
+          >
+            @if (form.controls.installmentsTotal.hasError('required')) {
+              Ingresá el total de cuotas.
+            } @else {
+              Tiene que ser un número entero, de 1 en adelante.
+            }
+          </p-message>
         }
-      </mat-form-field>
+      </div>
 
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Primera cuota</mat-label>
-        <input matInput type="number" formControlName="firstInstallmentNumber" min="1" step="1" inputmode="numeric" />
-        <mat-hint>La que corresponde al período de inicio.</mat-hint>
-        @if (form.controls.firstInstallmentNumber.invalid) {
-          <mat-error>Tiene que ser un número entero, de 1 en adelante.</mat-error>
+      <div class="field">
+        <span class="field-label"><label for="item-first-installment">Primera cuota</label></span>
+        <input
+          pInputText
+          id="item-first-installment"
+          type="number"
+          formControlName="firstInstallmentNumber"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          [invalid]="invalid('firstInstallmentNumber')"
+          [attr.aria-invalid]="invalid('firstInstallmentNumber')"
+          [attr.aria-describedby]="
+            invalid('firstInstallmentNumber')
+              ? 'item-first-installment-error'
+              : 'item-first-installment-hint'
+          "
+        />
+        @if (invalid('firstInstallmentNumber')) {
+          <p-message
+            id="item-first-installment-error"
+            severity="error"
+            variant="simple"
+            size="small"
+          >
+            Tiene que ser un número entero, de 1 en adelante.
+          </p-message>
+        } @else {
+          <small id="item-first-installment-hint" class="hint"
+            >La que corresponde al período de inicio.</small
+          >
         }
-      </mat-form-field>
+      </div>
     </div>
     @if (!editing()) {
       <p class="notice installments-help">
-        El período de fin no se ingresa: se calcula a partir del inicio y de las cuotas que faltan. La primera cuota
-        sirve para cargar un plan que ya empezó: indicá el número de cuota que corresponde al período de inicio.
+        El período de fin no se ingresa: se calcula a partir del inicio y de las cuotas que faltan.
+        La primera cuota sirve para cargar un plan que ya empezó: indicá el número de cuota que
+        corresponde al período de inicio.
       </p>
     }
   }
 
   <div class="pair">
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Período de inicio</mat-label>
-      <input matInput type="month" formControlName="startPeriod" placeholder="AAAA-MM" required />
-      @if (reasons().startPeriod; as reason) {
-        <mat-hint class="reason">{{ reason }}</mat-hint>
+    <div class="field">
+      <span class="field-label">
+        <label for="item-start-period">Período de inicio</label
+        ><span class="required" aria-hidden="true">*</span>
+      </span>
+      <input
+        pInputText
+        id="item-start-period"
+        type="month"
+        formControlName="startPeriod"
+        placeholder="AAAA-MM"
+        required
+        [invalid]="invalid('startPeriod')"
+        [attr.aria-invalid]="invalid('startPeriod')"
+        [attr.aria-describedby]="
+          invalid('startPeriod') ? 'item-start-period-error' : 'item-start-period-hint'
+        "
+      />
+      @if (invalid('startPeriod')) {
+        <p-message id="item-start-period-error" severity="error" variant="simple" size="small">
+          @if (form.controls.startPeriod.hasError('required')) {
+            Ingresá el período de inicio.
+          } @else {
+            Escribilo como año y mes, por ejemplo 2026-10.
+          }
+        </p-message>
+      } @else if (reasons().startPeriod; as reason) {
+        <small id="item-start-period-hint" class="hint reason">{{ reason }}</small>
       } @else {
-        <mat-hint>Primer mes con partida.</mat-hint>
+        <small id="item-start-period-hint" class="hint">Primer mes con partida.</small>
       }
-      @if (form.controls.startPeriod.hasError('required')) {
-        <mat-error>Ingresá el período de inicio.</mat-error>
-      } @else if (form.controls.startPeriod.hasError('period')) {
-        <mat-error>Escribilo como año y mes, por ejemplo 2026-10.</mat-error>
-      }
-    </mat-form-field>
+    </div>
 
     @if (!inInstallments() || editing()) {
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Período de fin</mat-label>
-        <input matInput type="month" formControlName="endPeriod" placeholder="AAAA-MM" />
-        @if (reasons().endPeriod; as reason) {
-          <mat-hint class="reason">{{ reason }}</mat-hint>
+      <div class="field">
+        <span class="field-label"><label for="item-end-period">Período de fin</label></span>
+        <input
+          pInputText
+          id="item-end-period"
+          type="month"
+          formControlName="endPeriod"
+          placeholder="AAAA-MM"
+          [invalid]="invalid('endPeriod')"
+          [attr.aria-invalid]="invalid('endPeriod')"
+          [attr.aria-describedby]="
+            invalid('endPeriod') ? 'item-end-period-error' : 'item-end-period-hint'
+          "
+        />
+        @if (invalid('endPeriod')) {
+          <p-message id="item-end-period-error" severity="error" variant="simple" size="small">
+            Escribilo como año y mes, por ejemplo 2027-12.
+          </p-message>
+        } @else if (reasons().endPeriod; as reason) {
+          <small id="item-end-period-hint" class="hint reason">{{ reason }}</small>
         } @else {
-          <mat-hint>Opcional. Vacío, el Concepto no tiene fin.</mat-hint>
+          <small id="item-end-period-hint" class="hint"
+            >Opcional. Vacío, el Concepto no tiene fin.</small
+          >
         }
-        @if (form.controls.endPeriod.hasError('period')) {
-          <mat-error>Escribilo como año y mes, por ejemplo 2027-12.</mat-error>
-        }
-      </mat-form-field>
+      </div>
     }
   </div>
 
   <fieldset class="rule">
     <legend id="estimation-rule-label">Regla de estimación</legend>
-    <mat-radio-group formControlName="estimationRule" aria-labelledby="estimation-rule-label" class="rule-options">
+    <div class="rule-options" role="radiogroup" aria-labelledby="estimation-rule-label">
       @for (rule of estimationRules; track rule.value) {
-        <mat-radio-button [value]="rule.value">
-          <span class="rule-name">{{ rule.label }}</span>
-          <span class="rule-description">{{ rule.description }}</span>
-        </mat-radio-button>
+        <div class="rule-option">
+          <p-radiobutton
+            [inputId]="'rule-' + rule.value"
+            formControlName="estimationRule"
+            [value]="rule.value"
+            [pt]="{ input: { 'aria-describedby': 'rule-' + rule.value + '-description' } }"
+          />
+          <div>
+            <label class="rule-name" [for]="'rule-' + rule.value">{{ rule.label }}</label>
+            <span class="rule-description" [id]="'rule-' + rule.value + '-description'">{{
+              rule.description
+            }}</span>
+          </div>
+        </div>
       }
-    </mat-radio-group>
+    </div>
     @if (editing()) {
       <p class="notice rule-effect">Un cambio de regla se aplica desde la próxima consolidación.</p>
     }
   </fieldset>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Monto vigente</mat-label>
-    <input matInput formControlName="currentAmount" inputmode="decimal" autocomplete="off" required />
-    @if (editing()) {
-      <mat-hint>
-        Con coma decimal. Reemplaza el presupuestado de las partidas pendientes no editadas de los períodos abiertos.
-      </mat-hint>
+  <div class="field">
+    <span class="field-label">
+      <label for="item-current-amount">Monto vigente</label
+      ><span class="required" aria-hidden="true">*</span>
+    </span>
+    <p-inputgroup>
+      <p-inputgroup-addon>{{ currencySymbol() }}</p-inputgroup-addon>
+      <input
+        pInputText
+        fluid
+        id="item-current-amount"
+        formControlName="currentAmount"
+        inputmode="decimal"
+        autocomplete="off"
+        required
+        [invalid]="invalid('currentAmount')"
+        [attr.aria-invalid]="invalid('currentAmount')"
+        [attr.aria-describedby]="
+          invalid('currentAmount') ? 'item-current-amount-error' : 'item-current-amount-hint'
+        "
+      />
+    </p-inputgroup>
+    @if (invalid('currentAmount')) {
+      <p-message id="item-current-amount-error" severity="error" variant="simple" size="small">
+        @if (form.controls.currentAmount.hasError('required')) {
+          Ingresá el monto vigente.
+        } @else {
+          Escribilo sin signo, con coma decimal y hasta 2 decimales, por ejemplo 1500,50.
+        }
+      </p-message>
+    } @else if (editing()) {
+      <small id="item-current-amount-hint" class="hint">
+        Con coma decimal. Reemplaza el presupuestado de las partidas pendientes no editadas de los
+        períodos abiertos.
+      </small>
     } @else {
-      <mat-hint>Con coma decimal. Es el presupuestado de cada partida que se genera.</mat-hint>
+      <small id="item-current-amount-hint" class="hint">
+        Con coma decimal. Es el presupuestado de cada partida que se genera.
+      </small>
     }
-    @if (form.controls.currentAmount.hasError('required')) {
-      <mat-error>Ingresá el monto vigente.</mat-error>
-    } @else if (form.controls.currentAmount.hasError('amount')) {
-      <mat-error>Escribilo sin signo, con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
-    }
-  </mat-form-field>
+  </div>
 
   @if (!editing()) {
     <p class="notice">
-      El tipo, la periodicidad, los períodos de inicio y de fin y las cuotas no se pueden cambiar después de guardar.
+      El tipo, la periodicidad, los períodos de inicio y de fin y las cuotas no se pueden cambiar
+      después de guardar.
     </p>
   }
 
   @if (error(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
+    <p-message class="form-error" severity="error" variant="simple" size="small">{{
+      message
+    }}</p-message>
   }
 
   <div class="actions">
-    <button mat-flat-button type="submit" [disabled]="submitting()">
-      {{ editing() ? 'Guardar cambios' : 'Crear Concepto' }}
-    </button>
+    <p-button
+      type="submit"
+      [label]="editing() ? 'Guardar cambios' : 'Crear Concepto'"
+      icon="pi pi-check"
+      [disabled]="submitting()"
+    />
   </div>
 </form>

@@ -20,13 +20,17 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatRadioModule } from '@angular/material/radio';
-import { MatSelectModule } from '@angular/material/select';
+import { Button } from 'primeng/button';
+import { Checkbox } from 'primeng/checkbox';
+import { IconField } from 'primeng/iconfield';
+import { InputGroup } from 'primeng/inputgroup';
+import { InputGroupAddon } from 'primeng/inputgroupaddon';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
+import { Message } from 'primeng/message';
+import { RadioButton } from 'primeng/radiobutton';
+import { Select } from 'primeng/select';
 import {
   AccountResponse,
   BudgetItemDetail,
@@ -59,7 +63,9 @@ function notBlank(control: AbstractControl): ValidationErrors | null {
 /** Monto con coma decimal y sin signo: el monto vigente no puede ser negativo. */
 function amountFormat(control: AbstractControl): ValidationErrors | null {
   const text = (control.value as string).trim();
-  return text === '' || (parseAmount(text) !== null && !text.startsWith('-')) ? null : { amount: true };
+  return text === '' || (parseAmount(text) !== null && !text.startsWith('-'))
+    ? null
+    : { amount: true };
 }
 
 /** Período `YYYY-MM`. Los navegadores sin selector de mes dejan escribirlo a mano. */
@@ -86,13 +92,17 @@ function wholeNumber(control: AbstractControl): ValidationErrors | null {
   selector: 'app-budget-item-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    Button,
+    Checkbox,
+    IconField,
+    InputGroup,
+    InputGroupAddon,
+    InputIcon,
+    InputText,
+    Message,
+    RadioButton,
     ReactiveFormsModule,
-    MatButtonModule,
-    MatCheckboxModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatRadioModule,
-    MatSelectModule,
+    Select,
   ],
   templateUrl: './budget-item-form.html',
   styleUrl: './budget-item-form.scss',
@@ -115,10 +125,11 @@ export class BudgetItemForm {
   /** El Concepto se editó; trae sus datos y conteos actualizados. */
   readonly updated = output<BudgetItemDetail>();
 
-  protected readonly kinds = KINDS;
-  protected readonly kindLabels = KIND_LABELS;
-  protected readonly periodicities = PERIODICITIES;
-  protected readonly periodicityLabels = PERIODICITY_LABELS;
+  protected readonly kindOptions = KINDS.map((value) => ({ value, label: KIND_LABELS[value] }));
+  protected readonly periodicityOptions = PERIODICITIES.map((value) => ({
+    value,
+    label: PERIODICITY_LABELS[value],
+  }));
   protected readonly estimationRules = ESTIMATION_RULES;
   protected readonly offsetLabel = OFFSET_LABEL;
   protected readonly currencyLabels = CURRENCY_LABELS;
@@ -131,7 +142,10 @@ export class BudgetItemForm {
     kind: new FormControl<BudgetItemRequest.KindEnum | null>(null, Validators.required),
     defaultAccountId: new FormControl<number | null>(null, Validators.required),
     categoryId: new FormControl<number | null>(null),
-    periodicity: new FormControl<BudgetItemRequest.PeriodicityEnum | null>('MONTHLY', Validators.required),
+    periodicity: new FormControl<BudgetItemRequest.PeriodicityEnum | null>(
+      'MONTHLY',
+      Validators.required,
+    ),
     dueDay: new FormControl<number | null>(null, [
       Validators.required,
       Validators.min(1),
@@ -139,20 +153,54 @@ export class BudgetItemForm {
       wholeNumber,
     ]),
     dueInPreviousMonth: new FormControl(false, { nonNullable: true }),
-    startPeriod: new FormControl('', { nonNullable: true, validators: [Validators.required, periodFormat] }),
+    startPeriod: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, periodFormat],
+    }),
     inInstallments: new FormControl(false, { nonNullable: true }),
-    installmentsTotal: new FormControl<number | null>(null, [Validators.required, Validators.min(1), wholeNumber]),
+    installmentsTotal: new FormControl<number | null>(null, [
+      Validators.required,
+      Validators.min(1),
+      wholeNumber,
+    ]),
     // Vacía vale 1: el backend la completa.
     firstInstallmentNumber: new FormControl<number | null>(1, [Validators.min(1), wholeNumber]),
     endPeriod: new FormControl('', { nonNullable: true, validators: periodFormat }),
-    estimationRule: new FormControl<BudgetItemRequest.EstimationRuleEnum | null>('LAST_VALUE', Validators.required),
-    currentAmount: new FormControl('', { nonNullable: true, validators: [Validators.required, amountFormat] }),
+    estimationRule: new FormControl<BudgetItemRequest.EstimationRuleEnum | null>(
+      'LAST_VALUE',
+      Validators.required,
+    ),
+    currentAmount: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, amountFormat],
+    }),
   });
   protected readonly error = signal<string | null>(null);
   protected readonly submitting = signal(false);
 
   protected readonly inInstallments = toSignal(this.form.controls.inInstallments.valueChanges, {
     initialValue: false,
+  });
+
+  protected readonly accountOptions = computed(() =>
+    this.accounts().map((account) => ({
+      id: account.id,
+      label: `${account.name} · ${CURRENCY_LABELS[account.currency]}`,
+    })),
+  );
+  protected readonly categoryOptions = computed(() =>
+    this.categories().map((category) => ({ id: category.id, label: category.name })),
+  );
+
+  private readonly selectedAccountId = toSignal(this.form.controls.defaultAccountId.valueChanges, {
+    initialValue: null as number | null,
+  });
+  /** Símbolo de la moneda del Concepto: la de la cuenta elegida, para el monto vigente. */
+  protected readonly currencySymbol = computed(() => {
+    const id = this.selectedAccountId() ?? this.item()?.defaultAccountId;
+    const currency =
+      this.accounts().find((account) => account.id === id)?.currency ?? this.item()?.currency;
+    return currency === 'USD' ? 'US$' : '$';
   });
 
   protected readonly editing = computed(() => this.item() !== null);
@@ -176,13 +224,21 @@ export class BudgetItemForm {
     effect(() => {
       const item = this.item();
       const suggested = this.suggestedStartPeriod();
-      untracked(() => (item === null ? this.form.controls.startPeriod.reset(suggested) : this.load(item)));
+      untracked(() =>
+        item === null ? this.form.controls.startPeriod.reset(suggested) : this.load(item),
+      );
     });
     this.applyInstallments(false);
     // Al editar, qué campos se habilitan lo decide `load` (todo lo de cuotas y el fin están bloqueados).
     this.form.controls.inInstallments.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((on) => !this.editing() && this.applyInstallments(on));
+  }
+
+  /** Un campo se marca con error recién cuando se tocó o se intentó guardar. */
+  protected invalid(name: keyof typeof this.form.controls): boolean {
+    const control = this.form.controls[name];
+    return control.invalid && control.touched;
   }
 
   /** Con cuotas, el total y la primera cuota cuentan y el fin no; sin cuotas, al revés. Un campo deshabilitado no valida. */
@@ -220,8 +276,15 @@ export class BudgetItemForm {
       estimationRule: item.estimationRule,
       currentAmount: formatAmountInput(item.currentAmount),
     });
-    const { kind, periodicity, startPeriod, inInstallments, installmentsTotal, firstInstallmentNumber, endPeriod } =
-      this.form.controls;
+    const {
+      kind,
+      periodicity,
+      startPeriod,
+      inInstallments,
+      installmentsTotal,
+      firstInstallmentNumber,
+      endPeriod,
+    } = this.form.controls;
     for (const locked of [
       kind,
       periodicity,
@@ -273,7 +336,10 @@ export class BudgetItemForm {
       estimationRule: value.estimationRule!,
       currentAmount: parseAmount(value.currentAmount)!,
       ...(value.inInstallments
-        ? { installmentsTotal: value.installmentsTotal!, firstInstallmentNumber: value.firstInstallmentNumber }
+        ? {
+            installmentsTotal: value.installmentsTotal!,
+            firstInstallmentNumber: value.firstInstallmentNumber,
+          }
         : {}),
     };
     const item = this.item();

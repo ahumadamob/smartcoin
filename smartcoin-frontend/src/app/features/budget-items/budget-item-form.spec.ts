@@ -74,7 +74,7 @@ describe('BudgetItemForm', () => {
   const text = () => root().textContent ?? '';
   const form = () => fixture.componentInstance['form'];
   const field = (label: string) =>
-    Array.from(root().querySelectorAll('mat-form-field')).find((f) =>
+    Array.from(root().querySelectorAll('.field')).find((f) =>
       f.querySelector('label')?.textContent?.includes(label),
     )!;
   const input = (label: string) => field(label).querySelector('input')!;
@@ -113,8 +113,8 @@ describe('BudgetItemForm', () => {
     ]) {
       expect(field(label), label).toBeTruthy();
     }
-    expect(root().querySelector('mat-checkbox label')?.textContent).toContain('Vence el mes anterior');
-    const group = root().querySelector('mat-radio-group')!;
+    expect(root().querySelector('.check label')?.textContent).toContain('Vence el mes anterior');
+    const group = root().querySelector('[role="radiogroup"]')!;
     expect(document.getElementById(group.getAttribute('aria-labelledby')!)?.textContent).toBe(
       'Regla de estimación',
     );
@@ -140,7 +140,7 @@ describe('BudgetItemForm', () => {
   });
 
   it('cada regla de estimación tiene una línea que la explica', () => {
-    const options = Array.from(root().querySelectorAll('mat-radio-button')).map((o) => ({
+    const options = Array.from(root().querySelectorAll('.rule-option')).map((o) => ({
       name: o.querySelector('.rule-name')?.textContent,
       description: o.querySelector('.rule-description')?.textContent,
     }));
@@ -226,18 +226,20 @@ describe('BudgetItemForm', () => {
     expect(api.createBudgetItem).not.toHaveBeenCalled();
   });
 
-  const options = (label: string) => {
-    field(label).querySelector<HTMLElement>('mat-select')!.click();
-    fixture.detectChanges();
-    return Array.from(document.querySelectorAll('mat-option')).map((o) => o.textContent?.trim());
-  };
+  /** Las opciones de un select, tal como se muestran: el panel de PrimeNG no abre en jsdom (no tiene `matchMedia`). */
+  const labels = (options: unknown) => (options as { label: string }[]).map((o) => o.label);
 
   it('cada cuenta se muestra con su moneda', () => {
-    expect(options('Cuenta por defecto')).toEqual(['Banco Nación · $ (ARS)', 'Caja en dólares · US$ (USD)']);
+    expect(labels(fixture.componentInstance['accountOptions']())).toEqual([
+      'Banco Nación · $ (ARS)',
+      'Caja en dólares · US$ (USD)',
+    ]);
   });
 
-  it('la categoría es opcional: ofrece «Sin categoría» y las del usuario', () => {
-    expect(options('Categoría')).toEqual(['Sin categoría', 'Impuestos', 'Servicios']);
+  it('la categoría es opcional: se puede dejar sin elegir y ofrece las del usuario', () => {
+    expect(labels(fixture.componentInstance['categoryOptions']())).toEqual(['Impuestos', 'Servicios']);
+    expect(field('Categoría').querySelector('p-select')?.textContent).toContain('Sin categoría');
+    expect(form().controls.categoryId.hasError('required')).toBe(false);
   });
 
   it('envía un Concepto mensual sin categoría, sin fin y sin desfase', () => {
@@ -287,7 +289,7 @@ describe('BudgetItemForm', () => {
 
   it('al marcar la casilla del desfase cambia lo que se envía', () => {
     fillRequired();
-    root().querySelector<HTMLInputElement>('mat-checkbox input')!.click();
+    root().querySelector<HTMLInputElement>('.check input')!.click();
     fixture.detectChanges();
     submit();
 
@@ -317,7 +319,7 @@ describe('BudgetItemForm', () => {
       estimationRule: 'LAST_VALUE',
       currentAmount: '',
     });
-    expect(root().querySelector('mat-error')).toBeNull();
+    expect(root().querySelector('.field p-message')).toBeNull();
     expect(alert()).toBe('');
   });
 
@@ -364,19 +366,19 @@ describe('BudgetItemForm', () => {
 
   describe('en cuotas (HU-11)', () => {
     const toggle = () => {
-      const box = Array.from(root().querySelectorAll('mat-checkbox')).find((c) =>
+      const box = Array.from(root().querySelectorAll('.check')).find((c) =>
         c.textContent?.includes('Es en cuotas'),
       )!;
       box.querySelector<HTMLInputElement>('input')!.click();
       fixture.detectChanges();
     };
     const hasField = (label: string) =>
-      Array.from(root().querySelectorAll('mat-form-field')).some((f) =>
+      Array.from(root().querySelectorAll('.field')).some((f) =>
         f.querySelector('label')?.textContent?.includes(label),
       );
 
     it('arranca sin cuotas: no muestra el total ni la primera cuota y sí el fin', () => {
-      expect(root().querySelector('mat-checkbox')).toBeTruthy();
+      expect(root().querySelector('.check')).toBeTruthy();
       expect(text()).toContain('Es en cuotas');
       expect(hasField('Total de cuotas')).toBe(false);
       expect(hasField('Primera cuota')).toBe(false);
@@ -539,7 +541,7 @@ describe('BudgetItemForm', () => {
       expect(hasField('Total de cuotas')).toBe(false);
       expect(hasField('Período de fin')).toBe(true);
       expect(form().controls.endPeriod.enabled).toBe(true);
-      expect(root().querySelector('mat-error')).toBeNull();
+      expect(root().querySelector('.field p-message')).toBeNull();
     });
   });
 });

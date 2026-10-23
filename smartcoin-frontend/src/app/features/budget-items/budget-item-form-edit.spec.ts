@@ -123,7 +123,7 @@ describe('BudgetItemForm · edición (HU-13)', () => {
   const text = () => (root().textContent ?? '').replace(/\s+/g, ' ');
   const form = () => fixture.componentInstance['form'];
   const field = (label: string) =>
-    Array.from(root().querySelectorAll('mat-form-field')).find((f) =>
+    Array.from(root().querySelectorAll('.field')).find((f) =>
       f.querySelector('label')?.textContent?.includes(label),
     )!;
   const input = (label: string) => field(label).querySelector('input')!;
@@ -180,10 +180,10 @@ describe('BudgetItemForm · edición (HU-13)', () => {
     it('los campos deshabilitados se ven deshabilitados en la pantalla, no solo en el formulario', () => {
       expect(input('Período de inicio').disabled).toBe(true);
       expect(input('Período de fin').disabled).toBe(true);
-      expect(field('Tipo').querySelector('mat-select')?.getAttribute('aria-disabled')).toBe('true');
-      expect(field('Periodicidad').querySelector('mat-select')?.getAttribute('aria-disabled')).toBe('true');
-      expect(root().querySelector<HTMLInputElement>('mat-checkbox input')!.disabled).toBe(false);
-      const installmentsBox = Array.from(root().querySelectorAll('mat-checkbox')).find((c) =>
+      expect(field('Tipo').querySelector('[role="combobox"]')?.getAttribute('aria-disabled')).toBe('true');
+      expect(field('Periodicidad').querySelector('[role="combobox"]')?.getAttribute('aria-disabled')).toBe('true');
+      expect(root().querySelector<HTMLInputElement>('.check input')!.disabled).toBe(false);
+      const installmentsBox = Array.from(root().querySelectorAll('.check')).find((c) =>
         c.textContent?.includes('Es en cuotas'),
       )!;
       expect(installmentsBox.querySelector<HTMLInputElement>('input')!.disabled).toBe(true);

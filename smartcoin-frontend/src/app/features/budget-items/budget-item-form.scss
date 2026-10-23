@@ -1,36 +1,47 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1rem;
 }
 
 .pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 1rem;
 }
 
-.offset {
-  margin-top: -8px;
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .rule {
   margin: 0;
-  padding: 8px 12px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 4px;
+  padding: 0.5rem 0.75rem 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
 }
 
 .rule legend {
-  padding: 0 4px;
-  font: var(--mat-sys-body-medium);
-  color: var(--mat-sys-on-surface-variant);
+  padding: 0 0.25rem;
+  font-weight: 600;
 }
 
 .rule-options {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.5rem;
+}
+
+.rule-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+
+  p-radiobutton {
+    margin-top: 0.125rem;
+  }
 }
 
 .rule-name,
@@ -38,31 +49,21 @@
   display: block;
 }
 
-.rule-description {
-  font: var(--mat-sys-body-small);
-  color: var(--mat-sys-on-surface-variant);
+.rule-description,
+.notice {
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
 }
 
 .notice {
   margin: 0;
-  font: var(--mat-sys-body-small);
-  color: var(--mat-sys-on-surface-variant);
 }
 
-.error {
-  margin: 0;
-  color: var(--mat-sys-error);
+.rule-effect {
+  margin-top: 0.5rem;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-}
-
-.reason {
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.rule-effect {
-  margin-top: 8px;
 }
