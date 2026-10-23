@@ -1,7 +1,15 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  output,
+  OutputEmitterRef,
+} from '@angular/core';
 import { ButtonDirective } from 'primeng/button';
 import { TableModule } from 'primeng/table';
+import { Tooltip } from 'primeng/tooltip';
 import { PeriodCurrencyTotals, PeriodEntry, PeriodSideTotals } from '../../api';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
@@ -36,12 +44,13 @@ interface FooterRow {
  * período cerrado no tiene acciones) y alguna partida de la sección tiene una: no se dibuja una columna vacía. Hoy son
  * «Registrar cobro» o «Registrar pago» (HU-19), «Editar» (partidas sin Concepto, HU-16), «Editar monto» (recurrentes,
  * HU-17), «Consolidar» (HU-23) y «Eliminar» (HU-18). La tabla no cambia nada: emite el pedido y quien la
- * usa abre el diálogo.
+ * usa abre el diálogo. Son botones redondos con ícono y borde, cada uno en su propio lugar de la fila, con la etiqueta como
+ * `aria-label` y como ayuda al pasar el mouse.
  */
 @Component({
   selector: 'app-entry-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ButtonDirective, DatePipe, MoneyPipe, TableModule],
+  imports: [ButtonDirective, DatePipe, MoneyPipe, TableModule, Tooltip],
   templateUrl: './entry-table.html',
   styleUrl: './entry-table.scss',
 })

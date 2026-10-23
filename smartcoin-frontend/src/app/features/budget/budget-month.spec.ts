@@ -407,7 +407,7 @@ describe('BudgetMonth', () => {
         '$ 450.000,00',
         '$ 0,00',
         'Consolidada',
-        'Desconsolidar',
+        '',
       ]);
     });
 
@@ -977,7 +977,6 @@ describe('BudgetMonth', () => {
       const income = entry({ id: 31, kind: 'INCOME', name: 'Sueldo', budgetItemId: null, origin: 'ONE_OFF' });
       await open('/presupuesto/2026-11', { '2026-11': of(withEntries('OPEN', [income], [expensas()])) });
 
-      expect(registerButtons().map((b) => text(b))).toEqual(['Registrar cobro', 'Registrar pago']);
       expect(registerButtons().map((b) => b.getAttribute('aria-label'))).toEqual([
         'Registrar cobro de Sueldo',
         'Registrar pago de Expensas',
@@ -1224,8 +1223,10 @@ describe('BudgetMonth', () => {
       expect(consolidateButtons()).toHaveLength(0);
       // Lo único que ofrece una consolidada de un período abierto es desconsolidarla (HU-26).
       expect(
-        Array.from(section('Gastos').querySelectorAll('[data-testid="actions"] button')).map((b) => text(b)),
-      ).toEqual(['Desconsolidar']);
+        Array.from(section('Gastos').querySelectorAll('[data-testid="actions"] button')).map((b) =>
+          b.getAttribute('data-testid'),
+        ),
+      ).toEqual(['unconsolidate-entry']);
       expect(section('Gastos').querySelector('table')).toBe(tableBefore);
     });
 
@@ -1284,9 +1285,9 @@ describe('BudgetMonth', () => {
         ),
       });
 
-      expect(settleButtons().map((b) => [b.getAttribute('aria-label'), text(b)])).toEqual([
-        ['Cobrar todo de Sueldo A', 'Cobrar todo'],
-        ['Pagar todo de Luz', 'Pagar todo'],
+      expect(settleButtons().map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Cobrar todo de Sueldo A',
+        'Pagar todo de Luz',
       ]);
     });
 
@@ -1385,9 +1386,7 @@ describe('BudgetMonth', () => {
         ),
       });
 
-      expect(undoButtons().map((b) => [b.getAttribute('aria-label'), text(b)])).toEqual([
-        ['Desconsolidar Luz', 'Desconsolidar'],
-      ]);
+      expect(undoButtons().map((b) => b.getAttribute('aria-label'))).toEqual(['Desconsolidar Luz']);
     });
 
     it('un período cerrado no la ofrece', async () => {

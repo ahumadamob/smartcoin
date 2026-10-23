@@ -22,7 +22,7 @@
           <th scope="col" class="number">Pendiente</th>
           <th scope="col">Estado</th>
           @if (showActions()) {
-            <th scope="col">Acciones</th>
+            <th scope="col" class="actions">Acciones</th>
           }
         </tr>
       </ng-template>
@@ -55,114 +55,146 @@
           <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
           <td class="nowrap" data-testid="status">{{ statusLabels[entry.status] }}</td>
           @if (showActions()) {
-            <td class="nowrap" data-testid="actions">
-              @if (canRegister(entry)) {
-                <button
-                  pButton
-                  variant="text"
-                  size="small"
-                  type="button"
-                  data-testid="register-movement"
-                  [attr.aria-label]="registerLabel(entry.kind) + ' de ' + entry.name"
-                  (click)="registerMovement.emit(entry)"
-                >
-                  {{ registerLabel(entry.kind) }}
-                </button>
-              }
-              @if (canSettle(entry)) {
-                <button
-                  pButton
-                  variant="text"
-                  size="small"
-                  type="button"
-                  data-testid="quick-settle"
-                  [attr.aria-label]="quickSettleLabel(entry.kind) + ' de ' + entry.name"
-                  (click)="quickSettle.emit(entry)"
-                >
-                  {{ quickSettleLabel(entry.kind) }}
-                </button>
-              }
-              @if (canConsolidate(entry)) {
-                <button
-                  pButton
-                  variant="text"
-                  size="small"
-                  type="button"
-                  data-testid="consolidate-entry"
-                  [attr.aria-label]="'Consolidar ' + entry.name"
-                  (click)="consolidate.emit(entry)"
-                >
-                  Consolidar
-                </button>
-              }
-              @if (canUndo(entry)) {
-                <button
-                  pButton
-                  variant="text"
-                  size="small"
-                  type="button"
-                  data-testid="unconsolidate-entry"
-                  [attr.aria-label]="'Desconsolidar ' + entry.name"
-                  (click)="unconsolidate.emit(entry)"
-                >
-                  Desconsolidar
-                </button>
-              }
-              @if (canEdit(entry)) {
-                <button
-                  pButton
-                  variant="text"
-                  size="small"
-                  type="button"
-                  data-testid="edit-entry"
-                  [attr.aria-label]="'Editar ' + entry.name"
-                  (click)="edit.emit(entry)"
-                >
-                  Editar
-                </button>
-              }
-              @if (canEditAmount(entry)) {
-                <button
-                  pButton
-                  variant="text"
-                  size="small"
-                  type="button"
-                  data-testid="edit-amount"
-                  [attr.aria-label]="'Editar monto de ' + entry.name"
-                  (click)="editAmount.emit(entry)"
-                >
-                  Editar monto
-                </button>
-              }
-              @if (canDelete(entry)) {
-                <button
-                  pButton
-                  variant="text"
-                  size="small"
-                  type="button"
-                  data-testid="delete-entry"
-                  [attr.aria-label]="'Eliminar ' + entry.name"
-                  (click)="remove.emit(entry)"
-                >
-                  Eliminar
-                </button>
-              }
+            <td class="actions" data-testid="actions">
+              <div class="row-actions">
+                <span class="slot">
+                  @if (canRegister(entry)) {
+                    <button
+                      pButton
+                      rounded
+                      iconOnly
+                      variant="outlined"
+                      type="button"
+                      data-testid="register-movement"
+                      [pTooltip]="registerLabel(entry.kind)"
+                      [attr.aria-label]="registerLabel(entry.kind) + ' de ' + entry.name"
+                      (click)="registerMovement.emit(entry)"
+                    >
+                      <i class="pi pi-plus" aria-hidden="true"></i>
+                    </button>
+                  }
+                </span>
+                <span class="slot">
+                  @if (canSettle(entry)) {
+                    <button
+                      pButton
+                      rounded
+                      iconOnly
+                      variant="outlined"
+                      severity="success"
+                      type="button"
+                      data-testid="quick-settle"
+                      [pTooltip]="quickSettleLabel(entry.kind)"
+                      [attr.aria-label]="quickSettleLabel(entry.kind) + ' de ' + entry.name"
+                      (click)="quickSettle.emit(entry)"
+                    >
+                      <i class="pi pi-check" aria-hidden="true"></i>
+                    </button>
+                  }
+                </span>
+                <span class="slot">
+                  @if (canConsolidate(entry)) {
+                    <button
+                      pButton
+                      rounded
+                      iconOnly
+                      variant="outlined"
+                      severity="info"
+                      type="button"
+                      data-testid="consolidate-entry"
+                      pTooltip="Consolidar"
+                      [attr.aria-label]="'Consolidar ' + entry.name"
+                      (click)="consolidate.emit(entry)"
+                    >
+                      <i class="pi pi-lock" aria-hidden="true"></i>
+                    </button>
+                  } @else if (canUndo(entry)) {
+                    <button
+                      pButton
+                      rounded
+                      iconOnly
+                      variant="outlined"
+                      severity="warn"
+                      type="button"
+                      data-testid="unconsolidate-entry"
+                      pTooltip="Desconsolidar"
+                      [attr.aria-label]="'Desconsolidar ' + entry.name"
+                      (click)="unconsolidate.emit(entry)"
+                    >
+                      <i class="pi pi-undo" aria-hidden="true"></i>
+                    </button>
+                  }
+                </span>
+                <span class="slot">
+                  @if (canEdit(entry)) {
+                    <button
+                      pButton
+                      rounded
+                      iconOnly
+                      variant="outlined"
+                      severity="secondary"
+                      type="button"
+                      data-testid="edit-entry"
+                      pTooltip="Editar"
+                      [attr.aria-label]="'Editar ' + entry.name"
+                      (click)="edit.emit(entry)"
+                    >
+                      <i class="pi pi-pencil" aria-hidden="true"></i>
+                    </button>
+                  } @else if (canEditAmount(entry)) {
+                    <button
+                      pButton
+                      rounded
+                      iconOnly
+                      variant="outlined"
+                      severity="secondary"
+                      type="button"
+                      data-testid="edit-amount"
+                      pTooltip="Editar monto"
+                      [attr.aria-label]="'Editar monto de ' + entry.name"
+                      (click)="editAmount.emit(entry)"
+                    >
+                      <i class="pi pi-pencil" aria-hidden="true"></i>
+                    </button>
+                  }
+                </span>
+                <span class="slot">
+                  @if (canDelete(entry)) {
+                    <button
+                      pButton
+                      rounded
+                      iconOnly
+                      variant="outlined"
+                      severity="danger"
+                      type="button"
+                      data-testid="delete-entry"
+                      pTooltip="Eliminar"
+                      [attr.aria-label]="'Eliminar ' + entry.name"
+                      (click)="remove.emit(entry)"
+                    >
+                      <i class="pi pi-trash" aria-hidden="true"></i>
+                    </button>
+                  }
+                </span>
+              </div>
             </td>
           }
         </tr>
       </ng-template>
       <ng-template #footer>
         @for (row of footerRows(); track row.currency) {
-        <tr data-testid="total">
-          <th scope="row" colspan="5">Total en {{ row.currency === 'USD' ? 'dólares' : 'pesos' }}</th>
-          <td class="number">{{ row.totals.budgetedAmount | money: row.currency }}</td>
-          <td class="number">{{ row.totals.actualAmount | money: row.currency }}</td>
-          <td class="number">{{ row.totals.pendingAmount | money: row.currency }}</td>
-          <td></td>
-          @if (showActions()) {
+          <tr data-testid="total">
+            <th scope="row" colspan="5">
+              Total en {{ row.currency === 'USD' ? 'dólares' : 'pesos' }}
+            </th>
+            <td class="number">{{ row.totals.budgetedAmount | money: row.currency }}</td>
+            <td class="number">{{ row.totals.actualAmount | money: row.currency }}</td>
+            <td class="number">{{ row.totals.pendingAmount | money: row.currency }}</td>
             <td></td>
-          }
-        </tr>
+            @if (showActions()) {
+              <td></td>
+            }
+          </tr>
         }
       </ng-template>
     </p-table>

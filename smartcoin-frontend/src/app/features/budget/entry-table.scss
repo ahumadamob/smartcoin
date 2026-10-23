@@ -1,3 +1,7 @@
+$button-size: 2.5rem;
+$button-gap: 0.375rem;
+$actions-width: calc(5 * $button-size + 4 * $button-gap + 1.5rem);
+
 .section {
   display: flex;
   flex-direction: column;
@@ -50,13 +54,31 @@ tfoot td {
   white-space: nowrap;
 }
 
-// Las acciones son botones de texto: sin el relleno lateral completo, para que entren varias en la columna.
-td[data-testid='actions'] {
+// Columna de acciones de ancho fijo, pegada a la derecha: botones redondos con ícono, cada acción en su propio lugar
+// (registrar, pagar todo, consolidar, editar, eliminar) para que se alineen de una fila a otra aunque falten algunas.
+th.actions,
+td.actions {
+  width: $actions-width;
+  min-width: $actions-width;
+}
+
+td.actions {
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
 }
 
-// Las marcas son texto con borde: no dependen solo del color.
+.row-actions {
+  display: grid;
+  grid-template-columns: repeat(5, $button-size);
+  justify-content: end;
+  gap: $button-gap;
+}
+
+.slot {
+  display: flex;
+  justify-content: center;
+}
+
 .mark {
   display: inline-block;
   margin-left: 0.5rem;
