@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+import { ButtonDirective } from 'primeng/button';
+import { TableModule } from 'primeng/table';
 import { PeriodCurrencyTotals, PeriodEntry, PeriodSideTotals } from '../../api';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
@@ -40,7 +41,7 @@ interface FooterRow {
 @Component({
   selector: 'app-entry-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, MoneyPipe],
+  imports: [ButtonDirective, DatePipe, MoneyPipe, TableModule],
   templateUrl: './entry-table.html',
   styleUrl: './entry-table.scss',
 })
@@ -79,6 +80,16 @@ export class EntryTable {
   protected readonly canDelete = canDeleteEntry;
   protected readonly canConsolidate = canConsolidate;
   protected readonly quickSettleLabel = quickSettleLabel;
+  /**
+   * Las filas se identifican por la partida: al volver a pedir el mes, la tabla reutiliza las que siguen y no pierde
+   * el foco (`p-table` compara por objeto si no se le dice, y cada respuesta trae objetos nuevos).
+   */
+  protected readonly trackById = (_index: number, entry: PeriodEntry): number => entry.id;
+
+  /** La fila que entrega `p-table` viene sin tipo: son las partidas que recibió en `entries`. */
+  protected asEntry(row: unknown): PeriodEntry {
+    return row as PeriodEntry;
+  }
 
   /** «Desconsolidar»: las consolidadas de un período abierto (HU-26). */
   protected canUndo(entry: PeriodEntry): boolean {
@@ -106,7 +117,7 @@ export class EntryTable {
   );
 
   /** Solo las monedas con partidas en esta sección (D-29). */
-  protected readonly footer = computed<FooterRow[]>(() =>
+  protected readonly footerRows = computed<FooterRow[]>(() =>
     this.totals()
       .map((total) => ({ currency: total.currency, totals: total[this.side()] }))
       .filter((row) => row.totals.entryCount > 0),

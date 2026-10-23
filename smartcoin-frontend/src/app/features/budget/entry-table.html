@@ -3,151 +3,168 @@
   @if (entries().length === 0) {
     <p class="empty" role="status">{{ emptyText() }}</p>
   } @else {
-    <div class="table-wrapper">
-      <table [attr.aria-label]="heading()">
-        <thead>
-          <tr>
-            <th scope="col">Vencimiento</th>
-            <th scope="col">Nombre</th>
-            <th scope="col">Categoría</th>
-            <th scope="col">Cuenta</th>
-            <th scope="col">Cuota</th>
-            <th scope="col" class="number">Presupuestado</th>
-            <th scope="col" class="number">Real</th>
-            <th scope="col" class="number">Pendiente</th>
-            <th scope="col">Estado</th>
-            @if (showActions()) {
-              <th scope="col">Acciones</th>
+    <p-table
+      [value]="entries()"
+      [rowTrackBy]="trackById"
+      [pt]="{ table: { 'aria-label': heading() } }"
+      size="small"
+      [scrollable]="true"
+    >
+      <ng-template #header>
+        <tr>
+          <th scope="col">Vencimiento</th>
+          <th scope="col">Nombre</th>
+          <th scope="col">Categoría</th>
+          <th scope="col">Cuenta</th>
+          <th scope="col">Cuota</th>
+          <th scope="col" class="number">Presupuestado</th>
+          <th scope="col" class="number">Real</th>
+          <th scope="col" class="number">Pendiente</th>
+          <th scope="col">Estado</th>
+          @if (showActions()) {
+            <th scope="col">Acciones</th>
+          }
+        </tr>
+      </ng-template>
+      <ng-template #body let-row>
+        @let entry = asEntry(row);
+        <tr [class.overdue]="entry.overdue" [attr.data-entry-id]="entry.id">
+          <td class="nowrap" data-testid="due">
+            {{ entry.dueDate | date: dateFormat }}
+            @if (entry.overdue) {
+              <span class="mark mark-overdue">Vencida</span>
             }
-          </tr>
-        </thead>
-        <tbody>
-          @for (entry of entries(); track entry.id) {
-            <tr [class.overdue]="entry.overdue" [attr.data-entry-id]="entry.id">
-              <td class="nowrap" data-testid="due">
-                {{ entry.dueDate | date: dateFormat }}
-                @if (entry.overdue) {
-                  <span class="mark mark-overdue">Vencida</span>
-                }
-              </td>
-              <th scope="row" data-testid="name">{{ entry.name }}</th>
-              <td>{{ entry.categoryName ?? '—' }}</td>
-              <td>{{ entry.accountName }}</td>
-              <td class="nowrap" data-testid="installment">
-                @if (entry.installmentNumber && entry.installmentsTotal) {
-                  Cuota {{ entry.installmentNumber }} de {{ entry.installmentsTotal }}
-                } @else {
-                  —
-                }
-              </td>
-              <td class="number" data-testid="budgeted">
-                {{ entry.budgetedAmount | money: entry.currency }}
-                @if (entry.manual) {
-                  <span class="mark mark-manual">Editada</span>
-                }
-              </td>
-              <td class="number">{{ entry.actualAmount | money: entry.currency }}</td>
-              <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
-              <td class="nowrap" data-testid="status">{{ statusLabels[entry.status] }}</td>
-              @if (showActions()) {
-                <td class="nowrap" data-testid="actions">
-                  @if (canRegister(entry)) {
-                    <button
-                      mat-button
-                      type="button"
-                      data-testid="register-movement"
-                      [attr.aria-label]="registerLabel(entry.kind) + ' de ' + entry.name"
-                      (click)="registerMovement.emit(entry)"
-                    >
-                      {{ registerLabel(entry.kind) }}
-                    </button>
-                  }
-                  @if (canSettle(entry)) {
-                    <button
-                      mat-button
-                      type="button"
-                      data-testid="quick-settle"
-                      [attr.aria-label]="quickSettleLabel(entry.kind) + ' de ' + entry.name"
-                      (click)="quickSettle.emit(entry)"
-                    >
-                      {{ quickSettleLabel(entry.kind) }}
-                    </button>
-                  }
-                  @if (canConsolidate(entry)) {
-                    <button
-                      mat-button
-                      type="button"
-                      data-testid="consolidate-entry"
-                      [attr.aria-label]="'Consolidar ' + entry.name"
-                      (click)="consolidate.emit(entry)"
-                    >
-                      Consolidar
-                    </button>
-                  }
-                  @if (canUndo(entry)) {
-                    <button
-                      mat-button
-                      type="button"
-                      data-testid="unconsolidate-entry"
-                      [attr.aria-label]="'Desconsolidar ' + entry.name"
-                      (click)="unconsolidate.emit(entry)"
-                    >
-                      Desconsolidar
-                    </button>
-                  }
-                  @if (canEdit(entry)) {
-                    <button
-                      mat-button
-                      type="button"
-                      data-testid="edit-entry"
-                      [attr.aria-label]="'Editar ' + entry.name"
-                      (click)="edit.emit(entry)"
-                    >
-                      Editar
-                    </button>
-                  }
-                  @if (canEditAmount(entry)) {
-                    <button
-                      mat-button
-                      type="button"
-                      data-testid="edit-amount"
-                      [attr.aria-label]="'Editar monto de ' + entry.name"
-                      (click)="editAmount.emit(entry)"
-                    >
-                      Editar monto
-                    </button>
-                  }
-                  @if (canDelete(entry)) {
-                    <button
-                      mat-button
-                      type="button"
-                      data-testid="delete-entry"
-                      [attr.aria-label]="'Eliminar ' + entry.name"
-                      (click)="remove.emit(entry)"
-                    >
-                      Eliminar
-                    </button>
-                  }
-                </td>
+          </td>
+          <th scope="row" data-testid="name">{{ entry.name }}</th>
+          <td>{{ entry.categoryName ?? '—' }}</td>
+          <td>{{ entry.accountName }}</td>
+          <td class="nowrap" data-testid="installment">
+            @if (entry.installmentNumber && entry.installmentsTotal) {
+              Cuota {{ entry.installmentNumber }} de {{ entry.installmentsTotal }}
+            } @else {
+              —
+            }
+          </td>
+          <td class="number" data-testid="budgeted">
+            {{ entry.budgetedAmount | money: entry.currency }}
+            @if (entry.manual) {
+              <span class="mark mark-manual">Editada</span>
+            }
+          </td>
+          <td class="number">{{ entry.actualAmount | money: entry.currency }}</td>
+          <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
+          <td class="nowrap" data-testid="status">{{ statusLabels[entry.status] }}</td>
+          @if (showActions()) {
+            <td class="nowrap" data-testid="actions">
+              @if (canRegister(entry)) {
+                <button
+                  pButton
+                  variant="text"
+                  size="small"
+                  type="button"
+                  data-testid="register-movement"
+                  [attr.aria-label]="registerLabel(entry.kind) + ' de ' + entry.name"
+                  (click)="registerMovement.emit(entry)"
+                >
+                  {{ registerLabel(entry.kind) }}
+                </button>
               }
-            </tr>
-          }
-        </tbody>
-        <tfoot>
-          @for (row of footer(); track row.currency) {
-            <tr data-testid="total">
-              <th scope="row" colspan="5">Total en {{ row.currency === 'USD' ? 'dólares' : 'pesos' }}</th>
-              <td class="number">{{ row.totals.budgetedAmount | money: row.currency }}</td>
-              <td class="number">{{ row.totals.actualAmount | money: row.currency }}</td>
-              <td class="number">{{ row.totals.pendingAmount | money: row.currency }}</td>
-              <td></td>
-              @if (showActions()) {
-                <td></td>
+              @if (canSettle(entry)) {
+                <button
+                  pButton
+                  variant="text"
+                  size="small"
+                  type="button"
+                  data-testid="quick-settle"
+                  [attr.aria-label]="quickSettleLabel(entry.kind) + ' de ' + entry.name"
+                  (click)="quickSettle.emit(entry)"
+                >
+                  {{ quickSettleLabel(entry.kind) }}
+                </button>
               }
-            </tr>
+              @if (canConsolidate(entry)) {
+                <button
+                  pButton
+                  variant="text"
+                  size="small"
+                  type="button"
+                  data-testid="consolidate-entry"
+                  [attr.aria-label]="'Consolidar ' + entry.name"
+                  (click)="consolidate.emit(entry)"
+                >
+                  Consolidar
+                </button>
+              }
+              @if (canUndo(entry)) {
+                <button
+                  pButton
+                  variant="text"
+                  size="small"
+                  type="button"
+                  data-testid="unconsolidate-entry"
+                  [attr.aria-label]="'Desconsolidar ' + entry.name"
+                  (click)="unconsolidate.emit(entry)"
+                >
+                  Desconsolidar
+                </button>
+              }
+              @if (canEdit(entry)) {
+                <button
+                  pButton
+                  variant="text"
+                  size="small"
+                  type="button"
+                  data-testid="edit-entry"
+                  [attr.aria-label]="'Editar ' + entry.name"
+                  (click)="edit.emit(entry)"
+                >
+                  Editar
+                </button>
+              }
+              @if (canEditAmount(entry)) {
+                <button
+                  pButton
+                  variant="text"
+                  size="small"
+                  type="button"
+                  data-testid="edit-amount"
+                  [attr.aria-label]="'Editar monto de ' + entry.name"
+                  (click)="editAmount.emit(entry)"
+                >
+                  Editar monto
+                </button>
+              }
+              @if (canDelete(entry)) {
+                <button
+                  pButton
+                  variant="text"
+                  size="small"
+                  type="button"
+                  data-testid="delete-entry"
+                  [attr.aria-label]="'Eliminar ' + entry.name"
+                  (click)="remove.emit(entry)"
+                >
+                  Eliminar
+                </button>
+              }
+            </td>
           }
-        </tfoot>
-      </table>
-    </div>
+        </tr>
+      </ng-template>
+      <ng-template #footer>
+        @for (row of footerRows(); track row.currency) {
+        <tr data-testid="total">
+          <th scope="row" colspan="5">Total en {{ row.currency === 'USD' ? 'dólares' : 'pesos' }}</th>
+          <td class="number">{{ row.totals.budgetedAmount | money: row.currency }}</td>
+          <td class="number">{{ row.totals.actualAmount | money: row.currency }}</td>
+          <td class="number">{{ row.totals.pendingAmount | money: row.currency }}</td>
+          <td></td>
+          @if (showActions()) {
+            <td></td>
+          }
+        </tr>
+        }
+      </ng-template>
+    </p-table>
   }
 </section>
