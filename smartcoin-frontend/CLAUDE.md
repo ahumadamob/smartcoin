@@ -6,7 +6,7 @@ Aplicación Angular para escritorio. Leer primero el `CLAUDE.md` de la raíz.
 
 - Angular 22 (la versión estable más reciente al crear el proyecto con Angular CLI) y Angular Material 22. TypeScript en modo estricto (`strict: true` explícito en `tsconfig.json`).
 - Componentes standalone, signals para el estado y formularios reactivos tipados.
-- Angular Material para los componentes de interfaz.
+- Componentes de interfaz: **en transición** de Angular Material a PrimeNG 22 con el layout de Sakai (T-19, prueba piloto en la rama `sakai-theme`, *Supuesto*). Ya usan PrimeNG el layout y la vista del mes con sus diálogos de registrar movimiento, eliminar movimiento y consolidar; el resto sigue con Material. Configuración, patrones (diálogos con `Dialogs`, avisos con `Notices`, campos, tablas, botones) y lo que falta: `MIGRACION-PRIMENG.md`.
 - Cliente HTTP generado desde `../docs/openapi.json` con OpenAPI Generator 7.25.0 (`typescript-angular`, versión fijada en `openapitools.json`; soporta Angular 22 por defecto).
 - Tests unitarios con Vitest (runner por defecto de `ng test` desde Angular 21), con jsdom.
 - Playwright para los tests de punta a punta.
@@ -16,6 +16,7 @@ Aplicación Angular para escritorio. Leer primero el `CLAUDE.md` de la raíz.
 | Qué | Comando |
 |---|---|
 | Levantar | `npm start` (`ng serve --proxy-config proxy.conf.json`: `/api` va a `http://localhost:8080`) |
+| Clave de PrimeNG | Variable de entorno `PRIMEUI_LICENSE_KEY`. `npm start`, `npm run build` y `npm test` la escriben antes en `src/app/core/primeui-license.generated.ts` (ignorado por git, `scripts/primeui-license.mjs`). Sin ella, todo funciona pero PrimeNG muestra un aviso de licencia. |
 | Tests unitarios | `npm test` (Vitest vía `ng test`; en una terminal interactiva queda en modo watch, con `-- --watch=false` corre una vez) |
 | Regenerar el cliente | `npm run generate:api` |
 | Tests de punta a punta | `npm run e2e` o `npx playwright test` (levanta el frontend si no está corriendo; el backend, cuando un test lo necesite, hay que levantarlo aparte) |
@@ -32,7 +33,7 @@ En `package.json`, con `@openapitools/openapi-generator-cli` como dependencia de
 ```
 src/app/
 ├── api/            generado; nunca se edita a mano
-├── core/           autenticación (servicio, interceptor, guards), layout, manejo de errores, mensajes, locale, título de pestaña
+├── core/           autenticación (servicio, interceptor, guards), layout, manejo de errores, mensajes, locale, título de pestaña, configuración de PrimeNG, diálogos (`Dialogs`) y avisos (`Notices`)
 ├── shared/         pipes (`money`, `period`), `amount` (montos con coma decimal a número), componentes reutilizables (`page-placeholder` para las pantallas aún vacías)
 └── features/
     ├── auth/           login, cambio de contraseña
@@ -65,7 +66,7 @@ src/app/
 
 Las rutas están en español porque el usuario las ve; el código, en inglés.
 
-El login y el cambio de contraseña obligatorio van fuera del layout; el resto, incluido el cambio de contraseña voluntario (HU-05), va dentro, con menú lateral. El pie del menú lateral tiene el menú de usuario (`UserMenu`): muestra el email del usuario (`AuthService.email`, que sale de `GET /api/auth/me` y no se guarda en el almacenamiento) y ofrece "Cambiar contraseña" y "Cerrar sesión". El menú lista Presupuesto, Conceptos, Cuentas, Categorías, Transferencias, Flujo de caja, Proyección y Varios meses; el cierre de mes se abre desde la pantalla del mes. Mientras una historia no implementa su pantalla, la ruta carga `PagePlaceholder`.
+El login y el cambio de contraseña obligatorio van fuera del layout; el resto, incluido el cambio de contraseña voluntario (HU-05), va dentro, con el layout de Sakai: barra superior y menú lateral. A la derecha de la barra superior está el menú de usuario (`UserMenu`, menú de Angular CDK con el aspecto del tema, para conservar el teclado): muestra el email del usuario (`AuthService.email`, que sale de `GET /api/auth/me` y no se guarda en el almacenamiento) y ofrece "Cambiar contraseña" y "Cerrar sesión". El menú lista Presupuesto, Conceptos, Cuentas, Categorías, Transferencias, Flujo de caja, Proyección y Varios meses; el cierre de mes se abre desde la pantalla del mes. Mientras una historia no implementa su pantalla, la ruta carga `PagePlaceholder`.
 
 ## Convenciones
 
