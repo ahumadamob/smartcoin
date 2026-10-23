@@ -1,20 +1,16 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.error {
-  margin: 0 0 8px;
-  color: var(--mat-sys-error);
-}
-
-.reason {
-  color: var(--mat-sys-on-surface-variant);
+  gap: 1rem;
+  max-width: 480px;
 }
 
 .actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  align-self: flex-end;
+  width: 15rem;
+}
+
+.action {
+  flex: 0 0 7.5rem;
 }

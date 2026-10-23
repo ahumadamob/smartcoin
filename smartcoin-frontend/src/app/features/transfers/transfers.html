@@ -2,77 +2,100 @@
   <header class="header">
     <h1 class="title">Transferencias</h1>
     @if (!formOpen() && !loading()) {
-      <button #newButton mat-flat-button type="button" (click)="openForm()">Nueva transferencia</button>
+      <p-button
+        #newButton
+        type="button"
+        label="Nueva transferencia"
+        icon="pi pi-plus"
+        (onClick)="openForm()"
+      />
     }
   </header>
 
   @if (error(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
+    <p-message class="page-error" severity="error" variant="simple" size="small">{{ message }}</p-message>
   }
 
   @if (formOpen()) {
-    <mat-card appearance="outlined" class="form-card">
-      <mat-card-header>
-        <h2 class="subtitle">{{ editing() ? 'Editar transferencia' : 'Nueva transferencia' }}</h2>
-      </mat-card-header>
-      <mat-card-content>
-        <app-transfer-form [accounts]="accounts()" [transfer]="editing()" (saved)="onSaved($event)" (cancelled)="closeForm()" />
-      </mat-card-content>
-    </mat-card>
-  }
-
-  <form [formGroup]="range" (ngSubmit)="search()" class="range" aria-label="Rango de fechas">
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Desde</mat-label>
-      <input matInput type="date" formControlName="from" />
-    </mat-form-field>
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Hasta</mat-label>
-      <input matInput type="date" formControlName="to" />
-    </mat-form-field>
-    <button mat-stroked-button type="submit">Ver</button>
-    <span class="detail">Sin fechas, se muestra el mes actual.</span>
-  </form>
-
-  @if (loading()) {
-    <p>Cargando transferencias…</p>
-  } @else if (transfers().length === 0) {
-    <p class="empty">No hay transferencias en ese rango.</p>
+    <section class="form-section" aria-labelledby="transfer-form-title">
+      <h2 class="subtitle" id="transfer-form-title">
+        {{ editing() ? 'Editar transferencia' : 'Nueva transferencia' }}
+      </h2>
+      <app-transfer-form
+        [accounts]="accounts()"
+        [transfer]="editing()"
+        (saved)="onSaved($event)"
+        (cancelled)="closeForm()"
+      />
+    </section>
   } @else {
-    <ul class="list" aria-label="Transferencias">
-      @for (transfer of transfers(); track transfer.id) {
-        <li class="row" data-testid="transfer">
-          <span class="date">{{ transfer.date | date: dateFormat }}</span>
-          <div class="info">
-            <span class="name">{{ transfer.sourceAccountName }} → {{ transfer.targetAccountName }}</span>
-            @if (kindOf(transfer); as kind) {
-              <span class="detail" data-testid="exchange">
-                {{ kind }}
-                @if (transfer.exchangeRate != null) {
-                  · Tipo de cambio {{ transfer.exchangeRate | money: 'ARS' }}
-                }
-              </span>
-            }
-            @if (transfer.note) {
-              <span class="detail">{{ transfer.note }}</span>
-            }
-          </div>
-          <span class="amount">
-            {{ transfer.sourceAmount | money: transfer.sourceCurrency }}
-            @if (transfer.sourceCurrency !== transfer.targetCurrency) {
-              → {{ transfer.targetAmount | money: transfer.targetCurrency }}
-            }
-          </span>
-          @if (transfer.editable) {
-            <span class="actions">
-              <button mat-button type="button" (click)="edit(transfer)"
-                [attr.aria-label]="'Editar la transferencia del ' + (transfer.date | date: dateFormat)">Editar</button>
-              <button mat-button type="button" (click)="confirmDelete(transfer)"
-                [attr.aria-label]="'Eliminar la transferencia del ' + (transfer.date | date: dateFormat)">Eliminar</button>
+    <form [formGroup]="range" (ngSubmit)="search()" class="range" aria-label="Rango de fechas">
+      <div class="field">
+        <span class="field-label"><label for="transfers-from">Desde</label></span>
+        <input pInputText id="transfers-from" type="date" formControlName="from" />
+      </div>
+      <div class="field">
+        <span class="field-label"><label for="transfers-to">Hasta</label></span>
+        <input pInputText id="transfers-to" type="date" formControlName="to" />
+      </div>
+      <p-button type="submit" label="Ver" icon="pi pi-search" variant="outlined" />
+      <small class="hint">Sin fechas, se muestra el mes actual.</small>
+    </form>
+
+    @if (loading()) {
+      <p>Cargando transferencias…</p>
+    } @else if (transfers().length === 0) {
+      <p class="empty">No hay transferencias en ese rango.</p>
+    } @else {
+      <ul class="list" aria-label="Transferencias">
+        @for (transfer of transfers(); track transfer.id) {
+          <li class="row" data-testid="transfer">
+            <span class="date">{{ transfer.date | date: dateFormat }}</span>
+            <div class="info">
+              <span class="name">{{ transfer.sourceAccountName }} → {{ transfer.targetAccountName }}</span>
+              @if (kindOf(transfer); as kind) {
+                <span class="detail" data-testid="exchange">
+                  {{ kind }}
+                  @if (transfer.exchangeRate != null) {
+                    · Tipo de cambio {{ transfer.exchangeRate | money: 'ARS' }}
+                  }
+                </span>
+              }
+              @if (transfer.note) {
+                <span class="detail">{{ transfer.note }}</span>
+              }
+            </div>
+            <span class="amount">
+              {{ transfer.sourceAmount | money: transfer.sourceCurrency }}
+              @if (transfer.sourceCurrency !== transfer.targetCurrency) {
+                → {{ transfer.targetAmount | money: transfer.targetCurrency }}
+              }
             </span>
-          }
-        </li>
-      }
-    </ul>
+            @if (transfer.editable) {
+              <p-buttongroup>
+                <p-button
+                  class="action"
+                  [fluid]="true"
+                  type="button"
+                  label="Editar"
+                  icon="pi pi-pencil"
+                  [ariaLabel]="'Editar la transferencia del ' + (transfer.date | date: dateFormat)"
+                  (onClick)="edit(transfer)"
+                />
+                <p-button
+                  class="action"
+                  [fluid]="true"
+                  type="button"
+                  label="Eliminar"
+                  icon="pi pi-trash"
+                  [ariaLabel]="'Eliminar la transferencia del ' + (transfer.date | date: dateFormat)"
+                  (onClick)="confirmDelete(transfer)"
+                />
+              </p-buttongroup>
+            }
+          </li>
+        }
+      </ul>
+    }
   }
 </div>

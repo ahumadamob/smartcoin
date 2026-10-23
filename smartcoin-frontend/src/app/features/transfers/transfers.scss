@@ -1,3 +1,5 @@
+$actions-width: 15rem;
+
 .page {
   display: flex;
   flex-direction: column;
@@ -21,20 +23,10 @@
   font: var(--mat-sys-title-large);
 }
 
-.error {
-  margin: 0;
-  color: var(--mat-sys-error);
-}
-
-.form-card {
-  max-width: 480px;
-  padding: 16px;
-}
-
 .range {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
 }
 
@@ -45,20 +37,18 @@
 }
 
 .row {
-  display: flex;
+  display: grid;
+  // Fecha, datos, monto y botones siempre en las mismas columnas, con los botones de ancho fijo (también en las
+  // filas que no los tienen): el largo del contenido no los mueve.
+  grid-template-columns: 6rem minmax(0, 1fr) auto $actions-width;
   align-items: center;
   gap: 16px;
   padding: 12px 0;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 
-.date {
-  min-width: 96px;
-}
-
 .info {
   display: flex;
-  flex: 1;
   flex-direction: column;
 }
 
@@ -73,9 +63,15 @@
 
 .amount {
   font: var(--mat-sys-title-medium);
+  text-align: right;
 }
 
-.actions {
+p-buttongroup {
   display: flex;
-  gap: 4px;
+  grid-column: 4;
+  width: $actions-width;
+}
+
+.action {
+  flex: 0 0 calc($actions-width / 2);
 }

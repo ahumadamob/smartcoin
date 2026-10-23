@@ -189,7 +189,8 @@ test.describe('HU-28 · comprar y vender dólares', () => {
   });
 
   test('venta: de la cuenta en dólares al banco en pesos, tipo de cambio 1.220,00', async () => {
-    // El formulario sigue abierto después de guardar, con las cuentas y la fecha de la anterior.
+    // Al guardar, el formulario se cierra y vuelve la lista con la transferencia nueva.
+    await page.getByRole('button', { name: 'Nueva transferencia' }).click();
     await page.getByLabel('Fecha', { exact: true }).fill(isoDay(0));
     await chooseOption(page, 'Cuenta de origen', 'Caja en dólares (USD)');
     await chooseOption(page, 'Cuenta de destino', 'Banco en pesos (ARS)');

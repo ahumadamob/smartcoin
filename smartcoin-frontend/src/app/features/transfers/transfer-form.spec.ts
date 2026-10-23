@@ -64,9 +64,7 @@ describe('TransferForm', () => {
   const text = () => root().textContent ?? '';
   const form = () => fixture.componentInstance['form'];
   const field = (label: string) =>
-    Array.from(root().querySelectorAll('mat-form-field')).find((f) =>
-      f.querySelector('label, mat-label')?.textContent?.includes(label),
-    )!;
+    Array.from(root().querySelectorAll('.field')).find((f) => f.querySelector('label')?.textContent?.includes(label))!;
   const type = (label: string, value: string) => {
     const el = field(label).querySelector('input')!;
     el.value = value;

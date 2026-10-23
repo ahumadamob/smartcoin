@@ -180,6 +180,21 @@ describe('Transfers', () => {
       expect(text()).toContain('Guardar cambios');
     });
 
+    it('con el formulario abierto se oculta la lista, y al cancelar vuelve', async () => {
+      await setup([transfer()]);
+
+      buttons('Editar')[0].click();
+      fixture.detectChanges();
+      expect(root().querySelector('ul.list')).toBeNull();
+      expect(root().querySelector('form.range')).toBeNull();
+      expect(buttons('Nueva transferencia')).toHaveLength(0);
+
+      buttons('Cancelar')[0].click();
+      fixture.detectChanges();
+      expect(root().querySelector('ul.list')).not.toBeNull();
+      expect(buttons('Nueva transferencia')).toHaveLength(1);
+    });
+
     it('Eliminar pide confirmar con fecha, cuentas y monto, y recién entonces elimina', async () => {
       await setup([transfer()]);
       dialogOpen.mockReturnValue({ afterClosed: () => of(false) });

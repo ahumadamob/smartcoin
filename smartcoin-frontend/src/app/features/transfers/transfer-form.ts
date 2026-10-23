@@ -19,17 +19,21 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
+import { IconField } from 'primeng/iconfield';
+import { InputGroup } from 'primeng/inputgroup';
+import { InputGroupAddon } from 'primeng/inputgroupaddon';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
+import { Message } from 'primeng/message';
+import { Select } from 'primeng/select';
 import { AccountResponse, Transfer, TransferenciasService } from '../../api';
 import { detailFor, messageFor } from '../../core/error-messages';
 import { formatAmountInput, parseAmount } from '../../shared/amount';
 import { isoDate } from '../budget/iso-date';
 import { exchangeKind } from './transfer-kind';
 import { targetAccounts } from './transfer-targets';
-
 
 function amountFormat(control: AbstractControl): ValidationErrors | null {
   const text = control.value as string;
@@ -58,7 +62,18 @@ export function todayIso(now = new Date()): string {
 @Component({
   selector: 'app-transfer-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [
+    Button,
+    ButtonGroup,
+    IconField,
+    InputGroup,
+    InputGroupAddon,
+    InputIcon,
+    InputText,
+    Message,
+    ReactiveFormsModule,
+    Select,
+  ],
   templateUrl: './transfer-form.html',
   styleUrl: './transfer-form.scss',
 })
@@ -79,7 +94,10 @@ export class TransferForm {
   protected readonly form = new FormGroup({
     sourceAccountId: new FormControl<number | null>(null, Validators.required),
     targetAccountId: new FormControl<number | null>(null, Validators.required),
-    date: new FormControl(todayIso(), { nonNullable: true, validators: [Validators.required, isoDate] }),
+    date: new FormControl(todayIso(), {
+      nonNullable: true,
+      validators: [Validators.required, isoDate],
+    }),
     amount: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, amountFormat, positiveAmount],
@@ -97,6 +115,12 @@ export class TransferForm {
   private readonly targetId = signal<number | null>(null);
 
   protected readonly targets = computed(() => targetAccounts(this.accounts(), this.sourceId()));
+  protected readonly accountOptions = computed(() =>
+    this.accounts().map((a) => ({ id: a.id, label: this.label(a) })),
+  );
+  protected readonly targetOptions = computed(() =>
+    this.targets().map((a) => ({ id: a.id, label: this.label(a) })),
+  );
 
   /** Moneda de las dos cuentas elegidas; nulo mientras falte alguna. */
   private readonly currencies = computed(() => {
@@ -149,7 +173,9 @@ export class TransferForm {
     controls.amount.setValue(
       formatAmountInput(cross && !sourceIsArs ? transfer.targetAmount : transfer.sourceAmount),
     );
-    controls.usdAmount.setValue(cross ? formatAmountInput(sourceIsArs ? transfer.targetAmount : transfer.sourceAmount) : '');
+    controls.usdAmount.setValue(
+      cross ? formatAmountInput(sourceIsArs ? transfer.targetAmount : transfer.sourceAmount) : '',
+    );
     controls.note.setValue(transfer.note ?? '');
   }
 
@@ -161,6 +187,12 @@ export class TransferForm {
       usd.disable();
       usd.reset('');
     }
+  }
+
+  /** Un campo se marca con error recién cuando se tocó o se intentó guardar. */
+  protected invalid(name: keyof typeof this.form.controls): boolean {
+    const control = this.form.controls[name];
+    return control.invalid && control.touched;
   }
 
   protected label(account: AccountResponse): string {
@@ -191,7 +223,10 @@ export class TransferForm {
       ...(note === '' ? {} : { note }),
     };
     const editing = this.transfer();
-    (editing === null ? this.api.createTransfer(request) : this.api.updateTransfer(editing.id, request))
+    (editing === null
+      ? this.api.createTransfer(request)
+      : this.api.updateTransfer(editing.id, request)
+    )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (transfer) => {

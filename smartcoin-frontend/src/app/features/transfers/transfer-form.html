@@ -1,97 +1,224 @@
 <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form">
   @if (error(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
+    <p-message class="form-error" severity="error" variant="simple" size="small">{{ message }}</p-message>
   }
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Cuenta de origen</mat-label>
-    <mat-select formControlName="sourceAccountId" required>
-      @for (account of accounts(); track account.id) {
-        <mat-option [value]="account.id">{{ label(account) }}</mat-option>
-      }
-    </mat-select>
-    @if (form.controls.sourceAccountId.hasError('required')) {
-      <mat-error>Elegí la cuenta de origen.</mat-error>
+  <div class="field">
+    <span class="field-label">
+      <label id="transfer-source-label" for="transfer-source">Cuenta de origen</label
+      ><span class="required" aria-hidden="true">*</span>
+    </span>
+    <p-select
+      inputId="transfer-source"
+      ariaLabelledBy="transfer-source-label"
+      formControlName="sourceAccountId"
+      [options]="accountOptions()"
+      optionLabel="label"
+      optionValue="id"
+      [required]="true"
+      [invalid]="invalid('sourceAccountId')"
+      [pt]="{ label: { 'aria-describedby': invalid('sourceAccountId') ? 'transfer-source-error' : null } }"
+    />
+    @if (invalid('sourceAccountId')) {
+      <p-message id="transfer-source-error" severity="error" variant="simple" size="small">
+        Elegí la cuenta de origen.
+      </p-message>
     }
-  </mat-form-field>
+  </div>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Cuenta de destino</mat-label>
-    <mat-select formControlName="targetAccountId" required>
-      @for (account of targets(); track account.id) {
-        <mat-option [value]="account.id">{{ label(account) }}</mat-option>
-      }
-    </mat-select>
-    @if (form.controls.targetAccountId.hasError('required')) {
-      <mat-error>Elegí la cuenta de destino.</mat-error>
+  <div class="field">
+    <span class="field-label">
+      <label id="transfer-target-label" for="transfer-target">Cuenta de destino</label
+      ><span class="required" aria-hidden="true">*</span>
+    </span>
+    <p-select
+      inputId="transfer-target"
+      ariaLabelledBy="transfer-target-label"
+      formControlName="targetAccountId"
+      [options]="targetOptions()"
+      optionLabel="label"
+      optionValue="id"
+      [required]="true"
+      [invalid]="invalid('targetAccountId')"
+      [pt]="{
+        label: {
+          'aria-describedby': invalid('targetAccountId')
+            ? 'transfer-target-error'
+            : kind()
+              ? 'transfer-target-hint'
+              : null,
+        },
+      }"
+    />
+    @if (invalid('targetAccountId')) {
+      <p-message id="transfer-target-error" severity="error" variant="simple" size="small">
+        Elegí la cuenta de destino.
+      </p-message>
     } @else if (kind(); as kindText) {
-      <mat-hint>{{ kindText }}.</mat-hint>
+      <small id="transfer-target-hint" class="hint">{{ kindText }}.</small>
     }
-  </mat-form-field>
+  </div>
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Fecha</mat-label>
-    <input matInput type="date" formControlName="date" required />
-    @if (form.controls.date.hasError('required') || form.controls.date.hasError('date')) {
-      <mat-error>Ingresá una fecha válida.</mat-error>
+  <div class="field">
+    <span class="field-label">
+      <label for="transfer-date">Fecha</label><span class="required" aria-hidden="true">*</span>
+    </span>
+    <input
+      pInputText
+      id="transfer-date"
+      type="date"
+      formControlName="date"
+      required
+      [invalid]="invalid('date')"
+      [attr.aria-invalid]="invalid('date')"
+      [attr.aria-describedby]="invalid('date') ? 'transfer-date-error' : null"
+    />
+    @if (invalid('date')) {
+      <p-message id="transfer-date-error" severity="error" variant="simple" size="small">
+        Ingresá una fecha válida.
+      </p-message>
     }
-  </mat-form-field>
+  </div>
 
   @if (crossCurrency()) {
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Monto en pesos</mat-label>
-      <span matTextPrefix>$&nbsp;</span>
-      <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
-      <mat-hint>Con coma decimal, por ejemplo 1250000,00.</mat-hint>
-      @if (form.controls.amount.hasError('required')) {
-        <mat-error>Ingresá el monto en pesos.</mat-error>
-      } @else if (form.controls.amount.hasError('amount')) {
-        <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
-      } @else if (form.controls.amount.hasError('positive')) {
-        <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+    <div class="field">
+      <span class="field-label">
+        <label for="transfer-amount">Monto en pesos</label><span class="required" aria-hidden="true">*</span>
+      </span>
+      <p-inputgroup>
+        <p-inputgroup-addon>$</p-inputgroup-addon>
+        <input
+          pInputText
+          fluid
+          id="transfer-amount"
+          formControlName="amount"
+          inputmode="decimal"
+          autocomplete="off"
+          required
+          [invalid]="invalid('amount')"
+          [attr.aria-invalid]="invalid('amount')"
+          [attr.aria-describedby]="invalid('amount') ? 'transfer-amount-error' : 'transfer-amount-hint'"
+        />
+      </p-inputgroup>
+      @if (invalid('amount')) {
+        <p-message id="transfer-amount-error" severity="error" variant="simple" size="small">
+          @if (form.controls.amount.hasError('required')) {
+            Ingresá el monto en pesos.
+          } @else if (form.controls.amount.hasError('amount')) {
+            Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.
+          } @else {
+            El monto tiene que ser mayor que 0.
+          }
+        </p-message>
+      } @else {
+        <small id="transfer-amount-hint" class="hint">Con coma decimal, por ejemplo 1250000,00.</small>
       }
-    </mat-form-field>
+    </div>
 
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Monto en dólares</mat-label>
-      <span matTextPrefix>US$&nbsp;</span>
-      <input matInput formControlName="usdAmount" inputmode="decimal" autocomplete="off" required />
-      <mat-hint>Con coma decimal, por ejemplo 1000,00.</mat-hint>
-      @if (form.controls.usdAmount.hasError('required')) {
-        <mat-error>Ingresá el monto en dólares.</mat-error>
-      } @else if (form.controls.usdAmount.hasError('amount')) {
-        <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
-      } @else if (form.controls.usdAmount.hasError('positive')) {
-        <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+    <div class="field">
+      <span class="field-label">
+        <label for="transfer-usd-amount">Monto en dólares</label><span class="required" aria-hidden="true">*</span>
+      </span>
+      <p-inputgroup>
+        <p-inputgroup-addon>US$</p-inputgroup-addon>
+        <input
+          pInputText
+          fluid
+          id="transfer-usd-amount"
+          formControlName="usdAmount"
+          inputmode="decimal"
+          autocomplete="off"
+          required
+          [invalid]="invalid('usdAmount')"
+          [attr.aria-invalid]="invalid('usdAmount')"
+          [attr.aria-describedby]="invalid('usdAmount') ? 'transfer-usd-amount-error' : 'transfer-usd-amount-hint'"
+        />
+      </p-inputgroup>
+      @if (invalid('usdAmount')) {
+        <p-message id="transfer-usd-amount-error" severity="error" variant="simple" size="small">
+          @if (form.controls.usdAmount.hasError('required')) {
+            Ingresá el monto en dólares.
+          } @else if (form.controls.usdAmount.hasError('amount')) {
+            Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.
+          } @else {
+            El monto tiene que ser mayor que 0.
+          }
+        </p-message>
+      } @else {
+        <small id="transfer-usd-amount-hint" class="hint">Con coma decimal, por ejemplo 1000,00.</small>
       }
-    </mat-form-field>
+    </div>
   } @else {
-    <mat-form-field appearance="outline" subscriptSizing="dynamic">
-      <mat-label>Monto</mat-label>
-      <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
-      <mat-hint>Con coma decimal, por ejemplo 50000,00.</mat-hint>
-      @if (form.controls.amount.hasError('required')) {
-        <mat-error>Ingresá el monto.</mat-error>
-      } @else if (form.controls.amount.hasError('amount')) {
-        <mat-error>Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.</mat-error>
-      } @else if (form.controls.amount.hasError('positive')) {
-        <mat-error>El monto tiene que ser mayor que 0.</mat-error>
+    <div class="field">
+      <span class="field-label">
+        <label for="transfer-amount">Monto</label><span class="required" aria-hidden="true">*</span>
+      </span>
+      <input
+        pInputText
+        id="transfer-amount"
+        formControlName="amount"
+        inputmode="decimal"
+        autocomplete="off"
+        required
+        [invalid]="invalid('amount')"
+        [attr.aria-invalid]="invalid('amount')"
+        [attr.aria-describedby]="invalid('amount') ? 'transfer-amount-error' : 'transfer-amount-hint'"
+      />
+      @if (invalid('amount')) {
+        <p-message id="transfer-amount-error" severity="error" variant="simple" size="small">
+          @if (form.controls.amount.hasError('required')) {
+            Ingresá el monto.
+          } @else if (form.controls.amount.hasError('amount')) {
+            Escribilo con coma decimal y hasta 2 decimales, por ejemplo 1500,50.
+          } @else {
+            El monto tiene que ser mayor que 0.
+          }
+        </p-message>
+      } @else {
+        <small id="transfer-amount-hint" class="hint">Con coma decimal, por ejemplo 50000,00.</small>
       }
-    </mat-form-field>
+    </div>
   }
 
-  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-    <mat-label>Nota (opcional)</mat-label>
-    <input matInput formControlName="note" maxlength="200" autocomplete="off" />
-    @if (form.controls.note.hasError('maxlength')) {
-      <mat-error>La nota no puede superar los 200 caracteres.</mat-error>
+  <div class="field">
+    <span class="field-label"><label for="transfer-note">Nota (opcional)</label></span>
+    <p-iconfield>
+      <p-inputicon class="pi pi-comment" />
+      <input
+        pInputText
+        fluid
+        id="transfer-note"
+        formControlName="note"
+        maxlength="200"
+        autocomplete="off"
+        [invalid]="invalid('note')"
+        [attr.aria-invalid]="invalid('note')"
+        [attr.aria-describedby]="invalid('note') ? 'transfer-note-error' : null"
+      />
+    </p-iconfield>
+    @if (invalid('note')) {
+      <p-message id="transfer-note-error" severity="error" variant="simple" size="small">
+        La nota no puede superar los 200 caracteres.
+      </p-message>
     }
-  </mat-form-field>
-
-  <div class="actions">
-    <button mat-button type="button" (click)="cancelled.emit()">Cancelar</button>
-    <button mat-flat-button type="submit" [disabled]="submitting()">
-      {{ transfer() ? 'Guardar cambios' : 'Transferir' }}
-    </button>
   </div>
+
+  <p-buttongroup class="actions">
+    <p-button
+      class="action"
+      [fluid]="true"
+      type="submit"
+      [label]="transfer() ? 'Guardar cambios' : 'Transferir'"
+      icon="pi pi-check"
+      [disabled]="submitting()"
+    />
+    <p-button
+      class="action"
+      [fluid]="true"
+      type="button"
+      label="Cancelar"
+      icon="pi pi-times"
+      (onClick)="cancelled.emit()"
+    />
+  </p-buttongroup>
 </form>

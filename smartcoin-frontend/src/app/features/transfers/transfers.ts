@@ -1,12 +1,23 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, inject, LOCALE_ID, OnInit, signal, viewChild } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  inject,
+  Injector,
+  LOCALE_ID,
+  OnInit,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatDialog } from '@angular/material/dialog';
-import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
+import { InputText } from 'primeng/inputtext';
+import { Message } from 'primeng/message';
 import { forkJoin } from 'rxjs';
 import { AccountResponse, CuentasService, Transfer, TransferenciasService } from '../../api';
 import { messageFor } from '../../core/error-messages';
@@ -23,7 +34,16 @@ import { exchangeKind } from './transfer-kind';
 @Component({
   selector: 'app-transfers',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule, MoneyPipe, ReactiveFormsModule, TransferForm],
+  imports: [
+    Button,
+    ButtonGroup,
+    DatePipe,
+    InputText,
+    Message,
+    MoneyPipe,
+    ReactiveFormsModule,
+    TransferForm,
+  ],
   templateUrl: './transfers.html',
   styleUrl: './transfers.scss',
 })
@@ -32,8 +52,9 @@ export class Transfers implements OnInit {
   private readonly accountsApi = inject(CuentasService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly injector = inject(Injector);
   private readonly datePipe = new DatePipe(inject(LOCALE_ID));
-  private readonly newButton = viewChild('newButton', { read: ElementRef<HTMLButtonElement> });
+  private readonly newButton = viewChild('newButton', { read: ElementRef<HTMLElement> });
 
   private readonly money = new MoneyPipe();
 
@@ -53,7 +74,10 @@ export class Transfers implements OnInit {
   });
 
   ngOnInit(): void {
-    forkJoin({ accounts: this.accountsApi.listAccounts(), transfers: this.transfersApi.listTransfers() }).subscribe({
+    forkJoin({
+      accounts: this.accountsApi.listAccounts(),
+      transfers: this.transfersApi.listTransfers(),
+    }).subscribe({
       next: ({ accounts, transfers }) => {
         this.accounts.set(accounts.accounts);
         this.transfers.set(transfers);
@@ -108,7 +132,9 @@ export class Transfers implements OnInit {
         ? source
         : `${source} → ${this.money.transform(transfer.targetAmount, transfer.targetCurrency)}`;
     const rate =
-      transfer.exchangeRate != null ? `, tipo de cambio ${this.money.transform(transfer.exchangeRate, 'ARS')}` : '';
+      transfer.exchangeRate != null
+        ? `, tipo de cambio ${this.money.transform(transfer.exchangeRate, 'ARS')}`
+        : '';
     return (
       `Vas a eliminar la transferencia del ${date}: ${transfer.sourceAccountName} → ` +
       `${transfer.targetAccountName}, ${amounts}${rate}. Los saldos de las dos cuentas se recalculan. ` +
@@ -126,7 +152,7 @@ export class Transfers implements OnInit {
         this.snackBar.open('Transferencia eliminada.', undefined, { duration: 4000 });
         this.search();
         // La fila ya no está: el foco pasa a la acción principal de la pantalla.
-        this.newButton()?.nativeElement.focus();
+        this.focusNewButton();
       },
       error: (e: unknown) => {
         this.error.set(messageFor(e));
@@ -151,11 +177,17 @@ export class Transfers implements OnInit {
         ? `${kind} ${verb}. Tipo de cambio: ${this.money.transform(rate, 'ARS')}.`
         : `Transferencia ${verb}.`;
     this.snackBar.open(message, undefined, { duration: 6000 });
-    if (edited) {
-      this.closeForm();
-      this.newButton()?.nativeElement.focus();
-    }
+    // El formulario se cierra y vuelve la lista, ya con la transferencia.
+    this.closeForm();
+    this.focusNewButton();
     this.search();
+  }
+
+  /** El foco va al botón «Nueva transferencia» (el de adentro del `p-button`), una vez que se volvió a dibujar. */
+  private focusNewButton(): void {
+    afterNextRender(() => this.newButton()?.nativeElement.querySelector('button')?.focus(), {
+      injector: this.injector,
+    });
   }
 
   protected search(): void {
