@@ -1,9 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { AutoFocus } from 'primeng/autofocus';
+import { ButtonDirective } from 'primeng/button';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { Movement, MovimientosService, PeriodEntry } from '../../api';
+import { DialogTitle } from '../../core/dialogs';
 import { messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
@@ -33,14 +35,14 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'NOT_FOUND'];
 @Component({
   selector: 'app-movement-delete-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, MatDialogModule, MoneyPipe],
+  imports: [AutoFocus, ButtonDirective, DatePipe, DialogTitle, MoneyPipe],
   templateUrl: './movement-delete-dialog.html',
   styleUrl: './movement-delete-dialog.scss',
 })
 export class MovementDeleteDialog {
   private readonly api = inject(MovimientosService);
-  private readonly ref = inject<MatDialogRef<MovementDeleteDialog, MovementDeleteDialogResult>>(MatDialogRef);
-  protected readonly data = inject<MovementDeleteDialogData>(MAT_DIALOG_DATA);
+  private readonly ref = inject(DynamicDialogRef);
+  protected readonly data = inject<DynamicDialogConfig<MovementDeleteDialogData>>(DynamicDialogConfig).data!;
 
   protected readonly movement = this.data.movement;
   protected readonly word = movementWord(this.data.kind);
@@ -56,7 +58,7 @@ export class MovementDeleteDialog {
     this.error.set(null);
     this.submitting.set(true);
     this.api.deleteMovement(this.movement.id).subscribe({
-      next: () => this.ref.close({ deleted: true }),
+      next: () => this.ref.close({ deleted: true } satisfies MovementDeleteDialogResult),
       error: (e: unknown) => {
         this.submitting.set(false);
         const code = e instanceof HttpErrorResponse && typeof e.error === 'object' ? (e.error?.code as string) : '';
@@ -67,6 +69,7 @@ export class MovementDeleteDialog {
   }
 
   protected cancel(): void {
-    this.ref.close(this.stale ? { stale: true } : undefined);
+    const result: MovementDeleteDialogResult | undefined = this.stale ? { stale: true } : undefined;
+    this.ref.close(result);
   }
 }

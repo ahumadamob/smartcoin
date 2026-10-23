@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
-import { MatRadioChange, MatRadioModule } from '@angular/material/radio';
+import { FormsModule } from '@angular/forms';
+import { RadioButtonModule } from 'primeng/radiobutton';
 import { ConsolidationTarget } from '../../api';
 import { CurrencyCode, MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
@@ -11,13 +12,15 @@ import { keepText, ManualPolicy, manualPolicyText, overwriteText } from './conso
  * su monto actual y el que tomarían si se pisan. No calcula montos: los recuentos salen de los indicadores `manual`
  * y `changes` que informa la vista previa.
  *
+ * Usa los radios de PrimeNG (T-19) también dentro del diálogo de pago rápido, que sigue con Material.
+ *
  * Es un componente de presentación para que lo reutilicen el diálogo de consolidación y, con HU-22, el del pago
  * rápido: quien lo usa le pasa los destinos de su vista previa y guarda la elección en `policy`.
  */
 @Component({
   selector: 'app-manual-policy-choice',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatRadioModule, MoneyPipe, PeriodPipe],
+  imports: [FormsModule, MoneyPipe, PeriodPipe, RadioButtonModule],
   templateUrl: './manual-policy-choice.html',
   styleUrl: './manual-policy-choice.scss',
 })
@@ -39,7 +42,7 @@ export class ManualPolicyChoice {
     overwriteText(this.edited().length, this.edited().filter((target) => target.changes).length, this.othersChanging()),
   );
 
-  protected choose(event: MatRadioChange): void {
-    this.policy.set(event.value as ManualPolicy);
+  protected choose(value: ManualPolicy): void {
+    this.policy.set(value);
   }
 }

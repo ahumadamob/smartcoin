@@ -1,7 +1,7 @@
 <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="dialog">
-  <h2 mat-dialog-title>{{ title() }} · {{ entry().name }}</h2>
+  <h2 appDialogTitle>{{ title() }} · {{ entry().name }}</h2>
 
-  <mat-dialog-content class="content">
+  <div class="content">
     <p class="context" data-testid="movement-context">
       {{ data.period | period }} · vence el {{ entry().dueDate | date: dateFormat }} · {{ entry().accountName }}
     </p>
@@ -24,7 +24,7 @@
     @if (notice(); as covered) {
       <p class="notice" role="status" data-testid="covered-notice">{{ covered }}</p>
       @if (canConsolidate()) {
-        <button mat-stroked-button type="button" data-testid="consolidate-from-dialog" (click)="consolidate()">
+        <button pButton variant="outlined" type="button" data-testid="consolidate-from-dialog" (click)="consolidate()">
           Consolidar
         </button>
       }
@@ -62,7 +62,9 @@
                   @if (canChange()) {
                     <td class="row-actions">
                       <button
-                        mat-button
+                        pButton
+                        variant="text"
+                        size="small"
                         type="button"
                         data-testid="edit-movement"
                         [attr.aria-label]="'Editar ' + word + ' del ' + (movement.date | date: dateFormat) + ' por ' + (movement.amount | money: movement.currency)"
@@ -72,7 +74,9 @@
                         Editar
                       </button>
                       <button
-                        mat-button
+                        pButton
+                        variant="text"
+                        size="small"
                         type="button"
                         data-testid="delete-movement"
                         [attr.aria-label]="'Eliminar ' + word + ' del ' + (movement.date | date: dateFormat) + ' por ' + (movement.amount | money: movement.currency)"
@@ -101,7 +105,7 @@
       @if (accounts().length === 0) {
         <p role="status" data-testid="no-accounts">
           No tenés una cuenta en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }} para registrar el {{ word }}.
-          <a routerLink="/cuentas" mat-dialog-close>Cargá una cuenta</a>
+          <a routerLink="/cuentas" (click)="cancel()">Cargá una cuenta</a>
           y volvé a intentar.
         </p>
       } @else {
@@ -115,72 +119,127 @@
               Corregís el {{ word }} del {{ current.date | date: dateFormat }} por
               {{ current.amount | money: current.currency }} en {{ current.accountName }}.
             </p>
-            <button mat-button type="button" data-testid="cancel-edit" (click)="cancelEdit()">
+            <button pButton variant="text" type="button" data-testid="cancel-edit" (click)="cancelEdit()">
               Cancelar corrección
             </button>
           </div>
         }
 
         <div class="pair">
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Fecha</mat-label>
-            <input matInput type="date" formControlName="date" required />
-            @if (form.controls.date.hasError('required')) {
-              <mat-error>Ingresá la fecha del {{ word }}.</mat-error>
-            } @else if (form.controls.date.hasError('date')) {
-              <mat-error>Ingresá una fecha válida.</mat-error>
-            } @else if (form.controls.date.hasError('server')) {
-              <mat-error>{{ form.controls.date.getError('server') }}</mat-error>
+          <div class="field">
+            <label for="movement-date">Fecha <span class="required" aria-hidden="true">*</span></label>
+            <input
+              pInputText
+              id="movement-date"
+              type="date"
+              formControlName="date"
+              required
+              [invalid]="invalid('date')"
+              [attr.aria-invalid]="invalid('date')"
+              [attr.aria-describedby]="invalid('date') ? 'movement-date-error' : null"
+            />
+            @if (invalid('date')) {
+              <p-message id="movement-date-error" severity="error" variant="simple" size="small">
+                @if (form.controls.date.hasError('required')) {
+                  Ingresá la fecha del {{ word }}.
+                } @else if (form.controls.date.hasError('date')) {
+                  Ingresá una fecha válida.
+                } @else if (form.controls.date.hasError('server')) {
+                  {{ form.controls.date.getError('server') }}
+                }
+              </p-message>
             }
-          </mat-form-field>
+          </div>
 
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Monto</mat-label>
-            <input matInput formControlName="amount" inputmode="decimal" autocomplete="off" required />
-            <mat-hint>Con coma decimal, por ejemplo 1500,50.</mat-hint>
-            @if (form.controls.amount.hasError('required')) {
-              <mat-error>Ingresá el monto.</mat-error>
-            } @else if (form.controls.amount.hasError('amount')) {
-              <mat-error>Escribilo con coma decimal, hasta 2 decimales y sin signo, por ejemplo 1500,50.</mat-error>
-            } @else if (form.controls.amount.hasError('positive')) {
-              <mat-error>El monto tiene que ser mayor que 0.</mat-error>
-            } @else if (form.controls.amount.hasError('server')) {
-              <mat-error>{{ form.controls.amount.getError('server') }}</mat-error>
+          <div class="field">
+            <label for="movement-amount">Monto <span class="required" aria-hidden="true">*</span></label>
+            <input
+              pInputText
+              id="movement-amount"
+              formControlName="amount"
+              inputmode="decimal"
+              autocomplete="off"
+              required
+              [invalid]="invalid('amount')"
+              [attr.aria-invalid]="invalid('amount')"
+              [attr.aria-describedby]="invalid('amount') ? 'movement-amount-error' : 'movement-amount-hint'"
+            />
+            @if (invalid('amount')) {
+              <p-message id="movement-amount-error" severity="error" variant="simple" size="small">
+                @if (form.controls.amount.hasError('required')) {
+                  Ingresá el monto.
+                } @else if (form.controls.amount.hasError('amount')) {
+                  Escribilo con coma decimal, hasta 2 decimales y sin signo, por ejemplo 1500,50.
+                } @else if (form.controls.amount.hasError('positive')) {
+                  El monto tiene que ser mayor que 0.
+                } @else if (form.controls.amount.hasError('server')) {
+                  {{ form.controls.amount.getError('server') }}
+                }
+              </p-message>
+            } @else {
+              <small id="movement-amount-hint" class="hint">Con coma decimal, por ejemplo 1500,50.</small>
             }
-          </mat-form-field>
+          </div>
         </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Cuenta</mat-label>
-          <mat-select formControlName="accountId" required>
-            @for (account of accounts(); track account.id) {
-              <mat-option [value]="account.id">{{ account.name }}</mat-option>
-            }
-          </mat-select>
-          <mat-hint>Solo cuentas en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }}, la moneda de la partida.</mat-hint>
-          @if (form.controls.accountId.hasError('required')) {
-            <mat-error>Elegí la cuenta.</mat-error>
-          } @else if (form.controls.accountId.hasError('server')) {
-            <mat-error>{{ form.controls.accountId.getError('server') }}</mat-error>
+        <div class="field">
+          <label id="movement-account-label" for="movement-account">
+            Cuenta <span class="required" aria-hidden="true">*</span>
+          </label>
+          <p-select
+            inputId="movement-account"
+            ariaLabelledBy="movement-account-label"
+            formControlName="accountId"
+            [options]="accounts()"
+            optionLabel="name"
+            optionValue="id"
+            [required]="true"
+            [invalid]="invalid('accountId')"
+            [pt]="{ label: { 'aria-describedby': invalid('accountId') ? 'movement-account-error' : 'movement-account-hint' } }"
+          />
+          @if (invalid('accountId')) {
+            <p-message id="movement-account-error" severity="error" variant="simple" size="small">
+              @if (form.controls.accountId.hasError('required')) {
+                Elegí la cuenta.
+              } @else if (form.controls.accountId.hasError('server')) {
+                {{ form.controls.accountId.getError('server') }}
+              }
+            </p-message>
+          } @else {
+            <small id="movement-account-hint" class="hint">
+              Solo cuentas en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }}, la moneda de la partida.
+            </small>
           }
-        </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Nota</mat-label>
-          <input matInput formControlName="note" maxlength="200" autocomplete="off" />
-          <mat-hint>Opcional.</mat-hint>
-          @if (form.controls.note.hasError('server')) {
-            <mat-error>{{ form.controls.note.getError('server') }}</mat-error>
+        <div class="field">
+          <label for="movement-note">Nota</label>
+          <input
+            pInputText
+            id="movement-note"
+            formControlName="note"
+            maxlength="200"
+            autocomplete="off"
+            [invalid]="invalid('note')"
+            [attr.aria-invalid]="invalid('note')"
+            [attr.aria-describedby]="invalid('note') ? 'movement-note-error' : 'movement-note-hint'"
+          />
+          @if (invalid('note')) {
+            <p-message id="movement-note-error" severity="error" variant="simple" size="small">
+              {{ form.controls.note.getError('server') }}
+            </p-message>
+          } @else {
+            <small id="movement-note-hint" class="hint">Opcional.</small>
           }
-        </mat-form-field>
+        </div>
       }
     }
-  </mat-dialog-content>
+  </div>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" (click)="cancel()">Cancelar</button>
-    <button mat-flat-button type="submit" data-testid="submit-movement" [disabled]="!ready() || submitting()">
+  <div class="dialog-actions">
+    <button pButton variant="text" severity="secondary" type="button" (click)="cancel()">Cancelar</button>
+    <button pButton type="submit" data-testid="submit-movement" [disabled]="!ready() || submitting()">
       {{ submitLabel() }}
     </button>
-  </mat-dialog-actions>
+  </div>
 </form>

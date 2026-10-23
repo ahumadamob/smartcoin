@@ -1,6 +1,6 @@
-<h2 mat-dialog-title>Consolidar «{{ entry.name }}» de {{ data.period | period }}</h2>
+<h2 appDialogTitle>Consolidar «{{ entry.name }}» de {{ data.period | period }}</h2>
 
-<mat-dialog-content class="content">
+<div class="content">
   @if (loading()) {
     <p role="status">Cargando…</p>
   } @else if (loadError(); as message) {
@@ -16,12 +16,14 @@
       <app-consolidation-outcome [preview]="current" [currency]="entry.currency" [(policy)]="policy" />
     }
   }
-</mat-dialog-content>
+</div>
 
-<mat-dialog-actions align="end">
-  <button mat-button type="button" data-testid="cancel-consolidate" (click)="cancel()">Cancelar</button>
+<div class="dialog-actions">
+  <button pButton variant="text" severity="secondary" type="button" data-testid="cancel-consolidate" (click)="cancel()">
+    Cancelar
+  </button>
   <button
-    mat-flat-button
+    pButton
     type="button"
     data-testid="confirm-consolidate"
     [disabled]="!canConfirm()"
@@ -29,4 +31,4 @@
   >
     Consolidar
   </button>
-</mat-dialog-actions>
+</div>

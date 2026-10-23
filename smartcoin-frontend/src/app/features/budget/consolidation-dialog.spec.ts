@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { Observable, of, throwError } from 'rxjs';
 import {
   ConsolidacinService,
@@ -92,8 +92,8 @@ describe('ConsolidationDialog (HU-23, HU-25)', () => {
       providers: [
         provideLocale(),
         { provide: ConsolidacinService, useValue: api },
-        { provide: MatDialogRef, useValue: ref },
-        { provide: MAT_DIALOG_DATA, useValue: { entry: ENTRY, period: '2026-12', ...data } },
+        { provide: DynamicDialogRef, useValue: ref },
+        { provide: DynamicDialogConfig, useValue: { data: { entry: ENTRY, period: '2026-12', ...data } } },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(ConsolidationDialog);

@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { of, throwError } from 'rxjs';
 import { Movement, MovimientosService } from '../../api';
 import { provideLocale } from '../../core/locale';
@@ -34,10 +34,10 @@ describe('MovementDeleteDialog (HU-21)', () => {
       providers: [
         provideLocale(),
         { provide: MovimientosService, useValue: api },
-        { provide: MatDialogRef, useValue: ref },
+        { provide: DynamicDialogRef, useValue: ref },
         {
-          provide: MAT_DIALOG_DATA,
-          useValue: { movement: MOVEMENT, entryName: 'Expensas', kind: 'EXPENSE', isOnly: false, ...data },
+          provide: DynamicDialogConfig,
+          useValue: { data: { movement: MOVEMENT, entryName: 'Expensas', kind: 'EXPENSE', isOnly: false, ...data } },
         },
       ],
     }).compileComponents();

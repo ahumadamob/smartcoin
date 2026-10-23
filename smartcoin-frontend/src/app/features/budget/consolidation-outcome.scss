@@ -11,7 +11,7 @@
 }
 
 .note {
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--p-text-muted-color);
 }
 
 .amounts {
@@ -20,7 +20,7 @@
   gap: 24px;
 
   dt {
-    color: var(--mat-sys-on-surface-variant);
+    color: var(--p-text-muted-color);
     font-size: 0.875rem;
   }
 
@@ -37,7 +37,7 @@ table {
   th,
   td {
     padding: 6px 8px;
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    border-bottom: 1px solid var(--p-content-border-color);
     text-align: left;
   }
 

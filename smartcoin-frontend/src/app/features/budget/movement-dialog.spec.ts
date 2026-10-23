@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import {
@@ -13,6 +13,7 @@ import {
   MovimientosService,
   PeriodEntry,
 } from '../../api';
+import { Dialogs } from '../../core/dialogs';
 import { provideLocale } from '../../core/locale';
 import { MovementDialog, MovementDialogData, MovementDialogResult } from './movement-dialog';
 import { MovementDeleteDialogResult } from './movement-delete-dialog';
@@ -84,7 +85,7 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
     getMovementDates: ReturnType<typeof vi.fn>;
   };
   let refresh: ReturnType<typeof vi.fn<() => Observable<PeriodEntry | null>>>;
-  let confirmDelete: ReturnType<typeof vi.fn>;
+  let confirmDelete: ReturnType<typeof vi.fn<(component: unknown, config: object) => void>>;
   let ref: { close: ReturnType<typeof vi.fn<(result?: MovementDialogResult) => void>> };
 
   async function open(
@@ -120,9 +121,14 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
     };
     ref = { close: vi.fn() };
     refresh = vi.fn(() => of(options.refreshed === undefined ? { ...ENTRY, ...data.entry } : options.refreshed));
-    // El componente importa `MatDialogModule`, que trae su propio `MatDialog`: se simula el método, no el proveedor.
-    confirmDelete = vi.spyOn(MatDialog.prototype, 'open') as unknown as ReturnType<typeof vi.fn>;
-    confirmDelete.mockImplementation(() => ({ afterClosed: () => of(options.deleteResult) }));
+    // La confirmación de eliminar se abre con `Dialogs` (PrimeNG): se registra como `(componente, { data, ... })`.
+    confirmDelete = vi.fn();
+    const dialogs = {
+      open: (component: unknown, dialogData: unknown, dialogOptions: object) => {
+        confirmDelete(component, { data: dialogData, ...dialogOptions });
+        return of(options.deleteResult);
+      },
+    };
     await TestBed.configureTestingModule({
       imports: [MovementDialog],
       providers: [
@@ -130,10 +136,11 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
         provideRouter([]),
         { provide: MovimientosService, useValue: api },
         { provide: CuentasService, useValue: { listAccounts: () => of({ accounts: options.accounts ?? ACCOUNTS, subtotals: [] }) } },
-        { provide: MatDialogRef, useValue: ref },
+        { provide: DynamicDialogRef, useValue: ref },
+        { provide: Dialogs, useValue: dialogs },
         {
-          provide: MAT_DIALOG_DATA,
-          useValue: { entry: ENTRY, period: '2026-11', readonly: false, refresh, ...data },
+          provide: DynamicDialogConfig,
+          useValue: { data: { entry: ENTRY, period: '2026-11', readonly: false, refresh, ...data } },
         },
       ],
     }).compileComponents();
@@ -146,9 +153,7 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
   const root = () => fixture.nativeElement as HTMLElement;
   const text = (el: Element | null | undefined = root()) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
   const field = (label: string) =>
-    Array.from(root().querySelectorAll('mat-form-field')).find((f) =>
-      f.querySelector('label')?.textContent?.includes(label),
-    )!;
+    Array.from(root().querySelectorAll('.field')).find((f) => f.querySelector('label')?.textContent?.includes(label))!;
   const input = (label: string) => field(label).querySelector('input')!;
   const type = (label: string, value: string) => {
     const el = input(label);
@@ -299,6 +304,9 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
 
       for (const label of ['Fecha', 'Monto', 'Cuenta', 'Nota']) {
         expect(field(label), label).toBeTruthy();
+        // La etiqueta apunta al control: `for` con el id del campo (en la cuenta, el combobox de `p-select`).
+        const target = root().querySelector(`#${field(label).querySelector('label')!.htmlFor}`);
+        expect(target, label).not.toBeNull();
       }
     });
   });
@@ -661,18 +669,18 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
         fixture.detectChanges();
 
         expect(form().controls['amount'].value).toBe('');
-        expect(root().querySelector('mat-error')).toBeNull();
+        expect(root().querySelector('p-message')).toBeNull();
       });
 
       it('al empezar a corregir después de un error, el formulario no arrastra el «enviado» anterior', async () => {
         await open({ entry: PARTIAL }, { movements: TWO });
         submit();
         fixture.detectChanges();
-        expect(root().querySelector('mat-error')).not.toBeNull();
+        expect(root().querySelector('p-message')).not.toBeNull();
 
         await click(action(1, 'edit-movement'));
 
-        expect(root().querySelector('mat-error')).toBeNull();
+        expect(root().querySelector('p-message')).toBeNull();
       });
 
       it('cambiar de cuenta envía la cuenta nueva', async () => {
@@ -722,7 +730,7 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
 
         expect(text(root().querySelector('[role="alert"]'))).toContain('está cerrado');
         expect(refresh).toHaveBeenCalled();
-        root().querySelector<HTMLButtonElement>('mat-dialog-actions button')!.click();
+        root().querySelector<HTMLButtonElement>('.dialog-actions button')!.click();
         expect(ref.close).toHaveBeenCalledWith({ stale: true });
       });
 
@@ -823,7 +831,7 @@ describe('MovementDialog (HU-19, HU-20, HU-21)', () => {
         await open({ entry: PARTIAL }, { movements: TWO, deleteResult: { stale: true } });
 
         await click(action(1, 'delete-movement'));
-        root().querySelector<HTMLButtonElement>('mat-dialog-actions button')!.click();
+        root().querySelector<HTMLButtonElement>('.dialog-actions button')!.click();
 
         expect(refresh).toHaveBeenCalled();
         expect(ref.close).toHaveBeenCalledWith({ stale: true });

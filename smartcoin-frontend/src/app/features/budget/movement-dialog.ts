@@ -24,12 +24,12 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
+import { ButtonDirective } from 'primeng/button';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { SelectModule } from 'primeng/select';
 import { catchError, EMPTY, forkJoin, Observable, switchMap } from 'rxjs';
 import {
   AccountResponse,
@@ -40,6 +40,7 @@ import {
   MovimientosService,
   PeriodEntry,
 } from '../../api';
+import { DialogTitle, Dialogs } from '../../core/dialogs';
 import { detailFor, messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { parseAmount, formatAmountInput } from '../../shared/amount';
@@ -100,6 +101,14 @@ function positiveAmount(control: AbstractControl): ValidationErrors | null {
 
 type FieldName = 'date' | 'amount' | 'accountId' | 'note';
 
+/** El elemento enfocable de cada campo: el de la cuenta es el combobox de `p-select`, no su anfitrión. */
+const FIELD_IDS: Record<FieldName, string> = {
+  date: 'movement-date',
+  amount: 'movement-amount',
+  accountId: 'movement-account',
+  note: 'movement-note',
+};
+
 /**
  * Diálogo para registrar un cobro o pago de una partida (HU-19, RN-21, RN-23). Muestra el presupuestado, el real y el
  * pendiente tal como los informa el backend, los movimientos ya registrados y el formulario. Solo valida el formato;
@@ -122,16 +131,16 @@ type FieldName = 'date' | 'amount' | 'accountId' | 'note';
   selector: 'app-movement-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    ButtonDirective,
     DatePipe,
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
+    DialogTitle,
+    InputTextModule,
+    MessageModule,
     MoneyPipe,
     PeriodPipe,
+    ReactiveFormsModule,
     RouterLink,
+    SelectModule,
   ],
   templateUrl: './movement-dialog.html',
   styleUrl: './movement-dialog.scss',
@@ -140,14 +149,14 @@ export class MovementDialog implements OnInit {
   private readonly api = inject(MovimientosService);
   private readonly accountsApi = inject(CuentasService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly ref = inject<MatDialogRef<MovementDialog, MovementDialogResult>>(MatDialogRef);
+  private readonly ref = inject(DynamicDialogRef);
   private readonly money = new MoneyPipe();
   private readonly periodPipe = new PeriodPipe();
   private readonly locale = inject(LOCALE_ID);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly dialog = inject(MatDialog);
+  private readonly dialogs = inject(Dialogs);
   private readonly injector = inject(Injector);
-  protected readonly data = inject<MovementDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<DynamicDialogConfig<MovementDialogData>>(DynamicDialogConfig).data!;
 
   /** La partida con los valores que informó el backend por última vez (cambia al corregir o eliminar). */
   protected readonly entry = signal(this.data.entry);
@@ -311,7 +320,7 @@ export class MovementDialog implements OnInit {
       return;
     }
     this.api.registerMovement(this.entry().id, request).subscribe({
-      next: (registered) => this.ref.close(registered),
+      next: (registered) => this.ref.close(registered satisfies MovementDialogResult),
       error: (e: unknown) => this.fail(e),
     });
   }
@@ -348,13 +357,12 @@ export class MovementDialog implements OnInit {
     const index = list.findIndex((candidate) => candidate.id === movement.id);
     // Si la fila desaparece, el foco va a la que ocupa su lugar, si no a la anterior, y si no queda ninguna, al campo.
     const candidates = [...list.slice(index + 1), ...list.slice(0, Math.max(index, 0)).reverse()].map((m) => m.id);
-    this.dialog
-      .open<MovementDeleteDialog, MovementDeleteDialogData, MovementDeleteDialogResult>(MovementDeleteDialog, {
-        data: { movement, entryName: this.entry().name, kind: this.entry().kind, isOnly: list.length === 1 },
-        width: '480px',
-        maxWidth: '95vw',
-      })
-      .afterClosed()
+    this.dialogs
+      .open<MovementDeleteDialog, MovementDeleteDialogData, MovementDeleteDialogResult>(
+        MovementDeleteDialog,
+        { movement, entryName: this.entry().name, kind: this.entry().kind, isOnly: list.length === 1 },
+        { width: '480px' },
+      )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result === undefined) {
@@ -399,7 +407,7 @@ export class MovementDialog implements OnInit {
         this.movements.set(movements);
         if (entry === null) {
           this.stale = true;
-          this.ref.close({ stale: true });
+          this.ref.close({ stale: true } satisfies MovementDialogResult);
           return;
         }
         this.entry.set(entry);
@@ -444,13 +452,23 @@ export class MovementDialog implements OnInit {
     });
   }
 
+  /**
+   * El error de un campo se muestra cuando ya se tocó o se intentó enviar (`submit` marca todos como tocados), como
+   * hacía `mat-error`.
+   */
+  protected invalid(field: FieldName): boolean {
+    const control = this.form.controls[field];
+    return control.invalid && control.touched;
+  }
+
   protected cancel(): void {
-    this.ref.close(this.stale ? { stale: true } : undefined);
+    const result: MovementDialogResult | undefined = this.stale ? { stale: true } : undefined;
+    this.ref.close(result);
   }
 
   /** «Consolidar» desde el aviso: se cierra el diálogo y la vista del mes abre el de consolidar (HU-23). */
   protected consolidate(): void {
-    this.ref.close({ consolidate: true, entry: this.entry() });
+    this.ref.close({ consolidate: true, entry: this.entry() } satisfies MovementDialogResult);
   }
 
   /**
@@ -478,11 +496,11 @@ export class MovementDialog implements OnInit {
     }
     const message = code === 'DATE_OUT_OF_RANGE' || code === 'PERIOD_CLOSED' || code === 'ENTRY_NOT_PENDING' ? detailFor(e) : messageFor(e);
     const control = field !== undefined ? this.form.controls[field] : undefined;
-    if (control) {
+    if (field !== undefined && control) {
       control.setErrors({ server: message });
       control.markAsTouched();
       // El foco va al campo con el error: queda a la vista aunque el diálogo tenga scroll, y se anuncia.
-      this.host.nativeElement.querySelector<HTMLElement>(`[formcontrolname="${field}"]`)?.focus();
+      this.host.nativeElement.querySelector<HTMLElement>(`#${FIELD_IDS[field]}`)?.focus();
     } else {
       this.error.set(message);
     }

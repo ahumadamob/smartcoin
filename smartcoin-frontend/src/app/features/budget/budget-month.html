@@ -1,55 +1,62 @@
 <div class="page">
-  <header class="header">
-    <h1 class="title">
-      @if (period(); as shown) {
-        Presupuesto de {{ shown | period }}
-      } @else {
-        Presupuesto del mes
+  <div class="card top">
+    <header class="header">
+      <h1 class="title">
+        @if (period(); as shown) {
+          Presupuesto de {{ shown | period }}
+        } @else {
+          Presupuesto del mes
+        }
+      </h1>
+      @if (view(); as current) {
+        @if (current.status === 'CLOSED') {
+          <span class="badge" data-testid="closed">Cerrado</span>
+        }
+        @if (isCurrent()) {
+          <span class="badge badge-current" data-testid="current">Mes actual</span>
+        }
       }
-    </h1>
-    @if (view(); as current) {
-      @if (current.status === 'CLOSED') {
-        <span class="badge" data-testid="closed">Cerrado</span>
+      <!-- Acciones del período: solo si `!readonly()`. «Cerrar mes» está en todo mes abierto, aunque todavía no se pueda
+           cerrar: el asistente dice por qué (HU-30, D-42). -->
+      @if (view(); as current) {
+        @if (!readonly()) {
+          <span class="actions">
+            <button pButton type="button" data-testid="add-entry" (click)="addEntry()">Agregar partida</button>
+            <a pButton variant="outlined" [routerLink]="['/cierre', current.period]" data-testid="close-period">Cerrar mes</a>
+          </span>
+        }
       }
-      @if (isCurrent()) {
-        <span class="badge badge-current" data-testid="current">Mes actual</span>
-      }
-    }
-    <!-- Acciones del período: solo si `!readonly()`. «Cerrar mes» está en todo mes abierto, aunque todavía no se pueda
-         cerrar: el asistente dice por qué (HU-30, D-42). -->
-    @if (view(); as current) {
-      @if (!readonly()) {
-        <span class="actions">
-          <button mat-flat-button type="button" data-testid="add-entry" (click)="addEntry()">Agregar partida</button>
-          <a mat-stroked-button [routerLink]="['/cierre', current.period]" data-testid="close-period">Cerrar mes</a>
-        </span>
-      }
-    }
-  </header>
+    </header>
 
-  @if (range() && !error()) {
-    <nav class="period-nav" aria-label="Meses">
-      <button mat-stroked-button type="button" [disabled]="!previous()" (click)="go(previous())">
-        ‹ Mes anterior
-      </button>
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="month">
-        <mat-label>Mes</mat-label>
-        <mat-select [value]="period()" (selectionChange)="go($event.value)">
-          @for (option of periods(); track option) {
-            <mat-option [value]="option">{{ option | period }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      <button mat-stroked-button type="button" [disabled]="!next()" (click)="go(next())">Mes siguiente ›</button>
-      <a mat-button routerLink="/presupuesto" [attr.aria-current]="isCurrent() ? 'page' : null">Hoy</a>
-    </nav>
-  }
+    @if (range() && !error()) {
+      <nav class="period-nav" aria-label="Meses">
+        <button pButton variant="outlined" type="button" [disabled]="!previous()" (click)="go(previous())">
+          ‹ Mes anterior
+        </button>
+        <span class="month">
+          <label id="month-label" for="month-select">Mes</label>
+          <p-select
+            inputId="month-select"
+            ariaLabelledBy="month-label"
+            [options]="periodOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="period()"
+            (onChange)="go($event.value)"
+            scrollHeight="20rem"
+          />
+        </span>
+        <button pButton variant="outlined" type="button" [disabled]="!next()" (click)="go(next())">Mes siguiente ›</button>
+        <a pButton variant="text" routerLink="/presupuesto" [attr.aria-current]="isCurrent() ? 'page' : null">Hoy</a>
+      </nav>
+    }
+  </div>
 
   @if (error(); as problem) {
     <div class="problem" role="alert">
       <p>{{ problem.message }}</p>
       @if (problem.unavailable) {
-        <a mat-flat-button routerLink="/presupuesto">Ir al mes actual</a>
+        <a pButton routerLink="/presupuesto">Ir al mes actual</a>
       }
     </div>
   } @else if (loading()) {
@@ -63,6 +70,7 @@
         </p>
       }
       <app-entry-table
+        class="card"
         heading="Ingresos"
         side="income"
         emptyText="No hay ingresos en este mes."
@@ -78,6 +86,7 @@
         (remove)="removeEntry($event)"
       />
       <app-entry-table
+        class="card"
         heading="Gastos"
         side="expense"
         emptyText="No hay gastos en este mes."
@@ -93,7 +102,7 @@
         (remove)="removeEntry($event)"
       />
       @if (current.totals.length > 0) {
-        <section class="result" aria-label="Resultado">
+        <section class="result card" aria-label="Resultado">
           <h2 class="heading">Resultado</h2>
           <table aria-label="Resultado por moneda">
             <thead>

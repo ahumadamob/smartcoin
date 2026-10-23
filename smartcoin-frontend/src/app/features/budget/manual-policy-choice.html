@@ -25,27 +25,40 @@
     </tbody>
   </table>
 
-  <mat-radio-group
-    class="options"
-    aria-labelledby="policy-label"
-    [value]="policy()"
-    (change)="choose($event)"
-  >
+  <div class="options" role="radiogroup" aria-labelledby="policy-label">
     <div class="option">
-      <mat-radio-button value="KEEP" data-testid="policy-keep" aria-describedby="policy-keep-text"
-        >Respetar</mat-radio-button
-      >
+      <span class="option-choice">
+        <p-radiobutton
+          name="manual-policy"
+          value="KEEP"
+          inputId="policy-keep-input"
+          data-testid="policy-keep"
+          [ngModel]="policy()"
+          (ngModelChange)="choose($event)"
+          [pt]="{ input: { 'aria-describedby': 'policy-keep-text' } }"
+        />
+        <label for="policy-keep-input">Respetar</label>
+      </span>
       <p id="policy-keep-text" class="option-text" data-testid="policy-keep-text">{{ keepDescription() }}</p>
     </div>
     <div class="option">
-      <mat-radio-button value="OVERWRITE" data-testid="policy-overwrite" aria-describedby="policy-overwrite-text"
-        >Pisar</mat-radio-button
-      >
+      <span class="option-choice">
+        <p-radiobutton
+          name="manual-policy"
+          value="OVERWRITE"
+          inputId="policy-overwrite-input"
+          data-testid="policy-overwrite"
+          [ngModel]="policy()"
+          (ngModelChange)="choose($event)"
+          [pt]="{ input: { 'aria-describedby': 'policy-overwrite-text' } }"
+        />
+        <label for="policy-overwrite-input">Pisar</label>
+      </span>
       <p id="policy-overwrite-text" class="option-text" data-testid="policy-overwrite-text">
         {{ overwriteDescription() }}
       </p>
     </div>
-  </mat-radio-group>
+  </div>
 
   @if (policy() === null) {
     <p class="note" role="status" data-testid="policy-hint">Elegí una opción para poder consolidar.</p>

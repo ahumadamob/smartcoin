@@ -1,7 +1,7 @@
 .choice {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .lead,
@@ -13,24 +13,37 @@
 .note,
 .option-text,
 .same {
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--p-text-muted-color);
 }
 
 .options {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .option {
-  padding: 8px 12px;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
+}
+
+.option-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    font-weight: 600;
+  }
 }
 
 .option-text {
-  // Alineado con el texto del botón de opción.
-  padding-left: 40px;
+  // Alineado con el texto de la opción.
+  padding-left: 1.75rem;
 }
 
 table {
@@ -39,8 +52,8 @@ table {
 
   th,
   td {
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid var(--p-content-border-color);
     text-align: left;
   }
 

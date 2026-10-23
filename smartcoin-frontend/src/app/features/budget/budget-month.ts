@@ -11,15 +11,16 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
+import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ButtonDirective } from 'primeng/button';
+import { SelectModule } from 'primeng/select';
 import { catchError, EMPTY, map, Observable, switchMap, tap } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
+import { Dialogs } from '../../core/dialogs';
 import { messageFor } from '../../core/error-messages';
+import { Notices } from '../../core/notices';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
 import { ConsolidationDialog, ConsolidationDialogData, ConsolidationDialogResult } from './consolidation-dialog';
@@ -62,7 +63,7 @@ interface RemovalFocus {
 @Component({
   selector: 'app-budget-month',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EntryTable, MatButtonModule, MatFormFieldModule, MatSelectModule, MoneyPipe, PeriodPipe, RouterLink],
+  imports: [ButtonDirective, EntryTable, FormsModule, MoneyPipe, PeriodPipe, RouterLink, SelectModule],
   templateUrl: './budget-month.html',
   styleUrl: './budget-month.scss',
 })
@@ -71,10 +72,14 @@ export class BudgetMonth implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  /** Diálogos de PrimeNG (T-19): registrar movimiento y consolidar. */
+  private readonly dialogs = inject(Dialogs);
+  /** Diálogos que todavía son de Angular Material: partida (alta y edición), eliminar, pagar todo y desconsolidar. */
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly notices = inject(Notices);
   private readonly injector = inject(Injector);
   private readonly money = new MoneyPipe();
+  private readonly periodPipe = new PeriodPipe();
 
   protected readonly view = signal<PeriodView | null>(null);
   /** El período pedido: el de la URL o, sin él, el actual, que se conoce cuando responde el backend. */
@@ -90,6 +95,10 @@ export class BudgetMonth implements OnInit {
     const range = this.range();
     return range ? periodsInRange(range) : [];
   });
+  /** Las opciones del selector «Mes», con el período escrito como en el resto de la pantalla. */
+  protected readonly periodOptions = computed(() =>
+    this.periods().map((value) => ({ value, label: this.periodPipe.transform(value) })),
+  );
   protected readonly isCurrent = computed(() => this.period() !== null && this.period() === this.range()?.currentPeriod);
   /** Un período cerrado no tiene acciones (RN-09). */
   protected readonly readonly = computed(() => this.view()?.status === 'CLOSED');
@@ -158,18 +167,17 @@ export class BudgetMonth implements OnInit {
     if (period === null || !isPeriod(period) || this.readonly()) {
       return;
     }
-    this.dialog
-      .open<MovementDialog, MovementDialogData, MovementDialogResult>(MovementDialog, {
-        data: {
+    this.dialogs
+      .open<MovementDialog, MovementDialogData, MovementDialogResult>(
+        MovementDialog,
+        {
           entry,
           period,
           readonly: this.readonly(),
           refresh: () => this.refreshEntry(period, entry.id),
         },
-        width: '640px',
-        maxWidth: '95vw',
-      })
-      .afterClosed()
+        { width: '640px' },
+      )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result === undefined) {
@@ -186,19 +194,15 @@ export class BudgetMonth implements OnInit {
           return;
         }
         const covered = result.entry.status === 'PARTIAL' && result.entry.pendingAmount === 0;
-        const bar = this.snackBar.open(
+        this.notices.show(
           registeredMessage(result.entry, result.movement.amount, (amount, currency) =>
             this.money.transform(amount, currency),
           ),
-          covered ? 'Consolidar' : undefined,
-          { duration: covered ? 10000 : 5000 },
+          {
+            duration: covered ? 10000 : 5000,
+            action: covered ? { label: 'Consolidar', run: () => this.consolidateEntry(result.entry) } : undefined,
+          },
         );
-        if (covered) {
-          bar
-            .onAction()
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe(() => this.consolidateEntry(result.entry));
-        }
         this.reload(result.entry.id, null, 'register');
       });
   }
@@ -213,13 +217,12 @@ export class BudgetMonth implements OnInit {
       return;
     }
     const focus = this.removalFocus(entry);
-    this.dialog
-      .open<ConsolidationDialog, ConsolidationDialogData, ConsolidationDialogResult>(ConsolidationDialog, {
-        data: { entry, period },
-        width: '600px',
-        maxWidth: '95vw',
-      })
-      .afterClosed()
+    this.dialogs
+      .open<ConsolidationDialog, ConsolidationDialogData, ConsolidationDialogResult>(
+        ConsolidationDialog,
+        { entry, period },
+        { width: '600px' },
+      )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result === undefined) {
@@ -230,7 +233,7 @@ export class BudgetMonth implements OnInit {
           this.reload(null);
           return;
         }
-        this.snackBar.open(result.message, undefined, { duration: 8000 });
+        this.notices.show(result.message, { duration: 8000 });
         // La fila consolidada ya no tiene acciones: el foco pasa a la de la fila que ocupa su lugar.
         this.reload(null, focus);
       });
@@ -262,7 +265,7 @@ export class BudgetMonth implements OnInit {
           this.reload(null);
           return;
         }
-        this.snackBar.open(result.message, undefined, { duration: 8000 });
+        this.notices.show(result.message, { duration: 8000 });
         // Vuelve a admitir movimientos: el foco, si se perdió, pasa a «Registrar» de la misma fila.
         this.reload(entry.id, null, 'register');
       });
@@ -295,7 +298,7 @@ export class BudgetMonth implements OnInit {
           this.reload(null);
           return;
         }
-        this.snackBar.open(result.message, undefined, { duration: 8000 });
+        this.notices.show(result.message, { duration: 8000 });
         // La fila consolidada ya no tiene acciones: el foco pasa a la de la fila que ocupa su lugar.
         this.reload(null, focus);
       });
@@ -343,7 +346,7 @@ export class BudgetMonth implements OnInit {
           this.reload(null);
           return;
         }
-        this.snackBar.open(result.message, undefined, { duration: 6000 });
+        this.notices.show(result.message, { duration: 6000 });
         this.reload(null, focus);
       });
   }
@@ -372,9 +375,8 @@ export class BudgetMonth implements OnInit {
           this.reload(null);
           return;
         }
-        this.snackBar.open(
+        this.notices.show(
           result.created ? `Partida «${result.entry.name}» agregada.` : `Partida «${result.entry.name}» guardada.`,
-          undefined,
           { duration: 4000 },
         );
         this.reload(result.entry.id);
@@ -425,7 +427,7 @@ export class BudgetMonth implements OnInit {
             );
           }
         },
-        error: (e: unknown) => this.snackBar.open(messageFor(e), undefined, { duration: 6000 }),
+        error: (e: unknown) => this.notices.show(messageFor(e), { duration: 6000, kind: 'error' }),
       });
   }
 

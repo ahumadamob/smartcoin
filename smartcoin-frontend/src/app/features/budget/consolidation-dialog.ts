@@ -10,9 +10,10 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { ButtonDirective } from 'primeng/button';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { ConsolidacinService, ConsolidationPreview, PeriodEntry } from '../../api';
+import { DialogTitle } from '../../core/dialogs';
 import { detailFor, messageFor } from '../../core/error-messages';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
@@ -47,7 +48,7 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'CONSOLIDATION_REQUIR
 @Component({
   selector: 'app-consolidation-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatDialogModule, ConsolidationOutcome, PeriodPipe],
+  imports: [ButtonDirective, ConsolidationOutcome, DialogTitle, PeriodPipe],
   templateUrl: './consolidation-dialog.html',
   styleUrl: './consolidation-dialog.scss',
 })
@@ -55,9 +56,9 @@ export class ConsolidationDialog implements OnInit {
   private readonly api = inject(ConsolidacinService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
-  private readonly ref = inject<MatDialogRef<ConsolidationDialog, ConsolidationDialogResult>>(MatDialogRef);
+  private readonly ref = inject(DynamicDialogRef);
   private readonly money = new MoneyPipe();
-  protected readonly data = inject<ConsolidationDialogData>(MAT_DIALOG_DATA);
+  protected readonly data = inject<DynamicDialogConfig<ConsolidationDialogData>>(DynamicDialogConfig).data!;
 
   protected readonly entry = this.data.entry;
   protected readonly preview = signal<ConsolidationPreview | null>(null);
@@ -119,13 +120,14 @@ export class ConsolidationDialog implements OnInit {
           consolidated: true,
           entry: result.entry,
           message: consolidatedMessage(result, (amount, currency) => this.money.transform(amount, currency)),
-        }),
+        } satisfies ConsolidationDialogResult),
       error: (e: unknown) => this.fail(e),
     });
   }
 
   protected cancel(): void {
-    this.ref.close(this.stale ? { stale: true } : undefined);
+    const result: ConsolidationDialogResult | undefined = this.stale ? { stale: true } : undefined;
+    this.ref.close(result);
   }
 
   private fail(e: unknown): void {

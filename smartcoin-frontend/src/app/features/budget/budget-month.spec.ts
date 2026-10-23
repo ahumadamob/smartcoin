@@ -1,12 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of, Subject, throwError } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
+import { Dialogs } from '../../core/dialogs';
 import { provideLocale } from '../../core/locale';
+import { NoticeOptions, Notices } from '../../core/notices';
 import { BudgetMonth } from './budget-month';
 import { ConsolidationDialogData, ConsolidationDialogResult } from './consolidation-dialog';
 import { UnconsolidateDialogData, UnconsolidateDialogResult } from './unconsolidate-dialog';
@@ -152,8 +153,12 @@ const at = (period: string, overrides: Partial<PeriodView> = {}): PeriodView => 
 describe('BudgetMonth', () => {
   let harness: RouterTestingHarness;
   let api: { getPeriod: ReturnType<typeof vi.fn>; getCurrentPeriod: ReturnType<typeof vi.fn> };
-  /** El diálogo de HU-16 se simula: lo que importa acá es cuándo se abre, con qué, y qué hace la pantalla al cerrarse. */
-  let dialog: { open: ReturnType<typeof vi.fn> };
+  /**
+   * Los diálogos se simulan: lo que importa acá es cuándo se abre cada uno, con qué, y qué hace la pantalla al cerrarse.
+   * Los de PrimeNG (`Dialogs`: movimientos y consolidar) y los que siguen con Material (`MatDialog`) quedan registrados
+   * en el mismo `dialog.open(componente, { data, ... })`, en el orden en que se abrieron.
+   */
+  let dialog: { open: ReturnType<typeof vi.fn<(component: unknown, config: { data: unknown; primeng?: boolean }) => unknown>> };
   let dialogResult:
     | EntryFormDialogResult
     | EntryDeleteDialogResult
@@ -162,9 +167,9 @@ describe('BudgetMonth', () => {
     | QuickSettleDialogResult
     | UnconsolidateDialogResult
     | undefined;
-  let snackBar: { open: ReturnType<typeof vi.fn> };
-  /** La acción del aviso («Consolidar»): se dispara con `snackAction.next()`. */
-  let snackAction: Subject<void>;
+  /** Los avisos; la acción de uno («Consolidar») se dispara con `notice(i).action!.run()`. */
+  let notices: { show: ReturnType<typeof vi.fn> };
+  const notice = (index: number) => notices.show.mock.calls[index][1] as NoticeOptions;
 
   /** Por defecto la API responde el mes pedido, vacío; `/current` responde octubre. */
   async function open(url: string, responses: Record<string, Observable<PeriodView>> = {}) {
@@ -174,15 +179,21 @@ describe('BudgetMonth', () => {
     };
     dialogResult = undefined;
     dialog = { open: vi.fn(() => ({ afterClosed: () => of(dialogResult) })) };
-    snackAction = new Subject<void>();
-    snackBar = { open: vi.fn(() => ({ onAction: () => snackAction })) };
+    const dialogs = {
+      open: vi.fn((component: unknown, data: unknown, options: object) => {
+        dialog.open(component, { data, ...options, primeng: true });
+        return of(dialogResult);
+      }),
+    };
+    notices = { show: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ matcher: budgetMonthMatcher, component: BudgetMonth }]),
         provideLocale(),
         { provide: PerodosService, useValue: api },
         { provide: MatDialog, useValue: dialog },
-        { provide: MatSnackBar, useValue: snackBar },
+        { provide: Dialogs, useValue: dialogs },
+        { provide: Notices, useValue: notices },
       ],
     });
     harness = await RouterTestingHarness.create(url);
@@ -268,6 +279,13 @@ describe('BudgetMonth', () => {
       expect(component.periods()).toHaveLength(27);
       expect(component.periods()[0]).toBe('2026-08');
       expect(component.periods().at(-1)).toBe('2028-10');
+      // Las opciones del selector muestran el mes en palabras, como el título.
+      const options = (harness.routeDebugElement!.componentInstance as { periodOptions(): { value: string; label: string }[] })
+        .periodOptions();
+      expect(options[0]).toEqual({ value: '2026-08', label: 'agosto 2026' });
+      // El selector tiene su etiqueta visible «Mes».
+      const combobox = root().querySelector<HTMLElement>('[role="combobox"]')!;
+      expect(text(document.getElementById(combobox.getAttribute('aria-labelledby')!))).toBe('Mes');
 
       component.go('2027-06');
       await refresh();
@@ -591,6 +609,8 @@ describe('BudgetMonth', () => {
       expect(dialog.open).toHaveBeenCalledTimes(1);
       const data = dialog.open.mock.calls[0][1].data as EntryFormDialogData;
       expect(data).toEqual({ period: '2026-11', suggestedDueDate: '2026-11-01' });
+      // T-19: este diálogo todavía es de Angular Material.
+      expect(dialog.open.mock.calls[0][1].primeng).toBeUndefined();
     });
 
     it('en el mes actual sugiere el día de hoy', async () => {
@@ -696,7 +716,8 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(getPeriod).toHaveBeenCalledWith('2026-11');
-      expect(snackBar.open).toHaveBeenCalledWith('Partida «Service del auto» agregada.', undefined, expect.anything());
+      expect(notices.show).toHaveBeenCalledWith('Partida «Service del auto» agregada.', expect.anything());
+      expect(notice(0).action).toBeUndefined();
       expect(rows('Gastos').map((row) => cells(row)[1])).toEqual(['Service del auto']);
       expect(text(root())).not.toContain('Cargando el mes…');
       // Las tablas no se desmontan: no se pierde el foco ni parpadea la pantalla.
@@ -710,7 +731,8 @@ describe('BudgetMonth', () => {
       editButtons()[0].click();
       await refresh();
 
-      expect(snackBar.open).toHaveBeenCalledWith('Partida «Cambio de aceite» guardada.', undefined, expect.anything());
+      expect(notices.show).toHaveBeenCalledWith('Partida «Cambio de aceite» guardada.', expect.anything());
+      expect(notice(0).action).toBeUndefined();
     });
 
     it('si el diálogo avisa que la pantalla estaba desactualizada, vuelve a pedir el mes', async () => {
@@ -722,7 +744,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
 
     it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
@@ -833,7 +855,8 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(getPeriod).toHaveBeenCalledWith('2026-11');
-      expect(snackBar.open).toHaveBeenCalledWith('Partida «Alfa» eliminada.', undefined, expect.anything());
+      expect(notices.show).toHaveBeenCalledWith('Partida «Alfa» eliminada.', expect.anything());
+      expect(notice(0).action).toBeUndefined();
       expect(rows('Gastos').map((row) => cells(row)[1])).toEqual(['Beta']);
       expect(section('Gastos').querySelector('table')).toBe(tableBefore);
       expect(text(root())).not.toContain('Cargando el mes…');
@@ -894,7 +917,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
 
     it('si se cancela el diálogo no se vuelve a pedir nada ni se mueve el foco', async () => {
@@ -907,7 +930,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(deleteButtons()[0]);
     });
   });
@@ -989,6 +1012,8 @@ describe('BudgetMonth', () => {
       const data = dialog.open.mock.calls[0][1].data as MovementDialogData;
       expect(data).toMatchObject({ entry: entryToPay, period: '2026-11', readonly: false });
       expect(typeof data.refresh).toBe('function');
+      // T-19: se abre con los diálogos de PrimeNG.
+      expect(dialog.open.mock.calls[0][1].primeng).toBe(true);
     });
 
     it('el diálogo pide `refresh` para corregir o eliminar: vuelve a pedir el mes, lo deja actualizado atrás y devuelve la partida (HU-21)', async () => {
@@ -1032,11 +1057,8 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(getPeriod).toHaveBeenCalledWith('2026-11');
-      expect(snackBar.open).toHaveBeenCalledWith(
-        'Pago de $ 70.000,00 registrado en «Expensas».',
-        undefined,
-        expect.anything(),
-      );
+      expect(notices.show).toHaveBeenCalledWith('Pago de $ 70.000,00 registrado en «Expensas».', expect.anything());
+      expect(notice(0).action).toBeUndefined();
       const row = cells(rows('Gastos')[0]);
       expect(row[6]).toContain('70.000,00');
       expect(row[7]).toContain('50.000,00');
@@ -1054,7 +1076,7 @@ describe('BudgetMonth', () => {
       registerButtons()[0].click();
       await refresh();
 
-      const message = snackBar.open.mock.calls[0][0] as string;
+      const message = notices.show.mock.calls[0][0] as string;
       expect(message).toContain('Pago de $ 120.000,00 registrado en «Expensas».');
       expect(message).toContain('«Expensas» ya está cubierta: pendiente $ 0,00. Sigue Parcial hasta que se consolide.');
       expect(cells(rows('Gastos')[0])[8]).toBe('Parcial');
@@ -1069,11 +1091,11 @@ describe('BudgetMonth', () => {
       registerButtons()[0].click();
       await refresh();
 
-      expect(snackBar.open.mock.calls[0][1]).toBe('Consolidar');
+      expect(notice(0).action?.label).toBe('Consolidar');
       expect(dialog.open).toHaveBeenCalledTimes(1);
 
       dialogResult = undefined;
-      snackAction.next();
+      notice(0).action!.run();
       await refresh();
 
       expect(dialog.open).toHaveBeenCalledTimes(2);
@@ -1090,7 +1112,7 @@ describe('BudgetMonth', () => {
       registerButtons()[0].click();
       await refresh();
 
-      expect(snackBar.open.mock.calls[0][1]).toBeUndefined();
+      expect(notice(0).action).toBeUndefined();
     });
 
     it('el foco vuelve al «Registrar pago» de la partida', async () => {
@@ -1118,7 +1140,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
 
     it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
@@ -1130,7 +1152,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
   });
 
@@ -1177,6 +1199,8 @@ describe('BudgetMonth', () => {
 
       const data = dialog.open.mock.calls[0][1].data as ConsolidationDialogData;
       expect(data).toEqual({ entry: partial, period: '2026-11' });
+      // T-19: se abre con los diálogos de PrimeNG.
+      expect(dialog.open.mock.calls[0][1].primeng).toBe(true);
     });
 
     it('al consolidar avisa lo que hizo el backend y vuelve a pedir el mes: la partida se ve Consolidada y solo ofrece desconsolidar', async () => {
@@ -1194,7 +1218,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
-      expect(snackBar.open.mock.calls[0][0]).toContain('consolidada por $ 41.000,00');
+      expect(notices.show.mock.calls[0][0]).toContain('consolidada por $ 41.000,00');
       expect(cells(rows('Gastos')[0])[8]).toBe('Consolidada');
       expect(cells(rows('Gastos')[0])[7]).toBe('$ 0,00');
       expect(consolidateButtons()).toHaveLength(0);
@@ -1214,7 +1238,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
 
     it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
@@ -1226,7 +1250,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
   });
   describe('pagar o cobrar todo (HU-22)', () => {
@@ -1298,7 +1322,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
-      expect(snackBar.open.mock.calls[0][0]).toContain('Pago de $ 4.000,00 registrado');
+      expect(notices.show.mock.calls[0][0]).toContain('Pago de $ 4.000,00 registrado');
       expect(cells(rows('Gastos')[0])[8]).toBe('Consolidada');
       expect(cells(rows('Gastos')[0])[7]).toBe('$ 0,00');
       expect(settleButtons()).toHaveLength(0);
@@ -1313,7 +1337,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
 
     it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
@@ -1325,7 +1349,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
   });
 
@@ -1394,7 +1418,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
-      expect(snackBar.open.mock.calls[0][0]).toContain('volvió a Parcial');
+      expect(notices.show.mock.calls[0][0]).toContain('volvió a Parcial');
       expect(cells(rows('Gastos')[0])[8]).toBe('Parcial');
       expect(undoButtons()).toHaveLength(0);
       expect(root().querySelector('[data-testid="register-movement"]')).not.toBeNull();
@@ -1409,7 +1433,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls + 1);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
 
     it('si se cancela el diálogo no se vuelve a pedir nada', async () => {
@@ -1421,7 +1445,7 @@ describe('BudgetMonth', () => {
       await refresh();
 
       expect(api.getPeriod.mock.calls.length).toBe(calls);
-      expect(snackBar.open).not.toHaveBeenCalled();
+      expect(notices.show).not.toHaveBeenCalled();
     });
   });
 });
