@@ -212,8 +212,16 @@ test.describe('HU-09 · categorías', () => {
   const names = () =>
     page.getByRole('list', { name: 'Categorías' }).getByRole('listitem').locator('.name');
 
+  async function openNewCategory() {
+    const field = page.getByRole('textbox', { name: 'Nueva categoría' });
+    if ((await field.count()) === 0) {
+      await page.getByRole('button', { name: 'Nueva categoría' }).click();
+    }
+  }
+
   async function addCategory(name: string) {
-    await page.getByLabel('Nueva categoría').fill(name);
+    await openNewCategory();
+    await page.getByRole('textbox', { name: 'Nueva categoría' }).fill(name);
     await page.getByRole('button', { name: 'Agregar' }).click();
   }
 
@@ -239,12 +247,13 @@ test.describe('HU-09 · categorías', () => {
     await expect(page.getByText('Categoría «Hogar» creada.')).toBeVisible();
 
     await expect(names()).toHaveText(['Hogar', 'Servicios']);
-    await expect(page.getByLabel('Nueva categoría')).toHaveValue('');
+    await expect(page.getByRole('textbox', { name: 'Nueva categoría' })).toHaveCount(0);
     await expect(page.getByText('Ingresá el nombre de la categoría.')).toHaveCount(0);
   });
 
   test('un nombre en blanco no se envía y pide el nombre', async () => {
-    await page.getByLabel('Nueva categoría').fill('   ');
+    await openNewCategory();
+    await page.getByRole('textbox', { name: 'Nueva categoría' }).fill('   ');
     await page.getByRole('button', { name: 'Agregar' }).click();
 
     await expect(page.getByText('Ingresá el nombre de la categoría.')).toBeVisible();
@@ -254,7 +263,9 @@ test.describe('HU-09 · categorías', () => {
   test('nombre repetido, sin distinguir mayúsculas: muestra el error y no crea la categoría', async () => {
     await addCategory('hogar');
 
-    await expect(page.getByRole('alert')).toHaveText('Ya tenés una categoría con ese nombre.');
+    await expect(page.getByRole('alert').filter({ hasText: 'Ya tenés' })).toHaveText(
+      'Ya tenés una categoría con ese nombre.',
+    );
     await expect(names()).toHaveText(['Hogar', 'Servicios']);
   });
 

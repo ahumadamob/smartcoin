@@ -63,6 +63,7 @@ describe('Categories', () => {
   };
   const names = () => Array.from(root().querySelectorAll('li .name')).map((n) => n.textContent);
   const field = (label: string) =>
+    root().querySelector<HTMLInputElement>(`input[aria-label="${label}"]`) ??
     Array.from(root().querySelectorAll('mat-form-field'))
       .find((f) => f.querySelector('label')?.textContent?.includes(label))!
       .querySelector('input')!;
@@ -92,9 +93,13 @@ describe('Categories', () => {
 
   it('todos los campos y botones tienen etiqueta', async () => {
     await setup([category(1, 'Hogar')]);
+    click('Nueva categoría');
+    expect(field('Nueva categoría')).toBeTruthy();
+    expect(button('Agregar')).toBeTruthy();
+    expect(button('Cancelar')).toBeTruthy();
+    click('Cancelar');
     click('Renombrar Hogar');
 
-    expect(field('Nueva categoría')).toBeTruthy();
     expect(field('Nombre de la categoría')).toBeTruthy();
     expect(button('Renombrar Hogar')).toBeUndefined();
     expect(button('Eliminar Hogar')).toBeUndefined();
@@ -102,8 +107,21 @@ describe('Categories', () => {
   });
 
   describe('alta', () => {
-    it('crea la categoría con el nombre recortado, vacía el campo, recarga y avisa', async () => {
+    it('el campo no se ve hasta pulsar «Nueva categoría», y «Cancelar» lo cierra', async () => {
+      await setup([category(1, 'Hogar')]);
+
+      expect(root().querySelector('form.add')).toBeNull();
+      click('Nueva categoría');
+      expect(root().querySelector('form.add')).toBeTruthy();
+      expect(document.activeElement).toBe(field('Nueva categoría'));
+      click('Cancelar');
+      expect(root().querySelector('form.add')).toBeNull();
+      expect(button('Nueva categoría')).toBeTruthy();
+    });
+
+    it('crea la categoría con el nombre recortado, cierra el campo, recarga y avisa', async () => {
       await setup([]);
+      click('Nueva categoría');
       api.createCategory.mockReturnValue(of(category(5, 'Impuestos')));
       api.listCategories.mockReturnValue(of([category(5, 'Impuestos')]));
       type(field('Nueva categoría'), '  Impuestos ');
@@ -112,7 +130,7 @@ describe('Categories', () => {
       expect(api.createCategory).toHaveBeenCalledWith({ name: 'Impuestos' });
       expect(api.listCategories).toHaveBeenCalledTimes(2);
       expect(names()).toEqual(['Impuestos']);
-      expect(field('Nueva categoría').value).toBe('');
+      expect(root().querySelector('form.add')).toBeNull();
       expect(root().querySelector('mat-error')).toBeNull();
       expect(snackBar.open).toHaveBeenCalledWith(
         'Categoría «Impuestos» creada.',
@@ -123,6 +141,7 @@ describe('Categories', () => {
 
     it('un nombre vacío o en blanco no se envía y pide el nombre', async () => {
       await setup([]);
+      click('Nueva categoría');
       type(field('Nueva categoría'), '   ');
       submit('form.add');
 
@@ -132,12 +151,14 @@ describe('Categories', () => {
 
     it('el campo no admite más de 60 caracteres', async () => {
       await setup([]);
+      click('Nueva categoría');
 
       expect(field('Nueva categoría').getAttribute('maxlength')).toBe('60');
     });
 
     it('con el nombre repetido muestra el error del backend y no agrega nada', async () => {
       await setup([category(1, 'Hogar')]);
+      click('Nueva categoría');
       api.createCategory.mockReturnValue(problem(409, 'CATEGORY_NAME_TAKEN'));
       type(field('Nueva categoría'), 'hogar');
       submit('form.add');

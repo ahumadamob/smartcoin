@@ -3,33 +3,6 @@
     <h1 class="title">Categorías</h1>
   </header>
 
-  <form
-    class="add"
-    [formGroup]="addForm"
-    #addDirective="ngForm"
-    (ngSubmit)="add(addDirective)"
-    novalidate
-  >
-    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="add-field">
-      <mat-label>Nueva categoría</mat-label>
-      <input
-        matInput
-        [formControl]="newName"
-        [attr.maxlength]="maxLength"
-        autocomplete="off"
-        required
-      />
-      @if (newName.hasError('required') || newName.hasError('blank')) {
-        <mat-error>Ingresá el nombre de la categoría.</mat-error>
-      }
-    </mat-form-field>
-    <button mat-flat-button type="submit" [disabled]="adding()">Agregar</button>
-  </form>
-
-  @if (addError(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
-  }
-
   @if (error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
   }
@@ -54,48 +27,145 @@
             (keydown.escape)="cancelRename()"
             novalidate
           >
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="edit-field">
-              <mat-label>Nombre de la categoría</mat-label>
-              <input
-                #editInput
-                matInput
-                [formControl]="editName"
-                [attr.maxlength]="maxLength"
-                autocomplete="off"
-                required
-              />
-              @if (editName.hasError('required') || editName.hasError('blank')) {
-                <mat-error>Ingresá el nombre de la categoría.</mat-error>
+            <div class="edit-field">
+              <p-iconfield>
+                <p-inputicon class="pi pi-tag" />
+                <input
+                  #editInput
+                  pInputText
+                  fluid
+                  [formControl]="editName"
+                  [attr.maxlength]="maxLength"
+                  placeholder="Nombre de la categoría"
+                  aria-label="Nombre de la categoría"
+                  [invalid]="editInvalid()"
+                  [attr.aria-invalid]="editInvalid() ? 'true' : null"
+                  [attr.aria-describedby]="
+                    editName.invalid && editName.touched ? 'edit-category-error' : null
+                  "
+                  autocomplete="off"
+                  required
+                />
+              </p-iconfield>
+              @if (
+                editName.touched && (editName.hasError('required') || editName.hasError('blank'))
+              ) {
+                <p-message id="edit-category-error" severity="error" variant="simple" size="small">
+                  Ingresá el nombre de la categoría.
+                </p-message>
               }
-            </mat-form-field>
-            <button mat-flat-button type="submit" [disabled]="saving()">Guardar</button>
-            <button mat-button type="button" (click)="cancelRename()">Cancelar</button>
+            </div>
+            <p-buttongroup>
+              <p-button
+                class="action"
+                [fluid]="true"
+                type="submit"
+                label="Guardar"
+                icon="pi pi-check"
+                [disabled]="saving()"
+              />
+              <p-button
+                class="action"
+                [fluid]="true"
+                type="button"
+                label="Cancelar"
+                icon="pi pi-times"
+                (onClick)="cancelRename()"
+              />
+            </p-buttongroup>
           </form>
           @if (editError(); as message) {
-            <p class="error" role="alert">{{ message }}</p>
+            <p-message class="row-error" severity="error" variant="simple" size="small">{{
+              message
+            }}</p-message>
           }
         } @else {
           <span class="name">{{ category.name }}</span>
-          <div class="row-actions">
-            <button
-              mat-button
+          <p-buttongroup>
+            <p-button
+              class="action"
+              [fluid]="true"
               type="button"
-              (click)="startRename(category)"
-              [attr.aria-label]="'Renombrar ' + category.name"
-            >
-              Renombrar
-            </button>
-            <button
-              mat-button
+              label="Renombrar"
+              icon="pi pi-pencil"
+              [ariaLabel]="'Renombrar ' + category.name"
+              (onClick)="startRename(category)"
+            />
+            <p-button
+              class="action"
+              [fluid]="true"
               type="button"
-              (click)="confirmDelete(category)"
-              [attr.aria-label]="'Eliminar ' + category.name"
-            >
-              Eliminar
-            </button>
-          </div>
+              label="Eliminar"
+              icon="pi pi-trash"
+              [ariaLabel]="'Eliminar ' + category.name"
+              (onClick)="confirmDelete(category)"
+            />
+          </p-buttongroup>
         }
       </li>
     }
+    <li class="row">
+      @if (creating()) {
+        <form
+          class="add"
+          [formGroup]="addForm"
+          (ngSubmit)="add()"
+          (keydown.escape)="cancelAdd()"
+          novalidate
+        >
+          <div class="add-field">
+            <p-iconfield>
+              <p-inputicon class="pi pi-tag" />
+              <input
+                #addInput
+                pInputText
+                fluid
+                [formControl]="newName"
+                [attr.maxlength]="maxLength"
+                placeholder="Nueva categoría"
+                aria-label="Nueva categoría"
+                [invalid]="addInvalid()"
+                [attr.aria-invalid]="addInvalid() ? 'true' : null"
+                [attr.aria-describedby]="
+                  newName.invalid && newName.touched ? 'new-category-error' : null
+                "
+                autocomplete="off"
+                required
+              />
+            </p-iconfield>
+            @if (newName.touched && (newName.hasError('required') || newName.hasError('blank'))) {
+              <p-message id="new-category-error" severity="error" variant="simple" size="small">
+                Ingresá el nombre de la categoría.
+              </p-message>
+            }
+          </div>
+          <p-buttongroup>
+            <p-button
+              class="action"
+              [fluid]="true"
+              type="submit"
+              label="Agregar"
+              icon="pi pi-check"
+              [disabled]="adding()"
+            />
+            <p-button
+              class="action"
+              [fluid]="true"
+              type="button"
+              label="Cancelar"
+              icon="pi pi-times"
+              (onClick)="cancelAdd()"
+            />
+          </p-buttongroup>
+        </form>
+        @if (addError(); as message) {
+          <p-message class="row-error" severity="error" variant="simple" size="small">{{
+            message
+          }}</p-message>
+        }
+      } @else {
+        <p-button type="button" label="Nueva categoría" icon="pi pi-plus" (onClick)="startAdd()" />
+      }
+    </li>
   </ul>
 </div>

@@ -8,19 +8,21 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
+import { IconField } from 'primeng/iconfield';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
+import { Message } from 'primeng/message';
 import {
   AbstractControl,
   FormControl,
   FormGroup,
-  FormGroupDirective,
   ReactiveFormsModule,
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { CategorasService, CategoryResponse } from '../../api';
 import { messageFor } from '../../core/error-messages';
@@ -46,7 +48,7 @@ function nameControl(): FormControl<string> {
 @Component({
   selector: 'app-categories',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [ReactiveFormsModule, Button, ButtonGroup, IconField, InputIcon, InputText, Message],
   templateUrl: './categories.html',
   styleUrl: './categories.scss',
 })
@@ -63,6 +65,8 @@ export class Categories implements OnInit {
 
   protected readonly newName = nameControl();
   protected readonly addForm = new FormGroup({ name: this.newName });
+  /** La fila del final tiene abierto el campo de la categoría nueva. */
+  protected readonly creating = signal(false);
   protected readonly addError = signal<string | null>(null);
   protected readonly adding = signal(false);
 
@@ -74,10 +78,12 @@ export class Categories implements OnInit {
   protected readonly saving = signal(false);
 
   private readonly editInput = viewChild<ElementRef<HTMLInputElement>>('editInput');
+  private readonly addInput = viewChild<ElementRef<HTMLInputElement>>('addInput');
 
   constructor() {
     // Al abrir el cambio de nombre, el foco va al campo, así se puede seguir con el teclado.
     effect(() => this.editInput()?.nativeElement.focus());
+    effect(() => this.addInput()?.nativeElement.focus());
   }
 
   ngOnInit(): void {
@@ -93,7 +99,26 @@ export class Categories implements OnInit {
     });
   }
 
-  protected add(directive: FormGroupDirective): void {
+  /** El campo de la categoría nueva se marca en rojo por formato inválido o por el error del backend. */
+  protected addInvalid(): boolean {
+    return (this.newName.invalid && this.newName.touched) || this.addError() !== null;
+  }
+
+  protected editInvalid(): boolean {
+    return (this.editName.invalid && this.editName.touched) || this.editError() !== null;
+  }
+
+  protected startAdd(): void {
+    this.addError.set(null);
+    this.newName.reset('');
+    this.creating.set(true);
+  }
+
+  protected cancelAdd(): void {
+    this.creating.set(false);
+  }
+
+  protected add(): void {
     if (this.newName.invalid) {
       this.newName.markAsTouched();
       return;
@@ -103,8 +128,7 @@ export class Categories implements OnInit {
     this.api.createCategory({ name: this.newName.value.trim() }).subscribe({
       next: (category) => {
         this.adding.set(false);
-        // El directivo recuerda que el formulario se envió: sin resetearlo a él, el campo vacío se vería inválido.
-        directive.resetForm({ name: '' });
+        this.creating.set(false);
         this.reload();
         this.snackBar.open(`Categoría «${category.name}» creada.`, undefined, { duration: 4000 });
       },
