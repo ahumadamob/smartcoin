@@ -1,5 +1,6 @@
+import { DOCUMENT } from '@angular/common';
 import { afterNextRender, Directive, ElementRef, inject, Injectable, Injector, Type } from '@angular/core';
-import { DialogService } from 'primeng/dynamicdialog';
+import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { AsyncSubject, EMPTY, Observable, take } from 'rxjs';
 
 let nextTitleId = 0;
@@ -10,14 +11,29 @@ export interface DialogOptions {
 }
 
 /**
- * Abre diálogos de PrimeNG (T-19) con las mismas garantías que daba `MatDialog`: modal, se cierra con Escape (sin
- * resultado, como «Cancelar»), lleva el foco adentro al abrir y, al cerrar, lo devuelve al elemento que lo tenía.
+ * Abre diálogos de PrimeNG (T-19) con las mismas garantías que daba `MatDialog`: modal, Escape cierra el de arriba
+ * (sin resultado, como «Cancelar»), lleva el foco adentro al abrir y, al cerrar, lo devuelve al elemento que lo tenía.
  * El título lo pone cada diálogo con la directiva `appDialogTitle`, porque cambia según lo que se hace. El contenido
  * recibe los datos con `inject(DynamicDialogConfig).data` y se cierra con `inject(DynamicDialogRef).close(resultado)`.
  */
 @Injectable({ providedIn: 'root' })
 export class Dialogs {
   private readonly service = inject(DialogService);
+  /** Los diálogos abiertos, del primero al último: Escape cierra el de arriba. */
+  private readonly stack: DynamicDialogRef[] = [];
+
+  constructor() {
+    // Escape lo maneja este servicio y no `p-dialog`, que solo cierra si su z-index es el último que anotó PrimeNG, y
+    // eso deja de cumplirse después de abrir la lista de un `p-select` dentro del diálogo. Si la lista está abierta, el
+    // `p-select` consume el Escape (lo frena) y el diálogo sigue abierto, como con Material.
+    inject(DOCUMENT).addEventListener('keydown', (event: KeyboardEvent) => {
+      const top = this.stack.at(-1);
+      if (event.key === 'Escape' && !event.defaultPrevented && top !== undefined) {
+        event.preventDefault();
+        top.close();
+      }
+    });
+  }
 
   /**
    * Emite una vez, cuando el diálogo ya se cerró y el foco volvió (como `afterClosed` de Material): el resultado o
@@ -32,9 +48,8 @@ export class Dialogs {
       modal: true,
       styleClass: 'app-dialog',
       showHeader: false,
-      // PrimeNG solo escucha Escape si el diálogo se puede cerrar; sin encabezado, igual no muestra la «X».
-      closable: true,
-      closeOnEscape: true,
+      closable: false,
+      closeOnEscape: false,
       dismissableMask: false,
       focusOnShow: true,
       focusTrap: true,
@@ -44,10 +59,12 @@ export class Dialogs {
     if (ref === null) {
       return EMPTY;
     }
+    this.stack.push(ref);
     const closed = new AsyncSubject<R | undefined>();
     let result: R | undefined;
     ref.onClose.pipe(take(1)).subscribe((value: R | undefined) => (result = value));
     ref.onDestroy.pipe(take(1)).subscribe(() => {
+      this.stack.splice(this.stack.indexOf(ref), 1);
       // El foco estaba adentro del diálogo, que ya no existe: vuelve al elemento que lo abrió, si sigue en la página.
       const current = document.activeElement;
       if (trigger?.isConnected && (current === null || current === document.body)) {

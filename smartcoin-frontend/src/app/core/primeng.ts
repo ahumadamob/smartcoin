@@ -19,6 +19,9 @@ export function provideAppPrimeNG(): EnvironmentProviders {
       options: { darkModeSelector: false, cssLayer: { name: 'primeng', order: 'primeng' } },
     },
     ripple: false,
+    // El botón de la flecha de `p-select` se anuncia como «dropdown trigger», en inglés, y repite lo que ya dice el
+    // combobox (que es el que recibe el foco): se oculta a los lectores de pantalla.
+    pt: { select: { dropdown: { 'aria-hidden': 'true' } } },
     translation: PRIMENG_ES,
     license: PRIMEUI_LICENSE || undefined,
   });

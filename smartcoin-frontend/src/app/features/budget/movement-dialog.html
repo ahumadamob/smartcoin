@@ -127,7 +127,9 @@
 
         <div class="pair">
           <div class="field">
-            <label for="movement-date">Fecha <span class="required" aria-hidden="true">*</span></label>
+            <span class="field-label">
+              <label for="movement-date">Fecha</label><span class="required" aria-hidden="true">*</span>
+            </span>
             <input
               pInputText
               id="movement-date"
@@ -152,7 +154,9 @@
           </div>
 
           <div class="field">
-            <label for="movement-amount">Monto <span class="required" aria-hidden="true">*</span></label>
+            <span class="field-label">
+              <label for="movement-amount">Monto</label><span class="required" aria-hidden="true">*</span>
+            </span>
             <input
               pInputText
               id="movement-amount"
@@ -183,9 +187,10 @@
         </div>
 
         <div class="field">
-          <label id="movement-account-label" for="movement-account">
-            Cuenta <span class="required" aria-hidden="true">*</span>
-          </label>
+          <span class="field-label">
+            <label id="movement-account-label" for="movement-account">Cuenta</label>
+            <span class="required" aria-hidden="true">*</span>
+          </span>
           <p-select
             inputId="movement-account"
             ariaLabelledBy="movement-account-label"
@@ -213,7 +218,7 @@
         </div>
 
         <div class="field">
-          <label for="movement-note">Nota</label>
+          <span class="field-label"><label for="movement-note">Nota</label></span>
           <input
             pInputText
             id="movement-note"

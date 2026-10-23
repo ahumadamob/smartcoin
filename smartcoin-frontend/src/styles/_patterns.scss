@@ -32,7 +32,9 @@
   gap: 0.375rem;
   min-width: 0;
 
-  > label {
+  > .field-label {
+    display: flex;
+    gap: 0.25rem;
     font-weight: 600;
   }
 
@@ -46,7 +48,8 @@
   }
 }
 
-// La marca de obligatorio es visual: el campo lleva `required`, que es lo que anuncia el lector de pantalla.
+// La marca de obligatorio es visual y va fuera de la `<label>`, para que el nombre del campo sea solo su etiqueta: el
+// campo lleva `required`, que es lo que anuncia el lector de pantalla.
 .required {
   color: var(--p-red-700);
 }
