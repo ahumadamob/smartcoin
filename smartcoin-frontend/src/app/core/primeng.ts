@@ -24,7 +24,7 @@ const Sakai = definePreset(Aura, {
   },
   components: {
     tag: { root: { fontSize: '0.875rem', fontWeight: '700', padding: '0.25rem 0.5rem' } },
-    button: { root: { sm: { iconOnlyWidth: '2rem' } } },
+    button: { root: { iconOnlyWidth: '2.5rem', sm: { iconOnlyWidth: '2rem' } } },
   },
 });
 

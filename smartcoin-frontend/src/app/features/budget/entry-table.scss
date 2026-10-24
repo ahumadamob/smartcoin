@@ -56,17 +56,21 @@ thead th {
 // Va por clase y no por `tfoot`, que dibuja `p-table` y no lleva el atributo de estilos del componente.
 .total-row th,
 .total-row td {
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
   font-weight: 700;
 }
 
 .total-income th,
 .total-income td {
-  background: var(--p-green-50);
+  // 85 % del camino del verde 50 (casi blanco) al 100.
+  background: color-mix(in srgb, var(--p-green-100) 85%, var(--p-green-50));
 }
 
 .total-expense th,
 .total-expense td {
-  background: var(--p-red-50);
+  // 85 % del camino del rojo 50 (casi blanco) al 100.
+  background: color-mix(in srgb, var(--p-red-100) 85%, var(--p-red-50));
 }
 
 .number {
@@ -96,6 +100,14 @@ td.actions {
   grid-template-columns: repeat(5, $button-size);
   justify-content: end;
   gap: $button-gap;
+}
+
+.register-icon,
+.settle-icon,
+.edit-amount-icon,
+.delete-icon {
+  // El de PrimeIcons mide 14 px; el de Material Icons, 24: se iguala para que quede del mismo tamaño que los demás.
+  font-size: 1.25rem;
 }
 
 .slot {

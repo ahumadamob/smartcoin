@@ -52,7 +52,7 @@ interface FooterRow {
  * período cerrado no tiene acciones) y alguna partida de la sección tiene una: no se dibuja una columna vacía. Hoy son
  * «Registrar cobro» o «Registrar pago» (HU-19), «Editar» (partidas sin Concepto, HU-16), «Editar monto» (recurrentes,
  * HU-17), «Consolidar» (HU-23) y «Eliminar» (HU-18). La tabla no cambia nada: emite el pedido y quien la
- * usa abre el diálogo. Son botones redondos con ícono y borde, cada uno en su propio lugar de la fila, con la etiqueta como
+ * usa abre el diálogo. Son botones de solo ícono (los «Icons» de Sakai), cada uno en su propio lugar de la fila, con la etiqueta como
  * `aria-label` y como ayuda al pasar el mouse.
  */
 @Component({

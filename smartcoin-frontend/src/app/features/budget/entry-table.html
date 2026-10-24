@@ -71,17 +71,16 @@
                   @if (canRegister(entry)) {
                     <button
                       pButton
-                      rounded
                       iconOnly
-                      variant="text"
-                      raised
                       type="button"
                       data-testid="register-movement"
                       [pTooltip]="registerLabel(entry.kind)"
                       [attr.aria-label]="registerLabel(entry.kind) + ' de ' + entry.name"
                       (click)="registerMovement.emit(entry)"
                     >
-                      <i class="pi pi-plus" aria-hidden="true"></i>
+                      <span class="material-icons register-icon" aria-hidden="true"
+                        >attach_money</span
+                      >
                     </button>
                   }
                 </span>
@@ -89,10 +88,7 @@
                   @if (canSettle(entry)) {
                     <button
                       pButton
-                      rounded
                       iconOnly
-                      variant="text"
-                      raised
                       severity="success"
                       type="button"
                       data-testid="quick-settle"
@@ -100,7 +96,9 @@
                       [attr.aria-label]="quickSettleLabel(entry.kind) + ' de ' + entry.name"
                       (click)="quickSettle.emit(entry)"
                     >
-                      <i class="pi pi-check" aria-hidden="true"></i>
+                      <span class="material-symbols-outlined settle-icon" aria-hidden="true"
+                        >mintmark</span
+                      >
                     </button>
                   }
                 </span>
@@ -108,10 +106,7 @@
                   @if (canConsolidate(entry)) {
                     <button
                       pButton
-                      rounded
                       iconOnly
-                      variant="text"
-                      raised
                       severity="info"
                       type="button"
                       data-testid="consolidate-entry"
@@ -124,10 +119,7 @@
                   } @else if (canUndo(entry)) {
                     <button
                       pButton
-                      rounded
                       iconOnly
-                      variant="text"
-                      raised
                       severity="warn"
                       type="button"
                       data-testid="unconsolidate-entry"
@@ -143,10 +135,7 @@
                   @if (canEdit(entry)) {
                     <button
                       pButton
-                      rounded
                       iconOnly
-                      variant="text"
-                      raised
                       severity="secondary"
                       type="button"
                       data-testid="edit-entry"
@@ -159,18 +148,17 @@
                   } @else if (canEditAmount(entry)) {
                     <button
                       pButton
-                      rounded
                       iconOnly
-                      variant="text"
-                      raised
-                      severity="secondary"
+                      severity="info"
                       type="button"
                       data-testid="edit-amount"
                       pTooltip="Editar monto"
                       [attr.aria-label]="'Editar monto de ' + entry.name"
                       (click)="editAmount.emit(entry)"
                     >
-                      <i class="pi pi-pencil" aria-hidden="true"></i>
+                      <span class="material-symbols-outlined edit-amount-icon" aria-hidden="true"
+                        >edit_line</span
+                      >
                     </button>
                   }
                 </span>
@@ -178,10 +166,7 @@
                   @if (canDelete(entry)) {
                     <button
                       pButton
-                      rounded
                       iconOnly
-                      variant="text"
-                      raised
                       severity="danger"
                       type="button"
                       data-testid="delete-entry"
@@ -189,7 +174,9 @@
                       [attr.aria-label]="'Eliminar ' + entry.name"
                       (click)="remove.emit(entry)"
                     >
-                      <i class="pi pi-trash" aria-hidden="true"></i>
+                      <span class="material-icons delete-icon" aria-hidden="true"
+                        >delete_forever</span
+                      >
                     </button>
                   }
                 </span>
