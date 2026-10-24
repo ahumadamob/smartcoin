@@ -34,3 +34,8 @@
 .removal p {
   margin: 8px 0 0;
 }
+
+// El botón no se estira al ancho de la columna.
+a[pButton] {
+  align-self: flex-start;
+}

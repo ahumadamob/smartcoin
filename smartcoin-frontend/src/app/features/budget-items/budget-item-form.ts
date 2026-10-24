@@ -21,7 +21,9 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { Checkbox } from 'primeng/checkbox';
 import { IconField } from 'primeng/iconfield';
 import { InputGroup } from 'primeng/inputgroup';
@@ -93,6 +95,7 @@ function wholeNumber(control: AbstractControl): ValidationErrors | null {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     Button,
+    ButtonGroup,
     Checkbox,
     IconField,
     InputGroup,
@@ -109,6 +112,7 @@ function wholeNumber(control: AbstractControl): ValidationErrors | null {
 })
 export class BudgetItemForm {
   private readonly api = inject(ConceptosService);
+  private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly money = new MoneyPipe();
 
@@ -315,6 +319,11 @@ export class BudgetItemForm {
       estimationRule: 'LAST_VALUE' as const,
       currentAmount: '',
     };
+  }
+
+  /** Cancelar vuelve a la lista de Conceptos sin guardar. */
+  protected cancel(): void {
+    void this.router.navigate(['/conceptos']);
   }
 
   protected submit(): void {

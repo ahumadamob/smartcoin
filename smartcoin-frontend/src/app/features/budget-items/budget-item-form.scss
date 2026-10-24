@@ -66,4 +66,13 @@
 .actions {
   display: flex;
   justify-content: flex-end;
+
+  p-buttongroup {
+    display: flex;
+    width: 15rem;
+  }
+}
+
+.action {
+  flex: 0 0 7.5rem;
 }

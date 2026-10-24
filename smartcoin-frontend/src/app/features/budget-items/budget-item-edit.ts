@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ButtonDirective } from 'primeng/button';
 import { forkJoin } from 'rxjs';
 import {
   AccountResponse,
@@ -21,7 +22,7 @@ import { BudgetItemForm } from './budget-item-form';
 @Component({
   selector: 'app-budget-item-edit',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, BudgetItemForm],
+  imports: [BudgetItemForm, ButtonDirective, RouterLink],
   templateUrl: './budget-item-edit.html',
   styleUrl: './budget-item-edit.scss',
 })

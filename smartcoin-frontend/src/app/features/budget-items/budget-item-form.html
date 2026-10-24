@@ -430,11 +430,24 @@
   }
 
   <div class="actions">
-    <p-button
-      type="submit"
-      [label]="editing() ? 'Guardar cambios' : 'Crear Concepto'"
-      icon="pi pi-check"
-      [disabled]="submitting()"
-    />
+    <p-buttongroup>
+      <p-button
+        class="action"
+        [fluid]="true"
+        type="button"
+        label="Cancelar"
+        icon="pi pi-times"
+        severity="info"
+        (onClick)="cancel()"
+      />
+      <p-button
+        class="action"
+        [fluid]="true"
+        type="submit"
+        [label]="editing() ? 'Guardar' : 'Crear'"
+        icon="pi pi-check"
+        [disabled]="submitting()"
+      />
+    </p-buttongroup>
   </div>
 </form>

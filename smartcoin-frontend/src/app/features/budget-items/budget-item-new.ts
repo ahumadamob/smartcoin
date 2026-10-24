@@ -1,15 +1,14 @@
+import { formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  effect,
-  ElementRef,
   inject,
+  LOCALE_ID,
   OnInit,
   signal,
-  viewChild,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { Message } from 'primeng/message';
 import { forkJoin } from 'rxjs';
 import {
   AccountResponse,
@@ -20,6 +19,7 @@ import {
 } from '../../api';
 import { messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
+import { Notices } from '../../core/notices';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
 import { BudgetItemForm } from './budget-item-form';
 
@@ -36,7 +36,7 @@ function currentPeriod(): string {
 @Component({
   selector: 'app-budget-item-new',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, RouterLink, PeriodPipe, BudgetItemForm],
+  imports: [BudgetItemForm, Message, RouterLink],
   templateUrl: './budget-item-new.html',
   styleUrl: './budget-item-new.scss',
 })
@@ -44,27 +44,17 @@ export class BudgetItemNew implements OnInit {
   private readonly accountsApi = inject(CuentasService);
   private readonly categoriesApi = inject(CategorasService);
 
-  protected readonly dateFormat = DATE_FORMAT;
+  private readonly router = inject(Router);
+  private readonly notices = inject(Notices);
+  private readonly locale = inject(LOCALE_ID);
+  private readonly period = new PeriodPipe();
+
   protected readonly suggestedStartPeriod = currentPeriod();
 
   protected readonly accounts = signal<AccountResponse[]>([]);
   protected readonly categories = signal<CategoryResponse[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
-  /** El último Concepto creado en esta pantalla, con su resumen de generación. */
-  protected readonly created = signal<BudgetItemResponse | null>(null);
-
-  private readonly summary = viewChild<ElementRef<HTMLElement>>('summary');
-
-  constructor() {
-    // El botón de guardar queda al final del formulario: el resumen, que está arriba, se trae a la vista.
-    effect(() => {
-      // Depende también del Concepto creado: en el segundo guardado el elemento del resumen es el mismo.
-      if (this.created() !== null) {
-        this.summary()?.nativeElement.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-      }
-    });
-  }
 
   ngOnInit(): void {
     forkJoin({
@@ -81,5 +71,38 @@ export class BudgetItemNew implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  /** Al crear el Concepto vuelve a la lista y avisa qué partidas generó el backend (antes era un resumen en la pantalla). */
+  protected onCreated(item: BudgetItemResponse): void {
+    this.notices.show(this.summary(item), { duration: 10000 });
+    void this.router.navigate(['/conceptos']);
+  }
+
+  private summary(item: BudgetItemResponse): string {
+    const generation = item.generation;
+    const parts = [`Concepto «${item.name}» creado.`];
+    parts.push(
+      generation.entryCount === 1
+        ? `Se generó 1 partida, en ${this.period.transform(generation.firstPeriod)}.`
+        : `Se generaron ${generation.entryCount} partidas, de ${this.period.transform(generation.firstPeriod)} a ${this.period.transform(generation.lastPeriod)}.`,
+    );
+    parts.push(
+      `Primer vencimiento: ${formatDate(generation.firstDueDate, DATE_FORMAT, this.locale)}.`,
+    );
+    const total = item.installmentsTotal;
+    if (total) {
+      parts.push(
+        generation.firstInstallment === generation.lastInstallment
+          ? `Es la cuota ${generation.lastInstallment} de ${total}.`
+          : `Son las cuotas ${generation.firstInstallment} a ${generation.lastInstallment} de ${total}.`,
+      );
+      if (generation.lastInstallment !== total) {
+        parts.push(
+          `El plan termina en ${this.period.transform(item.endPeriod)}; las demás cuotas se generan a medida que avance el horizonte.`,
+        );
+      }
+    }
+    return parts.join(' ');
   }
 }
