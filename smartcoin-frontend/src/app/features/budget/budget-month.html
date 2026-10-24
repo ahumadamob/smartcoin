@@ -21,8 +21,16 @@
       @if (view(); as current) {
         @if (!readonly()) {
           <span class="actions">
-            <button pButton type="button" data-testid="add-entry" (click)="addEntry()">Agregar partida</button>
-            <a pButton variant="outlined" [routerLink]="['/cierre', current.period]" data-testid="close-period">Cerrar mes</a>
+            <button pButton type="button" data-testid="add-entry" (click)="addEntry()">
+              Agregar partida
+            </button>
+            <a
+              pButton
+              variant="outlined"
+              [routerLink]="['/cierre', current.period]"
+              data-testid="close-period"
+              >Cerrar mes</a
+            >
           </span>
         }
       }
@@ -31,7 +39,7 @@
     @if (range() && !error()) {
       <nav class="period-nav" aria-label="Meses">
         <button pButton type="button" [disabled]="!previous()" (click)="go(previous())">
-          <i class="pi pi-chevron-left" aria-hidden="true"></i>Anterior
+          <span class="material-icons nav-icon" aria-hidden="true">arrow_back_ios</span>Anterior
         </button>
         <span class="month">
           <label id="month-label" for="month-select">Mes</label>
@@ -47,10 +55,15 @@
           />
         </span>
         <button pButton type="button" [disabled]="!next()" (click)="go(next())">
-          Siguiente<i class="pi pi-chevron-right" aria-hidden="true"></i>
+          Siguiente<span class="material-icons nav-icon" aria-hidden="true">arrow_forward_ios</span>
         </button>
-        <a pButton severity="warn" routerLink="/presupuesto" [attr.aria-current]="isCurrent() ? 'page' : null">
-          <i class="pi pi-sun" aria-hidden="true"></i>Hoy
+        <a
+          pButton
+          severity="warn"
+          routerLink="/presupuesto"
+          [attr.aria-current]="isCurrent() ? 'page' : null"
+        >
+          <span class="material-icons nav-icon" aria-hidden="true">today</span>Hoy
         </a>
       </nav>
     }
@@ -121,8 +134,12 @@
               @for (total of current.totals; track total.currency) {
                 <tr data-testid="result">
                   <th scope="row">{{ total.currency === 'USD' ? 'Dólares' : 'Pesos' }}</th>
-                  <td class="number">{{ total.income.forecastAmount | money: total.currency : 0 }}</td>
-                  <td class="number">{{ total.expense.forecastAmount | money: total.currency : 0 }}</td>
+                  <td class="number">
+                    {{ total.income.forecastAmount | money: total.currency : 0 }}
+                  </td>
+                  <td class="number">
+                    {{ total.expense.forecastAmount | money: total.currency : 0 }}
+                  </td>
                   <td class="number strong">{{ total.result | money: total.currency : 0 }}</td>
                 </tr>
               }

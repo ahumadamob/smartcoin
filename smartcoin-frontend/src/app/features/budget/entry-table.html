@@ -36,7 +36,11 @@
       </ng-template>
       <ng-template #body let-row>
         @let entry = asEntry(row);
-        <tr [class.overdue]="entry.overdue" [attr.data-entry-id]="entry.id">
+        <tr
+          [class.overdue]="entry.overdue"
+          [class.consolidated]="entry.status === 'CONSOLIDATED'"
+          [attr.data-entry-id]="entry.id"
+        >
           <td class="nowrap" data-testid="due">
             {{ entry.dueDate | date: dateFormat }}
             @if (entry.overdue) {
