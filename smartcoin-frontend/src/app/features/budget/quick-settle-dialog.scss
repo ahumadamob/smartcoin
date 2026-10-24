@@ -5,8 +5,7 @@
 .content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-top: 8px;
+  gap: 1rem;
 }
 
 .context,
@@ -17,35 +16,28 @@
 }
 
 .context {
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.amount {
-  font: var(--mat-sys-body-large);
+  color: var(--p-text-muted-color);
 }
 
 .subheading {
-  font: var(--mat-sys-title-small);
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .error {
-  color: var(--mat-sys-error);
+  color: var(--p-red-700);
 }
 
 .notice {
   margin: 0;
-  padding: 12px 16px;
-  border-left: 4px solid var(--mat-sys-primary);
-  background: var(--mat-sys-surface-container);
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--p-primary-color);
+  background: var(--p-surface-100);
 }
 
 .pair {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-button:focus-visible {
-  outline: 2px solid var(--mat-sys-primary);
-  outline-offset: 2px;
+  // Dos columnas cuando entran; en un ancho angosto, una debajo de la otra.
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
 }

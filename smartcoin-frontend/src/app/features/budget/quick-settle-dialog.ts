@@ -15,12 +15,12 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
+import { ButtonDirective } from 'primeng/button';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
+import { InputText } from 'primeng/inputtext';
+import { Message } from 'primeng/message';
+import { Select } from 'primeng/select';
 import { catchError, EMPTY, forkJoin, switchMap } from 'rxjs';
 import {
   AccountResponse,
@@ -30,6 +30,7 @@ import {
   PeriodEntry,
   QuickSettlePreview,
 } from '../../api';
+import { DialogTitle } from '../../core/dialogs';
 import { detailFor, messageFor } from '../../core/error-messages';
 import { DATE_FORMAT } from '../../core/locale';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
@@ -58,12 +59,16 @@ export interface QuickSettleDialogData {
  * lo que se ve ya no es lo que hay (período cerrado, partida inexistente, consolidada o sin pendiente), o sin valor
  * si el usuario canceló.
  */
-export type QuickSettleDialogResult = { settled: true; message: string; entry: PeriodEntry } | { stale: true };
+export type QuickSettleDialogResult =
+  { settled: true; message: string; entry: PeriodEntry } | { stale: true };
 
 /** Estos códigos significan que lo que muestra la pantalla ya no es lo que hay en el backend. */
 const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'NOTHING_PENDING', 'NOT_FOUND'];
 
 type FieldName = 'date' | 'accountId';
+
+/** El elemento enfocable de cada campo (en un `p-select` es el combobox interno, por su `inputId`). */
+const FIELD_IDS: Record<FieldName, string> = { date: 'settle-date', accountId: 'settle-account' };
 
 /**
  * Diálogo de «Pagar todo» y «Cobrar todo» (HU-22, RN-24). Muestra el movimiento que se va a registrar, por el
@@ -81,16 +86,16 @@ type FieldName = 'date' | 'accountId';
   selector: 'app-quick-settle-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    RouterLink,
+    ButtonDirective,
     ConsolidationOutcome,
+    DialogTitle,
+    InputText,
+    Message,
     MoneyPipe,
     PeriodPipe,
+    ReactiveFormsModule,
+    RouterLink,
+    Select,
   ],
   templateUrl: './quick-settle-dialog.html',
   styleUrl: './quick-settle-dialog.scss',
@@ -102,10 +107,11 @@ export class QuickSettleDialog implements OnInit {
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
   private readonly locale = inject(LOCALE_ID);
-  private readonly ref = inject<MatDialogRef<QuickSettleDialog, QuickSettleDialogResult>>(MatDialogRef);
+  private readonly ref = inject(DynamicDialogRef);
   private readonly money = new MoneyPipe();
   private readonly periodPipe = new PeriodPipe();
-  protected readonly data = inject<QuickSettleDialogData>(MAT_DIALOG_DATA);
+  protected readonly data =
+    inject<DynamicDialogConfig<QuickSettleDialogData>>(DynamicDialogConfig).data!;
 
   protected readonly entry = this.data.entry;
   protected readonly word = movementWord(this.data.entry.kind);
@@ -170,7 +176,9 @@ export class QuickSettleDialog implements OnInit {
     }).subscribe({
       next: ({ preview, accounts, dates }) => {
         this.preview.set(preview);
-        this.accounts.set(accounts.accounts.filter((account) => account.currency === this.entry.currency));
+        this.accounts.set(
+          accounts.accounts.filter((account) => account.currency === this.entry.currency),
+        );
         this.dates.set(dates);
         this.form.controls.date.setValue(suggestedDate(dates));
         this.loading.set(false);
@@ -180,7 +188,9 @@ export class QuickSettleDialog implements OnInit {
         afterNextRender(
           () =>
             this.host.nativeElement
-              .querySelector<HTMLElement>('[data-testid="confirm-quick-settle"], [data-testid="cancel-quick-settle"]')
+              .querySelector<HTMLElement>(
+                '[data-testid="confirm-quick-settle"], [data-testid="cancel-quick-settle"]',
+              )
               ?.focus(),
           { injector: this.injector },
         );
@@ -228,10 +238,18 @@ export class QuickSettleDialog implements OnInit {
         this.ref.close({
           settled: true,
           entry: result.entry,
-          message: quickSettledMessage(result, (amount, currency) => this.money.transform(amount, currency)),
+          message: quickSettledMessage(result, (amount, currency) =>
+            this.money.transform(amount, currency),
+          ),
         }),
       error: (e: unknown) => this.fail(e),
     });
+  }
+
+  /** Un campo se marca con error recién cuando se tocó o se intentó confirmar, o si el backend lo rechazó. */
+  protected invalid(field: FieldName): boolean {
+    const control = this.form.controls[field];
+    return control.invalid && control.touched;
   }
 
   protected cancel(): void {
@@ -264,21 +282,28 @@ export class QuickSettleDialog implements OnInit {
     }
     // El `detail` nombra la fecha límite o la cuenta: explica más que el texto fijo.
     const message =
-      code === 'DATE_OUT_OF_RANGE' || code === 'PERIOD_CLOSED' || code === 'ENTRY_NOT_PENDING' || code === 'MANUAL_POLICY_REQUIRED'
+      code === 'DATE_OUT_OF_RANGE' ||
+      code === 'PERIOD_CLOSED' ||
+      code === 'ENTRY_NOT_PENDING' ||
+      code === 'MANUAL_POLICY_REQUIRED'
         ? detailFor(e)
         : messageFor(e);
     const control = field === undefined ? undefined : this.form.controls[field];
     if (control) {
       control.setErrors({ server: message });
       control.markAsTouched();
-      this.host.nativeElement.querySelector<HTMLElement>(`[formcontrolname="${field}"]`)?.focus();
+      this.host.nativeElement
+        .querySelector<HTMLElement>(`#${FIELD_IDS[field as FieldName]}`)
+        ?.focus();
     } else {
       this.error.set(message);
     }
   }
 
   private codeOf(e: unknown): string {
-    return e instanceof HttpErrorResponse && typeof e.error === 'object' && typeof e.error?.code === 'string'
+    return e instanceof HttpErrorResponse &&
+      typeof e.error === 'object' &&
+      typeof e.error?.code === 'string'
       ? (e.error.code as string)
       : '';
   }

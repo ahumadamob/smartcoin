@@ -13,7 +13,7 @@
           <span class="badge" data-testid="closed">Cerrado</span>
         }
         @if (isCurrent()) {
-          <span class="badge badge-current" data-testid="current">Mes actual</span>
+          <p-tag icon="pi pi-calendar" value="Mes actual" data-testid="current" />
         }
       }
       <!-- Acciones del período: solo si `!readonly()`. «Cerrar mes» está en todo mes abierto, aunque todavía no se pueda

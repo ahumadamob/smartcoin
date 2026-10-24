@@ -16,6 +16,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonDirective } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
+import { Tag } from 'primeng/tag';
 import { catchError, EMPTY, map, Observable, switchMap, tap } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
 import { Dialogs } from '../../core/dialogs';
@@ -23,13 +24,29 @@ import { messageFor } from '../../core/error-messages';
 import { Notices } from '../../core/notices';
 import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
-import { ConsolidationDialog, ConsolidationDialogData, ConsolidationDialogResult } from './consolidation-dialog';
-import { EntryDeleteDialog, EntryDeleteDialogData, EntryDeleteDialogResult } from './entry-delete-dialog';
+import {
+  ConsolidationDialog,
+  ConsolidationDialogData,
+  ConsolidationDialogResult,
+} from './consolidation-dialog';
+import {
+  EntryDeleteDialog,
+  EntryDeleteDialogData,
+  EntryDeleteDialogResult,
+} from './entry-delete-dialog';
 import { EntryFormDialog, EntryFormDialogData, EntryFormDialogResult } from './entry-form-dialog';
 import { EntryTable } from './entry-table';
 import { MovementDialog, MovementDialogData, MovementDialogResult } from './movement-dialog';
-import { UnconsolidateDialog, UnconsolidateDialogData, UnconsolidateDialogResult } from './unconsolidate-dialog';
-import { QuickSettleDialog, QuickSettleDialogData, QuickSettleDialogResult } from './quick-settle-dialog';
+import {
+  UnconsolidateDialog,
+  UnconsolidateDialogData,
+  UnconsolidateDialogResult,
+} from './unconsolidate-dialog';
+import {
+  QuickSettleDialog,
+  QuickSettleDialogData,
+  QuickSettleDialogResult,
+} from './quick-settle-dialog';
 import { registeredMessage } from './movement-text';
 import { isPeriod, nextPeriod, PeriodRange, periodsInRange, previousPeriod } from './period-nav';
 import { suggestedDueDate } from './suggested-due-date';
@@ -63,7 +80,16 @@ interface RemovalFocus {
 @Component({
   selector: 'app-budget-month',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ButtonDirective, EntryTable, FormsModule, MoneyPipe, PeriodPipe, RouterLink, SelectModule],
+  imports: [
+    ButtonDirective,
+    EntryTable,
+    FormsModule,
+    MoneyPipe,
+    PeriodPipe,
+    RouterLink,
+    SelectModule,
+    Tag,
+  ],
   templateUrl: './budget-month.html',
   styleUrl: './budget-month.scss',
 })
@@ -72,9 +98,9 @@ export class BudgetMonth implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  /** Diálogos de PrimeNG (T-19): registrar movimiento y consolidar. */
+  /** Diálogos de PrimeNG (T-19): registrar movimiento, consolidar, pagar o cobrar todo y la partida (alta y edición). */
   private readonly dialogs = inject(Dialogs);
-  /** Diálogos que todavía son de Angular Material: partida (alta y edición), eliminar, pagar todo y desconsolidar. */
+  /** Diálogos que todavía son de Angular Material: eliminar la partida y desconsolidar. */
   private readonly dialog = inject(MatDialog);
   private readonly notices = inject(Notices);
   private readonly injector = inject(Injector);
@@ -99,7 +125,9 @@ export class BudgetMonth implements OnInit {
   protected readonly periodOptions = computed(() =>
     this.periods().map((value) => ({ value, label: this.periodPipe.transform(value) })),
   );
-  protected readonly isCurrent = computed(() => this.period() !== null && this.period() === this.range()?.currentPeriod);
+  protected readonly isCurrent = computed(
+    () => this.period() !== null && this.period() === this.range()?.currentPeriod,
+  );
   /** Un período cerrado no tiene acciones (RN-09). */
   protected readonly readonly = computed(() => this.view()?.status === 'CLOSED');
   protected readonly isEmpty = computed(() => {
@@ -120,17 +148,22 @@ export class BudgetMonth implements OnInit {
         }),
         switchMap((period) => {
           if (period !== null && !isPeriod(period)) {
-            this.fail({ unavailable: true, message: 'La dirección no corresponde a un mes válido.' });
+            this.fail({
+              unavailable: true,
+              message: 'La dirección no corresponde a un mes válido.',
+            });
             return EMPTY;
           }
           return (period === null ? this.api.getCurrentPeriod() : this.api.getPeriod(period)).pipe(
             catchError((e: unknown) => {
-              const notFound = e instanceof HttpErrorResponse && (e.status === 404 || e.status === 400);
+              const notFound =
+                e instanceof HttpErrorResponse && (e.status === 404 || e.status === 400);
               this.fail(
                 notFound
                   ? {
                       unavailable: true,
-                      message: 'Ese mes no existe en tu presupuesto: es anterior a tu período inicial o posterior al horizonte.',
+                      message:
+                        'Ese mes no existe en tu presupuesto: es anterior a tu período inicial o posterior al horizonte.',
                     }
                   : { unavailable: false, message: messageFor(e) },
               );
@@ -143,7 +176,11 @@ export class BudgetMonth implements OnInit {
       .subscribe((view) => {
         this.view.set(view);
         this.period.set(view.period);
-        this.range.set({ startPeriod: view.startPeriod, currentPeriod: view.currentPeriod, horizon: view.horizon });
+        this.range.set({
+          startPeriod: view.startPeriod,
+          currentPeriod: view.currentPeriod,
+          horizon: view.horizon,
+        });
         this.loading.set(false);
       });
   }
@@ -155,7 +192,10 @@ export class BudgetMonth implements OnInit {
     if (period === null || range === null || !isPeriod(period) || this.readonly()) {
       return;
     }
-    this.openEntryForm({ period, suggestedDueDate: suggestedDueDate(period, range.currentPeriod, new Date()) });
+    this.openEntryForm({
+      period,
+      suggestedDueDate: suggestedDueDate(period, range.currentPeriod, new Date()),
+    });
   }
 
   /**
@@ -200,7 +240,9 @@ export class BudgetMonth implements OnInit {
           ),
           {
             duration: covered ? 10000 : 5000,
-            action: covered ? { label: 'Consolidar', run: () => this.consolidateEntry(result.entry) } : undefined,
+            action: covered
+              ? { label: 'Consolidar', run: () => this.consolidateEntry(result.entry) }
+              : undefined,
           },
         );
         this.reload(result.entry.id, null, 'register');
@@ -249,11 +291,14 @@ export class BudgetMonth implements OnInit {
       return;
     }
     this.dialog
-      .open<UnconsolidateDialog, UnconsolidateDialogData, UnconsolidateDialogResult>(UnconsolidateDialog, {
-        data: { entry, period },
-        width: '560px',
-        maxWidth: '95vw',
-      })
+      .open<UnconsolidateDialog, UnconsolidateDialogData, UnconsolidateDialogResult>(
+        UnconsolidateDialog,
+        {
+          data: { entry, period },
+          width: '560px',
+          maxWidth: '95vw',
+        },
+      )
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
@@ -281,13 +326,12 @@ export class BudgetMonth implements OnInit {
       return;
     }
     const focus = this.removalFocus(entry);
-    this.dialog
-      .open<QuickSettleDialog, QuickSettleDialogData, QuickSettleDialogResult>(QuickSettleDialog, {
-        data: { entry, period },
-        width: '640px',
-        maxWidth: '95vw',
-      })
-      .afterClosed()
+    this.dialogs
+      .open<QuickSettleDialog, QuickSettleDialogData, QuickSettleDialogResult>(
+        QuickSettleDialog,
+        { entry, period },
+        { width: '640px' },
+      )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result === undefined) {
@@ -359,7 +403,9 @@ export class BudgetMonth implements OnInit {
 
   private openEntryForm(data: EntryFormDialogData): void {
     this.dialogs
-      .open<EntryFormDialog, EntryFormDialogData, EntryFormDialogResult>(EntryFormDialog, data, { width: '560px' })
+      .open<EntryFormDialog, EntryFormDialogData, EntryFormDialogResult>(EntryFormDialog, data, {
+        width: '560px',
+      })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result === undefined) {
@@ -371,7 +417,9 @@ export class BudgetMonth implements OnInit {
           return;
         }
         this.notices.show(
-          result.created ? `Partida «${result.entry.name}» agregada.` : `Partida «${result.entry.name}» guardada.`,
+          result.created
+            ? `Partida «${result.entry.name}» agregada.`
+            : `Partida «${result.entry.name}» guardada.`,
           { duration: 4000 },
         );
         this.reload(result.entry.id);
@@ -401,9 +449,15 @@ export class BudgetMonth implements OnInit {
             return;
           }
           this.view.set(view);
-          this.range.set({ startPeriod: view.startPeriod, currentPeriod: view.currentPeriod, horizon: view.horizon });
+          this.range.set({
+            startPeriod: view.startPeriod,
+            currentPeriod: view.currentPeriod,
+            horizon: view.horizon,
+          });
           if (afterRemoval !== null) {
-            afterNextRender(() => this.focusAfterRemoval(afterRemoval), { injector: this.injector });
+            afterNextRender(() => this.focusAfterRemoval(afterRemoval), {
+              injector: this.injector,
+            });
           }
           if (focusEntryId !== null) {
             afterNextRender(
@@ -437,9 +491,16 @@ export class BudgetMonth implements OnInit {
           return;
         }
         this.view.set(view);
-        this.range.set({ startPeriod: view.startPeriod, currentPeriod: view.currentPeriod, horizon: view.horizon });
+        this.range.set({
+          startPeriod: view.startPeriod,
+          currentPeriod: view.currentPeriod,
+          horizon: view.horizon,
+        });
       }),
-      map((view) => [...view.incomes, ...view.expenses].find((candidate) => candidate.id === entryId) ?? null),
+      map(
+        (view) =>
+          [...view.incomes, ...view.expenses].find((candidate) => candidate.id === entryId) ?? null,
+      ),
     );
   }
 
