@@ -21,6 +21,14 @@ $actions-width: calc(5 * $button-size + 4 * $button-gap + 1.5rem);
   }
 }
 
+.heading-income {
+  color: var(--p-green-700);
+}
+
+.heading-expense {
+  color: var(--p-red-700);
+}
+
 .empty {
   margin: 0;
   color: var(--p-text-muted-color);
@@ -44,9 +52,21 @@ thead th {
   font-weight: normal;
 }
 
-tfoot th,
-tfoot td {
-  font-weight: 600;
+// La fila de total: negrita en todos sus valores y un fondo tenue que dice de qué lado es (verde ingresos, rojo gastos).
+// Va por clase y no por `tfoot`, que dibuja `p-table` y no lleva el atributo de estilos del componente.
+.total-row th,
+.total-row td {
+  font-weight: 700;
+}
+
+.total-income th,
+.total-income td {
+  background: var(--p-green-50);
+}
+
+.total-expense th,
+.total-expense td {
+  background: var(--p-red-50);
 }
 
 .number {

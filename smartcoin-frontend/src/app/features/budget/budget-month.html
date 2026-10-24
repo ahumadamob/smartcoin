@@ -30,8 +30,8 @@
 
     @if (range() && !error()) {
       <nav class="period-nav" aria-label="Meses">
-        <button pButton variant="outlined" type="button" [disabled]="!previous()" (click)="go(previous())">
-          ‹ Mes anterior
+        <button pButton type="button" [disabled]="!previous()" (click)="go(previous())">
+          <i class="pi pi-chevron-left" aria-hidden="true"></i>Anterior
         </button>
         <span class="month">
           <label id="month-label" for="month-select">Mes</label>
@@ -46,8 +46,12 @@
             scrollHeight="20rem"
           />
         </span>
-        <button pButton variant="outlined" type="button" [disabled]="!next()" (click)="go(next())">Mes siguiente ›</button>
-        <a pButton variant="text" routerLink="/presupuesto" [attr.aria-current]="isCurrent() ? 'page' : null">Hoy</a>
+        <button pButton type="button" [disabled]="!next()" (click)="go(next())">
+          Siguiente<i class="pi pi-chevron-right" aria-hidden="true"></i>
+        </button>
+        <a pButton severity="warn" routerLink="/presupuesto" [attr.aria-current]="isCurrent() ? 'page' : null">
+          <i class="pi pi-sun" aria-hidden="true"></i>Hoy
+        </a>
       </nav>
     }
   </div>
@@ -103,7 +107,7 @@
       />
       @if (current.totals.length > 0) {
         <section class="result card" aria-label="Resultado">
-          <h2 class="heading">Resultado</h2>
+          <h2 class="heading heading-result">Resultado</h2>
           <table aria-label="Resultado por moneda">
             <thead>
               <tr>

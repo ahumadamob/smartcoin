@@ -1,5 +1,13 @@
 <section class="section" [attr.aria-label]="heading()">
-  <h2 class="heading" tabindex="-1" data-testid="section-heading">{{ heading() }}</h2>
+  <h2
+    class="heading"
+    [class.heading-income]="side() === 'income'"
+    [class.heading-expense]="side() === 'expense'"
+    tabindex="-1"
+    data-testid="section-heading"
+  >
+    {{ heading() }}
+  </h2>
   @if (entries().length === 0) {
     <p class="empty" role="status">{{ emptyText() }}</p>
   } @else {
@@ -192,7 +200,12 @@
       </ng-template>
       <ng-template #footer>
         @for (row of footerRows(); track row.currency) {
-          <tr data-testid="total">
+          <tr
+            data-testid="total"
+            class="total-row"
+            [class.total-income]="side() === 'income'"
+            [class.total-expense]="side() === 'expense'"
+          >
             <th scope="row" colspan="5">
               Total en {{ row.currency === 'USD' ? 'dólares' : 'pesos' }}
             </th>
