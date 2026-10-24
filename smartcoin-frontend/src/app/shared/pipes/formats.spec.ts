@@ -19,6 +19,13 @@ describe('formatos es-AR', () => {
       expect(money.transform(1234.5, 'ARS')).toBe('$ 1.234,50');
     });
 
+    it('con 0 decimales redondea y no muestra la coma, solo para las tablas', () => {
+      expect(money.transform(1234.5, 'ARS', 0)).toBe('$ 1.235');
+      expect(money.transform(1200000, 'USD', 0)).toBe('US$ 1.200.000');
+      expect(money.transform(-735000, 'ARS', 0)).toBe('-$ 735.000');
+      expect(money.transform(0, 'ARS', 0)).toBe('$ 0');
+    });
+
     it('formatea dólares como "US$ 1.234,50"', () => {
       expect(money.transform(1234.5, 'USD')).toBe('US$ 1.234,50');
     });

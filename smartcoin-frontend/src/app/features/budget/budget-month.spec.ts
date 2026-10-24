@@ -403,9 +403,9 @@ describe('BudgetMonth', () => {
         'Hogar',
         'Banco Nación',
         '—',
-        '$ 450.000,00',
-        '$ 450.000,00',
-        '$ 0,00',
+        '$ 450.000',
+        '$ 450.000',
+        '$ 0',
         'Consolidada',
         '',
       ]);
@@ -415,18 +415,18 @@ describe('BudgetMonth', () => {
       expect(rows('Ingresos').map((row) => cells(row)[8])).toEqual(['Consolidada', 'Estimada', 'Estimada']);
       expect(cells(rows('Gastos')[2])[8]).toBe('Parcial');
       expect(cells(rows('Gastos')[3])[4]).toBe('Cuota 5 de 12');
-      expect(cells(rows('Gastos')[3])[5]).toBe('$ 0,00');
-      expect(cells(rows('Ingresos')[2])[5]).toBe('US$ 1.000,00');
+      expect(cells(rows('Gastos')[3])[5]).toBe('$ 0');
+      expect(cells(rows('Ingresos')[2])[5]).toBe('US$ 1.000');
     });
 
     it('marca con texto las partidas vencidas y las editadas, y solo esas', () => {
       const marks = (label: string) =>
-        rows(label).map((row) => Array.from(row.querySelectorAll('.mark')).map((mark) => text(mark)));
+        rows(label).map((row) => Array.from(row.querySelectorAll('.mark, .overdue-tag')).map((mark) => text(mark)));
 
       expect(marks('Gastos')).toEqual([[], ['Editada'], ['Vencida'], []]);
       expect(marks('Ingresos')).toEqual([[], [], []]);
       expect(cells(rows('Gastos')[2])[0]).toBe('18/11/2026 Vencida');
-      expect(cells(rows('Gastos')[1])[5]).toBe('$ 240.000,00 Editada');
+      expect(cells(rows('Gastos')[1])[5]).toBe('$ 240.000 Editada');
     });
 
     it('un período abierto no dice «Cerrado»', () => {
@@ -439,11 +439,11 @@ describe('BudgetMonth', () => {
 
     it('al pie de cada sección hay un total por moneda con partidas en esa sección', () => {
       expect(totals('Ingresos')).toEqual([
-        ['Total en pesos', '$ 1.850.000,00', '$ 1.200.000,00', '$ 650.000,00', '', ''],
-        ['Total en dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00', '', ''],
+        ['Total en pesos', '$ 1.850.000', '$ 1.200.000', '$ 650.000', '', ''],
+        ['Total en dólares', 'US$ 1.000', 'US$ 0', 'US$ 1.000', '', ''],
       ]);
       // Los dólares no tienen gastos: Gastos no muestra una fila en cero.
-      expect(totals('Gastos')).toEqual([['Total en pesos', '$ 735.000,00', '$ 470.000,00', '$ 265.000,00', '', '']]);
+      expect(totals('Gastos')).toEqual([['Total en pesos', '$ 735.000', '$ 470.000', '$ 265.000', '', '']]);
     });
 
     it('el resultado muestra todas las monedas del período, cada una por separado', () => {
@@ -452,8 +452,8 @@ describe('BudgetMonth', () => {
       );
 
       expect(result).toEqual([
-        ['Pesos', '$ 1.850.000,00', '$ 735.000,00', '$ 1.115.000,00'],
-        ['Dólares', 'US$ 1.000,00', 'US$ 0,00', 'US$ 1.000,00'],
+        ['Pesos', '$ 1.850.000', '$ 735.000', '$ 1.115.000'],
+        ['Dólares', 'US$ 1.000', 'US$ 0', 'US$ 1.000'],
       ]);
     });
 
@@ -469,9 +469,9 @@ describe('BudgetMonth', () => {
 
       expect(cells(section('Resultado').querySelector('[data-testid="result"]')!)).toEqual([
         'Pesos',
-        '$ 0,00',
-        '$ 735.000,00',
-        '-$ 735.000,00',
+        '$ 0',
+        '$ 735.000',
+        '-$ 735.000',
       ]);
       expect(text(section('Ingresos'))).toContain('No hay ingresos en este mes.');
       expect(totals('Ingresos')).toEqual([]);
@@ -1029,7 +1029,7 @@ describe('BudgetMonth', () => {
 
       expect(getPeriod).toHaveBeenCalledWith('2026-11');
       expect(refreshed).toEqual(after);
-      expect(text(section('Gastos').querySelector('[data-entry-id="30"]'))).toContain('$ 30.000,00');
+      expect(text(section('Gastos').querySelector('[data-entry-id="30"]'))).toContain('$ 30.000');
     });
 
     it('`refresh` devuelve null si la partida ya no está en el mes (HU-21)', async () => {
@@ -1059,8 +1059,8 @@ describe('BudgetMonth', () => {
       expect(notices.show).toHaveBeenCalledWith('Pago de $ 70.000,00 registrado en «Expensas».', expect.anything());
       expect(notice(0).action).toBeUndefined();
       const row = cells(rows('Gastos')[0]);
-      expect(row[6]).toContain('70.000,00');
-      expect(row[7]).toContain('50.000,00');
+      expect(row[6]).toContain('70.000');
+      expect(row[7]).toContain('50.000');
       expect(row[8]).toBe('Parcial');
       expect(text(root())).not.toContain('Cargando el mes…');
       expect(section('Gastos').querySelector('table')).toBe(tableBefore);
@@ -1219,7 +1219,7 @@ describe('BudgetMonth', () => {
       expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
       expect(notices.show.mock.calls[0][0]).toContain('consolidada por $ 41.000,00');
       expect(cells(rows('Gastos')[0])[8]).toBe('Consolidada');
-      expect(cells(rows('Gastos')[0])[7]).toBe('$ 0,00');
+      expect(cells(rows('Gastos')[0])[7]).toBe('$ 0');
       expect(consolidateButtons()).toHaveLength(0);
       // Lo único que ofrece una consolidada de un período abierto es desconsolidarla (HU-26).
       expect(
@@ -1325,7 +1325,7 @@ describe('BudgetMonth', () => {
       expect(api.getPeriod).toHaveBeenCalledWith('2026-11');
       expect(notices.show.mock.calls[0][0]).toContain('Pago de $ 4.000,00 registrado');
       expect(cells(rows('Gastos')[0])[8]).toBe('Consolidada');
-      expect(cells(rows('Gastos')[0])[7]).toBe('$ 0,00');
+      expect(cells(rows('Gastos')[0])[7]).toBe('$ 0');
       expect(settleButtons()).toHaveLength(0);
     });
 

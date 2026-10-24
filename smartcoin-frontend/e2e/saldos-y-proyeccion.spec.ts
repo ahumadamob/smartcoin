@@ -556,7 +556,7 @@ test.describe('HU-36 · vista de varios meses', () => {
     await expect(page).toHaveURL(new RegExp(`/presupuesto/${period(1)}$`));
     await expect(page.getByRole('heading', { level: 1, name: /Presupuesto de/ })).toBeVisible();
     // La partida editada, en la vista de ese mes.
-    await expect(page.getByRole('row', { name: /Sueldo/ })).toContainText('1.200.000,00');
+    await expect(page.getByRole('row', { name: /Sueldo/ })).toContainText('1.200.000');
   });
 
   test('un clic en una celda abre ese mes', async () => {
@@ -564,7 +564,7 @@ test.describe('HU-36 · vista de varios meses', () => {
     await cell(2, 2).click();
 
     await expect(page).toHaveURL(new RegExp(`/presupuesto/${period(2)}$`));
-    await expect(page.getByRole('row', { name: /Seguro/ })).toContainText('60.000,00');
+    await expect(page.getByRole('row', { name: /Seguro/ })).toContainText('60.000');
   });
 
   test('error: un rango invertido o de más de 24 meses muestra el error del backend y no deja la grilla anterior', async () => {

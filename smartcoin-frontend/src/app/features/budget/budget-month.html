@@ -117,9 +117,9 @@
               @for (total of current.totals; track total.currency) {
                 <tr data-testid="result">
                   <th scope="row">{{ total.currency === 'USD' ? 'Dólares' : 'Pesos' }}</th>
-                  <td class="number">{{ total.income.forecastAmount | money: total.currency }}</td>
-                  <td class="number">{{ total.expense.forecastAmount | money: total.currency }}</td>
-                  <td class="number strong">{{ total.result | money: total.currency }}</td>
+                  <td class="number">{{ total.income.forecastAmount | money: total.currency : 0 }}</td>
+                  <td class="number">{{ total.expense.forecastAmount | money: total.currency : 0 }}</td>
+                  <td class="number strong">{{ total.result | money: total.currency : 0 }}</td>
                 </tr>
               }
             </tbody>

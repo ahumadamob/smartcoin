@@ -133,19 +133,19 @@ test.describe('HU-23 · consolidar una partida', () => {
     // Consolidada, con el monto real, pendiente 0 y sin acciones.
     const entry = cells(row('Ingresos', 'Sueldo'));
     await expect(entry.nth(8)).toHaveText('Consolidada');
-    await expect(entry.nth(6)).toHaveText('$ 1.850.000,00');
-    await expect(entry.nth(7)).toHaveText('$ 0,00');
+    await expect(entry.nth(6)).toHaveText('$ 1.850.000');
+    await expect(entry.nth(7)).toHaveText('$ 0');
     // Lo único que ofrece ahora es desconsolidarla (HU-26).
     await expect(row('Ingresos', 'Sueldo').getByRole('button')).toHaveCount(1);
     await expect(row('Ingresos', 'Sueldo').getByRole('button', { name: 'Desconsolidar Sueldo' })).toBeVisible();
     await expect(page.getByText('«Sueldo» consolidada por $ 1.850.000,00. Se actualizaron 24 partidas')).toBeVisible();
     // El estimado de la consolidada es su monto consolidado: el resultado del mes lo usa.
-    await expect(page.getByTestId('result')).toContainText('$ 1.850.000,00');
+    await expect(page.getByTestId('result')).toContainText('$ 1.850.000');
 
     // El mes siguiente y uno lejano (el horizonte) tomaron el valor nuevo.
     for (const offset of [1, 24]) {
       await page.goto(`/presupuesto/${periodOf(monthFrom(offset))}`);
-      await expect(cells(row('Ingresos', 'Sueldo')).nth(5)).toContainText('$ 1.850.000,00');
+      await expect(cells(row('Ingresos', 'Sueldo')).nth(5)).toContainText('$ 1.850.000');
       await expect(cells(row('Ingresos', 'Sueldo')).nth(8)).toHaveText('Estimada');
     }
 
@@ -169,14 +169,14 @@ test.describe('HU-23 · consolidar una partida', () => {
     await expect(dialog()).toBeHidden();
     const entry = cells(row('Ingresos', 'Venta de bicicleta'));
     await expect(entry.nth(8)).toHaveText('Consolidada');
-    await expect(entry.nth(6)).toHaveText('$ 65.000,00');
+    await expect(entry.nth(6)).toHaveText('$ 65.000');
     await expect(page.getByText('«Venta de bicicleta» consolidada por $ 65.000,00.', { exact: true })).toBeVisible();
 
     // Nada más cambió: el sueldo del mes siguiente y el monto vigente siguen igual, y la puntual no se copió.
     await page.goto(`/presupuesto/${periodOf(monthFrom(1))}`);
     await expect(row('Ingresos', 'Sueldo')).toHaveCount(1);
     await expect(section('Ingresos').locator('tbody tr')).toHaveCount(1);
-    await expect(cells(row('Ingresos', 'Sueldo')).nth(5)).toContainText('$ 1.850.000,00');
+    await expect(cells(row('Ingresos', 'Sueldo')).nth(5)).toContainText('$ 1.850.000');
     const concepts = await (await api.get('/api/budget-items')).json();
     const sueldo = (concepts.items ?? concepts).find((c: { name: string }) => c.name === 'Sueldo');
     expect(sueldo.currentAmount).toBe(1850000);
@@ -350,7 +350,7 @@ test.describe('HU-24 · estimar con el promedio de los últimos 3', () => {
   test('el monto vigente es el promedio en el mes siguiente y en la lista de Conceptos', async () => {
     await page.goto(`/presupuesto/${periodOf(monthFrom(1))}`);
     const cells = row().locator('th, td');
-    await expect(cells.nth(5)).toContainText('$ 233,34');
+    await expect(cells.nth(5)).toContainText('$ 233');
     await expect(cells.nth(8)).toHaveText('Estimada');
 
     await page.goto('/conceptos');
@@ -358,7 +358,7 @@ test.describe('HU-24 · estimar con el promedio de los últimos 3', () => {
 
     // El mes actual, consolidado, conserva su monto real y no lo pisó el promedio.
     await page.goto('/presupuesto');
-    await expect(row().locator('th, td').nth(6)).toHaveText('$ 200,01');
+    await expect(row().locator('th, td').nth(6)).toHaveText('$ 200');
   });
 });
 
@@ -473,10 +473,10 @@ test.describe('HU-25 · elegir qué hacer con las partidas editadas', () => {
     await expect(page.getByText('«Resumen Visa» consolidada por $ 210.000,00.')).toBeVisible();
 
     const next = await monthRow('Resumen Visa', 1);
-    await expect(next).toContainText('$ 300.000,00');
+    await expect(next).toContainText('$ 300.000');
     await expect(next.getByText('Editada', { exact: true })).toBeVisible();
     const later = await monthRow('Resumen Visa', 2);
-    await expect(later).toContainText('$ 210.000,00');
+    await expect(later).toContainText('$ 210.000');
     await expect(later.getByText('Editada', { exact: true })).toHaveCount(0);
   });
 
@@ -491,7 +491,7 @@ test.describe('HU-25 · elegir qué hacer con las partidas editadas', () => {
 
     for (const offset of [1, 2]) {
       const month = await monthRow('Resumen Master', offset);
-      await expect(month).toContainText('$ 210.000,00');
+      await expect(month).toContainText('$ 210.000');
       await expect(month.getByText('Editada', { exact: true })).toHaveCount(0);
     }
     // El monto vigente del Concepto es el nuevo en la lista de Conceptos.
@@ -508,7 +508,7 @@ test.describe('HU-25 · elegir qué hacer con las partidas editadas', () => {
     await expect(dialog().getByTestId('confirm-consolidate')).toBeEnabled();
     await dialog().getByTestId('confirm-consolidate').click();
     await expect(dialog()).toBeHidden();
-    await expect((await monthRow('Gas', 2))).toContainText('$ 180.000,00');
+    await expect((await monthRow('Gas', 2))).toContainText('$ 180.000');
   });
 
   test('error: si alguien edita un mes después de la vista previa, el diálogo pide elegir y no pierde nada', async () => {
@@ -531,7 +531,7 @@ test.describe('HU-25 · elegir qué hacer con las partidas editadas', () => {
     await dialog().getByTestId('confirm-consolidate').click();
     await expect(dialog()).toBeHidden();
     const next = await monthRow('Agua', 1);
-    await expect(next).toContainText('$ 250.000,00');
+    await expect(next).toContainText('$ 250.000');
     await expect(next.getByText('Editada', { exact: true })).toBeVisible();
   });
 });
@@ -630,9 +630,9 @@ test.describe('HU-22 · pagar todo', () => {
 
     await expect(dialog()).toBeHidden();
     await expect(cells('Expensas').nth(8)).toHaveText('Consolidada');
-    await expect(cells('Expensas').nth(5)).toContainText('$ 200.000,00');
-    await expect(cells('Expensas').nth(6)).toHaveText('$ 200.000,00');
-    await expect(cells('Expensas').nth(7)).toHaveText('$ 0,00');
+    await expect(cells('Expensas').nth(5)).toContainText('$ 200.000');
+    await expect(cells('Expensas').nth(6)).toHaveText('$ 200.000');
+    await expect(cells('Expensas').nth(7)).toHaveText('$ 0');
     await expect(page.getByText('Pago de $ 200.000,00 registrado. «Expensas» consolidada por $ 200.000,00.')).toBeVisible();
     await expect(row('Expensas').getByRole('button')).toHaveCount(1);
     await expect(row('Expensas').getByRole('button', { name: 'Desconsolidar Expensas' })).toBeVisible();
@@ -641,7 +641,7 @@ test.describe('HU-22 · pagar todo', () => {
     expect(movements).toHaveLength(1);
     expect(movements[0]).toMatchObject({ amount: 200000, date: isoDate(today) });
     const next = await monthRow('Expensas', 1);
-    await expect(next.locator('th, td').nth(5)).toContainText('$ 200.000,00');
+    await expect(next.locator('th, td').nth(5)).toContainText('$ 200.000');
     await expect(next.getByText('Editada', { exact: true })).toHaveCount(0);
   });
 
@@ -660,7 +660,7 @@ test.describe('HU-22 · pagar todo', () => {
 
     await expect(dialog()).toBeHidden();
     await expect(cells('Alquiler').nth(8)).toHaveText('Consolidada');
-    await expect(cells('Alquiler').nth(6)).toHaveText('$ 120.000,00');
+    await expect(cells('Alquiler').nth(6)).toHaveText('$ 120.000');
     const movements = await movementsOf('Alquiler');
     expect(movements.map((m) => m.amount).sort((a, b) => a - b)).toEqual([50000, 70000]);
   });
@@ -685,7 +685,7 @@ test.describe('HU-22 · pagar todo', () => {
     await expect(dialog()).toBeHidden();
     await expect(cells('Seguro').nth(8)).toHaveText('Consolidada');
     const next = await monthRow('Seguro', 1);
-    await expect(next.locator('th, td').nth(5)).toContainText('$ 100.000,00');
+    await expect(next.locator('th, td').nth(5)).toContainText('$ 100.000');
     await expect(next.getByText('Editada', { exact: true })).toBeVisible();
   });
 
@@ -775,7 +775,7 @@ test.describe('HU-26 · desconsolidar una partida', () => {
     await expect(dialog()).toBeHidden();
     await expect(cells(row('Ingresos', 'Sueldo')).nth(8)).toHaveText('Consolidada');
     // El mes siguiente ya tomó el valor propagado.
-    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.850.000,00');
+    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.850.000');
     await page.goto('/presupuesto');
 
     await row('Ingresos', 'Sueldo').getByRole('button', { name: 'Desconsolidar Sueldo' }).click();
@@ -791,8 +791,8 @@ test.describe('HU-26 · desconsolidar una partida', () => {
     await expect(page.getByText('«Sueldo» volvió a Parcial')).toBeVisible();
     const entry = cells(row('Ingresos', 'Sueldo'));
     await expect(entry.nth(8)).toHaveText('Parcial');
-    await expect(entry.nth(6)).toHaveText('$ 1.850.000,00');
-    await expect(entry.nth(7)).toHaveText('$ 0,00');
+    await expect(entry.nth(6)).toHaveText('$ 1.850.000');
+    await expect(entry.nth(7)).toHaveText('$ 0');
     // Sus acciones están de nuevo disponibles y «Desconsolidar» ya no.
     for (const name of ['Registrar cobro de Sueldo', 'Consolidar Sueldo', 'Editar monto de Sueldo']) {
       await expect(row('Ingresos', 'Sueldo').getByRole('button', { name })).toBeVisible();
@@ -802,7 +802,7 @@ test.describe('HU-26 · desconsolidar una partida', () => {
     // El monto vigente y el mes siguiente siguen con lo propagado.
     await page.goto('/conceptos');
     await expect(page.getByRole('row').filter({ hasText: 'Sueldo' })).toContainText('$ 1.850.000,00');
-    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.850.000,00');
+    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.850.000');
   });
 
   test('corregir el movimiento y volver a consolidar: el mes siguiente toma el valor nuevo', async () => {
@@ -821,7 +821,7 @@ test.describe('HU-26 · desconsolidar una partida', () => {
     await expect(dialog()).toBeHidden();
     await expect(cells(row('Ingresos', 'Sueldo')).nth(8)).toHaveText('Consolidada');
 
-    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.900.000,00');
+    await expect((await nextMonthSueldo()).nth(5)).toContainText('$ 1.900.000');
     await page.goto('/conceptos');
     await expect(page.getByRole('row').filter({ hasText: 'Sueldo' })).toContainText('$ 1.900.000,00');
   });

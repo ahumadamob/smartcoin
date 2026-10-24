@@ -29,15 +29,19 @@ $actions-width: calc(5 * $button-size + 4 * $button-gap + 1.5rem);
 th,
 td {
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 thead th {
   white-space: nowrap;
 }
 
-tbody th {
-  font-weight: 600;
+// El nombre de la fila es un `th` de fila, y PrimeNG solo da aspecto de celda a los `td`: sin esto salía en negrita, sin
+// relleno y sin la línea de la fila, que quedaba cortada debajo del nombre.
+.name-cell {
+  padding: var(--p-datatable-body-cell-sm-padding, 0.125rem 0.375rem);
+  border-bottom: 1px solid var(--p-datatable-body-cell-border-color, var(--p-content-border-color));
+  font-weight: normal;
 }
 
 tfoot th,
@@ -89,8 +93,9 @@ td.actions {
   white-space: nowrap;
 }
 
-.mark-overdue {
-  color: var(--p-red-700);
+// La etiqueta «Vencida» va a la derecha de la fecha, con el mismo aire que las otras marcas.
+.overdue-tag {
+  margin-left: 0.5rem;
 }
 
 .mark-manual {

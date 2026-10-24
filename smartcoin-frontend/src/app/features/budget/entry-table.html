@@ -32,10 +32,10 @@
           <td class="nowrap" data-testid="due">
             {{ entry.dueDate | date: dateFormat }}
             @if (entry.overdue) {
-              <span class="mark mark-overdue">Vencida</span>
+              <p-tag class="overdue-tag" value="Vencida" severity="danger" />
             }
           </td>
-          <th scope="row" data-testid="name">{{ entry.name }}</th>
+          <th scope="row" class="name-cell" data-testid="name">{{ entry.name }}</th>
           <td>{{ entry.categoryName ?? '—' }}</td>
           <td>{{ entry.accountName }}</td>
           <td class="nowrap" data-testid="installment">
@@ -46,14 +46,16 @@
             }
           </td>
           <td class="number" data-testid="budgeted">
-            {{ entry.budgetedAmount | money: entry.currency }}
+            {{ entry.budgetedAmount | money: entry.currency : 0 }}
             @if (entry.manual) {
               <span class="mark mark-manual">Editada</span>
             }
           </td>
-          <td class="number">{{ entry.actualAmount | money: entry.currency }}</td>
-          <td class="number">{{ entry.pendingAmount | money: entry.currency }}</td>
-          <td class="nowrap" data-testid="status">{{ statusLabels[entry.status] }}</td>
+          <td class="number">{{ entry.actualAmount | money: entry.currency : 0 }}</td>
+          <td class="number">{{ entry.pendingAmount | money: entry.currency : 0 }}</td>
+          <td class="nowrap" data-testid="status">
+            <p-tag [value]="statusLabels[entry.status]" [severity]="statusSeverity[entry.status]" />
+          </td>
           @if (showActions()) {
             <td class="actions" data-testid="actions">
               <div class="row-actions">
@@ -63,7 +65,8 @@
                       pButton
                       rounded
                       iconOnly
-                      variant="outlined"
+                      variant="text"
+                      raised
                       type="button"
                       data-testid="register-movement"
                       [pTooltip]="registerLabel(entry.kind)"
@@ -80,7 +83,8 @@
                       pButton
                       rounded
                       iconOnly
-                      variant="outlined"
+                      variant="text"
+                      raised
                       severity="success"
                       type="button"
                       data-testid="quick-settle"
@@ -98,7 +102,8 @@
                       pButton
                       rounded
                       iconOnly
-                      variant="outlined"
+                      variant="text"
+                      raised
                       severity="info"
                       type="button"
                       data-testid="consolidate-entry"
@@ -113,7 +118,8 @@
                       pButton
                       rounded
                       iconOnly
-                      variant="outlined"
+                      variant="text"
+                      raised
                       severity="warn"
                       type="button"
                       data-testid="unconsolidate-entry"
@@ -131,7 +137,8 @@
                       pButton
                       rounded
                       iconOnly
-                      variant="outlined"
+                      variant="text"
+                      raised
                       severity="secondary"
                       type="button"
                       data-testid="edit-entry"
@@ -146,7 +153,8 @@
                       pButton
                       rounded
                       iconOnly
-                      variant="outlined"
+                      variant="text"
+                      raised
                       severity="secondary"
                       type="button"
                       data-testid="edit-amount"
@@ -164,7 +172,8 @@
                       pButton
                       rounded
                       iconOnly
-                      variant="outlined"
+                      variant="text"
+                      raised
                       severity="danger"
                       type="button"
                       data-testid="delete-entry"
@@ -187,9 +196,9 @@
             <th scope="row" colspan="5">
               Total en {{ row.currency === 'USD' ? 'dólares' : 'pesos' }}
             </th>
-            <td class="number">{{ row.totals.budgetedAmount | money: row.currency }}</td>
-            <td class="number">{{ row.totals.actualAmount | money: row.currency }}</td>
-            <td class="number">{{ row.totals.pendingAmount | money: row.currency }}</td>
+            <td class="number">{{ row.totals.budgetedAmount | money: row.currency : 0 }}</td>
+            <td class="number">{{ row.totals.actualAmount | money: row.currency : 0 }}</td>
+            <td class="number">{{ row.totals.pendingAmount | money: row.currency : 0 }}</td>
             <td></td>
             @if (showActions()) {
               <td></td>

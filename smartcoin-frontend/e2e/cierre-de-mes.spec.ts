@@ -597,9 +597,9 @@ test.describe('HU-33 · período cerrado inmutable', () => {
     await page.getByRole('button', { name: `Ir a ${label(next)}` }).click();
 
     await expect(page).toHaveURL(`/presupuesto/${periodOf(next)}`);
-    await expect(page.getByRole('row', { name: /Saldo pendiente: Luz/ })).toContainText('$ 25.000,00');
+    await expect(page.getByRole('row', { name: /Saldo pendiente: Luz/ })).toContainText('$ 25.000');
     await expect(page.getByRole('row', { name: new RegExp(`Diferencia de cierre: Banco \\(${closedLabel}\\)`) }))
-      .toContainText('$ 2.500,00');
+      .toContainText('$ 2.500');
     await expect(page.getByTestId('closed')).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Cerrar mes' }).click();
@@ -661,7 +661,7 @@ test.describe('HU-33 · período cerrado inmutable', () => {
     await expect(page.getByRole('row', { name: /Saldo pendiente: Luz/ })).toHaveCount(1);
     await expect(page.getByText('Saldo pendiente: Saldo pendiente')).toHaveCount(0);
     await expect(page.getByRole('row', { name: new RegExp(`Diferencia de cierre: Banco \\(${nextClosedLabel}\\)`) }))
-      .toContainText('$ 2.500,00');
+      .toContainText('$ 2.500');
   });
 
   test('el mes actual responde PERIOD_NOT_FINISHED', async () => {

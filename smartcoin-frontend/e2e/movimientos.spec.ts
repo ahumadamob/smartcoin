@@ -97,9 +97,9 @@ test.describe('HU-19 · registrar cobros y pagos', () => {
 
     await expect(dialog()).toBeHidden();
     const entry = cells(row('Gastos', 'Expensas'));
-    await expect(entry.nth(5)).toContainText('$ 120.000,00');
-    await expect(entry.nth(6)).toHaveText('$ 70.000,00');
-    await expect(entry.nth(7)).toHaveText('$ 50.000,00');
+    await expect(entry.nth(5)).toContainText('$ 120.000');
+    await expect(entry.nth(6)).toHaveText('$ 70.000');
+    await expect(entry.nth(7)).toHaveText('$ 50.000');
     await expect(entry.nth(8)).toHaveText('Parcial');
     await expect(page.getByText('Pago de $ 70.000,00 registrado en «Expensas».')).toBeVisible();
     // El foco vuelve a la acción de la partida.
@@ -107,9 +107,9 @@ test.describe('HU-19 · registrar cobros y pagos', () => {
     // Los totales de pesos suman las dos partidas y los de dólares no se mezclan.
     const total = section('Gastos').getByTestId('total');
     await expect(total).toHaveCount(1);
-    await expect(total).toContainText('$ 150.000,00');
-    await expect(total).toContainText('$ 70.000,00');
-    await expect(total).toContainText('$ 80.000,00');
+    await expect(total).toContainText('$ 150.000');
+    await expect(total).toContainText('$ 70.000');
+    await expect(total).toContainText('$ 80.000');
   });
 
   test('completar el pago deja el pendiente en 0 sin consolidar, y avisa que está cubierta', async () => {
@@ -130,8 +130,8 @@ test.describe('HU-19 · registrar cobros y pagos', () => {
 
     await expect(dialog()).toBeHidden();
     const entry = cells(row('Gastos', 'Expensas'));
-    await expect(entry.nth(6)).toHaveText('$ 120.000,00');
-    await expect(entry.nth(7)).toHaveText('$ 0,00');
+    await expect(entry.nth(6)).toHaveText('$ 120.000');
+    await expect(entry.nth(7)).toHaveText('$ 0');
     // Sigue Parcial: registrar no consolida (RN-23).
     await expect(entry.nth(8)).toHaveText('Parcial');
     await expect(page.getByText('«Expensas» ya está cubierta: pendiente $ 0,00.')).toBeVisible();
@@ -159,8 +159,8 @@ test.describe('HU-19 · registrar cobros y pagos', () => {
 
     await expect(dialog()).toBeHidden();
     const entry = cells(row('Ingresos', 'Alquiler cobrado'));
-    await expect(entry.nth(6)).toHaveText('US$ 500,00');
-    await expect(entry.nth(7)).toHaveText('US$ 0,00');
+    await expect(entry.nth(6)).toHaveText('US$ 500');
+    await expect(entry.nth(7)).toHaveText('US$ 0');
     await expect(entry.nth(8)).toHaveText('Parcial');
     await expect(page.getByText('Cobro de US$ 500,00 registrado en «Alquiler cobrado».')).toBeVisible();
   });
@@ -199,7 +199,7 @@ test.describe('HU-19 · registrar cobros y pagos', () => {
     await expect(dialog()).toBeHidden();
     // La partida no cambió.
     const entry = cells(row('Gastos', 'Patente'));
-    await expect(entry.nth(6)).toHaveText('$ 0,00');
+    await expect(entry.nth(6)).toHaveText('$ 0');
     await expect(entry.nth(8)).toHaveText('Estimada');
   });
 
@@ -215,8 +215,8 @@ test.describe('HU-19 · registrar cobros y pagos', () => {
 
     await expect(dialog()).toBeHidden();
     const entry = cells(row('Gastos', 'Patente'));
-    await expect(entry.nth(6)).toHaveText('$ 1.500,50');
-    await expect(entry.nth(7)).toHaveText('$ 28.499,50');
+    await expect(entry.nth(6)).toHaveText('$ 1.501');
+    await expect(entry.nth(7)).toHaveText('$ 28.500');
     await expect(entry.nth(8)).toHaveText('Parcial');
   });
 });
@@ -339,7 +339,7 @@ test.describe('HU-20 · registrar cobros anticipados', () => {
 
     await expect(dialog()).toBeHidden();
     const cells = row().locator('th, td');
-    await expect(cells.nth(6)).toHaveText('$ 250.000,00');
+    await expect(cells.nth(6)).toHaveText('$ 250.000');
     await expect(cells.nth(8)).toHaveText('Parcial');
     const list = await (await api.get(`/api/entries/${entryId}/movements`)).json();
     expect(list).toHaveLength(1);
@@ -454,8 +454,8 @@ test.describe('HU-21 · corregir o eliminar un movimiento', () => {
     await dialog().getByRole('button', { name: 'Registrar pago', exact: true }).click();
     await expect(dialog()).toBeHidden();
 
-    await expect(cells().nth(6)).toHaveText('$ 120.000,00');
-    await expect(cells().nth(7)).toHaveText('$ 0,00');
+    await expect(cells().nth(6)).toHaveText('$ 120.000');
+    await expect(cells().nth(7)).toHaveText('$ 0');
     await expect(cells().nth(8)).toHaveText('Parcial');
     await open();
     await expect(dialog().getByTestId('movement-row')).toHaveCount(2);
@@ -478,8 +478,8 @@ test.describe('HU-21 · corregir o eliminar un movimiento', () => {
     await expect(movementRow('$ 30.000,00')).toHaveCount(1);
     await expect(movementRow('$ 70.000,00')).toHaveCount(0);
     // La vista del mes de atrás ya tiene los valores nuevos, con el diálogo todavía abierto.
-    await expect(cells().nth(6)).toHaveText('$ 80.000,00');
-    await expect(cells().nth(7)).toHaveText('$ 40.000,00');
+    await expect(cells().nth(6)).toHaveText('$ 80.000');
+    await expect(cells().nth(7)).toHaveText('$ 40.000');
     await expect(cells().nth(8)).toHaveText('Parcial');
     await expect(movementRow('$ 30.000,00').getByTestId('edit-movement')).toBeFocused();
   });
@@ -552,8 +552,8 @@ test.describe('HU-21 · corregir o eliminar un movimiento', () => {
     await page.keyboard.press('Escape');
     await expect(dialog()).toBeHidden();
 
-    await expect(cells().nth(6)).toHaveText('$ 0,00');
-    await expect(cells().nth(7)).toHaveText('$ 120.000,00');
+    await expect(cells().nth(6)).toHaveText('$ 0');
+    await expect(cells().nth(7)).toHaveText('$ 120.000');
     await expect(cells().nth(8)).toHaveText('Estimada');
     await expect(await accountBalance('Banco Nación')).toHaveText('$ 0,00');
     await expect(await accountBalance('Billetera')).toHaveText('$ 0,00');

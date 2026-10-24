@@ -158,22 +158,22 @@ test.describe('HU-16 · agregar una partida puntual', () => {
       'Hogar',
       'Banco Nación',
       '—',
-      '$ 85.000,50',
-      '$ 0,00',
-      '$ 85.000,50',
+      '$ 85.001',
+      '$ 0',
+      '$ 85.001',
       'Estimada',
       '',
     ]);
     // Los totales los calcula el backend: gastos 85.000,50 y resultado 1.200.000,00 − 85.000,50.
     await expect(cells(totals('Gastos'))).toHaveText([
       'Total en pesos',
-      '$ 85.000,50',
-      '$ 0,00',
-      '$ 85.000,50',
+      '$ 85.001',
+      '$ 0',
+      '$ 85.001',
       '',
       '',
     ]);
-    await expect(cells(results())).toHaveText(['Pesos', '$ 1.200.000,00', '$ 85.000,50', '$ 1.114.999,50']);
+    await expect(cells(results())).toHaveText(['Pesos', '$ 1.200.000', '$ 85.001', '$ 1.115.000']);
     await expect(row('Gastos', 'Service del auto').getByText('Editada')).toHaveCount(0);
     // Al cerrar el diálogo el foco vuelve al botón con el que se abrió.
     await expect(addButton()).toBeFocused();
@@ -187,7 +187,7 @@ test.describe('HU-16 · agregar una partida puntual', () => {
     await expect(names('Gastos')).toHaveCount(0);
     await expect(section('Gastos')).toContainText('No hay gastos en este mes.');
     await expect(results()).toHaveCount(1);
-    await expect(cells(results())).toHaveText(['Pesos', '$ 1.200.000,00', '$ 0,00', '$ 1.200.000,00']);
+    await expect(cells(results())).toHaveText(['Pesos', '$ 1.200.000', '$ 0', '$ 1.200.000']);
 
     await page.getByRole('link', { name: 'Hoy' }).click();
     await expect(page.getByRole('heading', { level: 1, name: `Presupuesto de ${periodText(month(0))}` })).toBeVisible();
@@ -212,10 +212,10 @@ test.describe('HU-16 · agregar una partida puntual', () => {
     await expect(dialog()).toHaveCount(0);
     await expect(page.getByText('Partida «Cambio de aceite» guardada.')).toBeVisible();
     await expect(names('Gastos')).toHaveText(['Cambio de aceite']);
-    await expect(row('Gastos', 'Cambio de aceite').getByTestId('budgeted')).toHaveText('$ 90.000,00');
+    await expect(row('Gastos', 'Cambio de aceite').getByTestId('budgeted')).toHaveText('$ 90.000');
     await expect(cells(row('Gastos', 'Cambio de aceite')).nth(2)).toHaveText('Servicios');
-    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 90.000,00', '$ 0,00', '$ 90.000,00', '', '']);
-    await expect(cells(results())).toHaveText(['Pesos', '$ 1.200.000,00', '$ 90.000,00', '$ 1.110.000,00']);
+    await expect(cells(totals('Gastos'))).toHaveText(['Total en pesos', '$ 90.000', '$ 0', '$ 90.000', '', '']);
+    await expect(cells(results())).toHaveText(['Pesos', '$ 1.200.000', '$ 90.000', '$ 1.110.000']);
     // RN-18: una partida sin Concepto no se marca como editada.
     await expect(page.getByText('Editada', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Editar Cambio de aceite' })).toBeFocused();
@@ -241,13 +241,13 @@ test.describe('HU-16 · agregar una partida puntual', () => {
     await dialog().getByRole('button', { name: 'Guardar' }).click();
 
     await expect(dialog()).toHaveCount(0);
-    await expect(cells(row('Gastos', 'Compra de bici')).nth(5)).toHaveText('US$ 300,00');
+    await expect(cells(row('Gastos', 'Compra de bici')).nth(5)).toHaveText('US$ 300');
     await expect(totals('Gastos')).toHaveCount(2);
-    await expect(cells(totals('Gastos').nth(0))).toHaveText(['Total en pesos', '$ 90.000,00', '$ 0,00', '$ 90.000,00', '', '']);
-    await expect(cells(totals('Gastos').nth(1))).toHaveText(['Total en dólares', 'US$ 300,00', 'US$ 0,00', 'US$ 300,00', '', '']);
+    await expect(cells(totals('Gastos').nth(0))).toHaveText(['Total en pesos', '$ 90.000', '$ 0', '$ 90.000', '', '']);
+    await expect(cells(totals('Gastos').nth(1))).toHaveText(['Total en dólares', 'US$ 300', 'US$ 0', 'US$ 300', '', '']);
     await expect(results()).toHaveCount(2);
-    await expect(cells(results().nth(0))).toHaveText(['Pesos', '$ 1.200.000,00', '$ 90.000,00', '$ 1.110.000,00']);
-    await expect(cells(results().nth(1))).toHaveText(['Dólares', 'US$ 0,00', 'US$ 300,00', '-US$ 300,00']);
+    await expect(cells(results().nth(0))).toHaveText(['Pesos', '$ 1.200.000', '$ 90.000', '$ 1.110.000']);
+    await expect(cells(results().nth(1))).toHaveText(['Dólares', 'US$ 0', 'US$ 300', '-US$ 300']);
   });
 
   test('un vencimiento fuera de rango muestra el error del backend y conserva lo cargado', async () => {
@@ -363,7 +363,7 @@ test.describe('HU-17 · editar el monto de una partida recurrente', () => {
     page.getByRole('heading', { level: 1, name: `Presupuesto de ${periodText(month(offset))}` });
 
   test('el mes actual ofrece «Editar monto» y el diálogo muestra el Concepto, el mes y la aclaración', async () => {
-    await expect(budgeted()).toHaveText('$ 180.000,00');
+    await expect(budgeted()).toHaveText('$ 180.000');
     await expect(row('Resumen Visa').getByText('Editada')).toHaveCount(0);
 
     await editAmount().click();
@@ -388,9 +388,9 @@ test.describe('HU-17 · editar el monto de una partida recurrente', () => {
 
     await expect(dialog()).toHaveCount(0);
     await expect(page.getByText('Partida «Resumen Visa» guardada.')).toBeVisible();
-    await expect(budgeted()).toHaveText(/\$ 240\.000,00\s*Editada/);
+    await expect(budgeted()).toHaveText(/\$ 240\.000\s*Editada/);
     await expect(row('Resumen Visa').getByTestId('status')).toHaveText('Estimada');
-    await expect(totals().locator('td').nth(0)).toHaveText('$ 240.000,00');
+    await expect(totals().locator('td').nth(0)).toHaveText('$ 240.000');
     await expect(results()).toHaveCount(1);
     await expect(editAmount()).toBeFocused();
     // Editar no toca el monto vigente del Concepto (RN-18).
@@ -402,12 +402,12 @@ test.describe('HU-17 · editar el monto de una partida recurrente', () => {
     await page.getByRole('button', { name: 'Mes siguiente' }).click();
 
     await expect(heading(1)).toBeVisible();
-    await expect(budgeted()).toHaveText('$ 180.000,00');
+    await expect(budgeted()).toHaveText('$ 180.000');
     await expect(row('Resumen Visa').getByText('Editada')).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Hoy' }).click();
     await expect(heading(0)).toBeVisible();
-    await expect(budgeted()).toHaveText(/\$ 240\.000,00\s*Editada/);
+    await expect(budgeted()).toHaveText(/\$ 240\.000\s*Editada/);
   });
 
   test('cambiar el monto vigente del Concepto respeta la partida editada, y el aviso cuenta 1 editada y 24 sin editar', async () => {
@@ -422,10 +422,10 @@ test.describe('HU-17 · editar el monto de una partida recurrente', () => {
     await expect(page.getByText('Concepto «Resumen Visa» guardado.')).toBeVisible();
 
     await page.goto('/presupuesto');
-    await expect(budgeted()).toHaveText(/\$ 240\.000,00\s*Editada/);
+    await expect(budgeted()).toHaveText(/\$ 240\.000\s*Editada/);
     await page.getByRole('button', { name: 'Mes siguiente' }).click();
     await expect(heading(1)).toBeVisible();
-    await expect(budgeted()).toHaveText('$ 200.000,00');
+    await expect(budgeted()).toHaveText('$ 200.000');
     await expect(row('Resumen Visa').getByText('Editada')).toHaveCount(0);
   });
 
@@ -458,7 +458,7 @@ test.describe('HU-17 · editar el monto de una partida recurrente', () => {
     await expect(dialog().locator('mat-error')).toHaveCount(1);
     await expect(dialog().getByLabel('Presupuestado')).toHaveValue('99999999999999999999');
     await dialog().getByRole('button', { name: 'Cancelar' }).click();
-    await expect(budgeted()).toHaveText(/\$ 240\.000,00\s*Editada/);
+    await expect(budgeted()).toHaveText(/\$ 240\.000\s*Editada/);
   });
 
   test('por la API: otro dato de una recurrente es 409 y no cambia nada, ni siquiera el monto', async () => {
@@ -679,7 +679,7 @@ test.describe('HU-18 · eliminar la partida de un Concepto', () => {
     // La primera acción de la fila es ahora «Registrar pago» (HU-19).
     await expect(page.getByRole('button', { name: 'Registrar pago de Gas' })).toBeFocused();
     // Los totales los calcula el backend: Gas 30.000 + Heladera 90.000 = 120.000 presupuestado.
-    await expect(section('Gastos').getByTestId('total').locator('td').nth(0)).toHaveText('$ 120.000,00');
+    await expect(section('Gastos').getByTestId('total').locator('td').nth(0)).toHaveText('$ 120.000');
   });
 
   test('el mes anterior y el siguiente conservan la suya, y no reaparece al iniciar sesión de nuevo (HU-12, criterio 3)', async () => {

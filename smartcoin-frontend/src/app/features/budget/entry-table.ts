@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { ButtonDirective } from 'primeng/button';
 import { TableModule } from 'primeng/table';
+import { Tag } from 'primeng/tag';
 import { Tooltip } from 'primeng/tooltip';
 import { PeriodCurrencyTotals, PeriodEntry, PeriodSideTotals } from '../../api';
 import { DATE_FORMAT } from '../../core/locale';
@@ -31,6 +32,13 @@ export const ENTRY_STATUS_LABELS: Record<PeriodEntry.StatusEnum, string> = {
   CONSOLIDATED: 'Consolidada',
 };
 
+/** Color de la etiqueta de cada estado: Estimada celeste, Parcial verde y Consolidada el primario (sin severidad). */
+export const ENTRY_STATUS_SEVERITIES: Record<PeriodEntry.StatusEnum, 'info' | 'success' | undefined> = {
+  ESTIMATED: 'info',
+  PARTIAL: 'success',
+  CONSOLIDATED: undefined,
+};
+
 interface FooterRow {
   currency: PeriodCurrencyTotals.CurrencyEnum;
   totals: PeriodSideTotals;
@@ -50,7 +58,7 @@ interface FooterRow {
 @Component({
   selector: 'app-entry-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ButtonDirective, DatePipe, MoneyPipe, TableModule, Tooltip],
+  imports: [ButtonDirective, DatePipe, MoneyPipe, TableModule, Tag, Tooltip],
   templateUrl: './entry-table.html',
   styleUrl: './entry-table.scss',
 })
@@ -82,6 +90,7 @@ export class EntryTable {
 
   protected readonly dateFormat = DATE_FORMAT;
   protected readonly statusLabels = ENTRY_STATUS_LABELS;
+  protected readonly statusSeverity = ENTRY_STATUS_SEVERITIES;
   protected readonly canRegister = canRegisterMovement;
   protected readonly registerLabel = registerLabel;
   protected readonly canEdit = canEditEntry;
