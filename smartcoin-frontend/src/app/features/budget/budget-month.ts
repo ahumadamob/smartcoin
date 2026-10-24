@@ -358,13 +358,8 @@ export class BudgetMonth implements OnInit {
   }
 
   private openEntryForm(data: EntryFormDialogData): void {
-    this.dialog
-      .open<EntryFormDialog, EntryFormDialogData, EntryFormDialogResult>(EntryFormDialog, {
-        data,
-        width: '560px',
-        maxWidth: '95vw',
-      })
-      .afterClosed()
+    this.dialogs
+      .open<EntryFormDialog, EntryFormDialogData, EntryFormDialogResult>(EntryFormDialog, data, { width: '560px' })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result === undefined) {

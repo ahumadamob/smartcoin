@@ -1,13 +1,33 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
+import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
+import { IconField } from 'primeng/iconfield';
+import { InputGroup } from 'primeng/inputgroup';
+import { InputGroupAddon } from 'primeng/inputgroupaddon';
+import { InputIcon } from 'primeng/inputicon';
+import { InputText } from 'primeng/inputtext';
+import { Message } from 'primeng/message';
+import { Select } from 'primeng/select';
 import { forkJoin } from 'rxjs';
 import {
   AccountResponse,
@@ -19,6 +39,7 @@ import {
   PartidasService,
   PeriodEntry,
 } from '../../api';
+import { DialogTitle } from '../../core/dialogs';
 import { messageFor } from '../../core/error-messages';
 import { formatAmountInput, parseAmount } from '../../shared/amount';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
@@ -56,7 +77,9 @@ function notBlank(control: AbstractControl): ValidationErrors | null {
 /** Monto con coma decimal y sin signo: el presupuestado no puede ser negativo. */
 function amountFormat(control: AbstractControl): ValidationErrors | null {
   const text = (control.value as string).trim();
-  return text === '' || (parseAmount(text) !== null && !text.startsWith('-')) ? null : { amount: true };
+  return text === '' || (parseAmount(text) !== null && !text.startsWith('-'))
+    ? null
+    : { amount: true };
 }
 
 /** Fecha `YYYY-MM-DD` que existe en el calendario. Solo el formato: el rango lo decide el backend (RN-19). */
@@ -78,6 +101,16 @@ function isoDate(control: AbstractControl): ValidationErrors | null {
 
 type FieldName = 'name' | 'kind' | 'accountId' | 'categoryId' | 'dueDate' | 'budgetedAmount';
 
+/** El elemento enfocable de cada campo (en un `p-select` es el combobox interno, por su `inputId`). */
+const FIELD_IDS: Record<FieldName, string> = {
+  name: 'entry-name',
+  kind: 'entry-kind',
+  accountId: 'entry-account',
+  categoryId: 'entry-category',
+  dueDate: 'entry-due-date',
+  budgetedAmount: 'entry-amount',
+};
+
 /**
  * Diálogo para agregar una partida puntual (HU-16, RN-19) o editar una partida sin Concepto (RN-18). Solo valida el
  * formato; las reglas (rango del vencimiento, cuenta y categoría que no existen, período cerrado, partida
@@ -93,14 +126,19 @@ type FieldName = 'name' | 'kind' | 'accountId' | 'categoryId' | 'dueDate' | 'bud
   selector: 'app-entry-form-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
+    Button,
+    ButtonGroup,
+    DialogTitle,
+    IconField,
+    InputGroup,
+    InputGroupAddon,
+    InputIcon,
+    InputText,
+    Message,
     PeriodPipe,
+    ReactiveFormsModule,
     RouterLink,
+    Select,
   ],
   templateUrl: './entry-form-dialog.html',
   styleUrl: './entry-form-dialog.scss',
@@ -110,16 +148,15 @@ export class EntryFormDialog implements OnInit {
   private readonly accountsApi = inject(CuentasService);
   private readonly categoriesApi = inject(CategorasService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly ref = inject<MatDialogRef<EntryFormDialog, EntryFormDialogResult>>(MatDialogRef);
-  protected readonly data = inject<EntryFormDialogData>(MAT_DIALOG_DATA);
+  private readonly ref = inject(DynamicDialogRef);
+  protected readonly data =
+    inject<DynamicDialogConfig<EntryFormDialogData>>(DynamicDialogConfig).data!;
 
   protected readonly entry = this.data.entry ?? null;
   protected readonly editing = this.entry !== null;
   /** Solo el presupuestado de una recurrente (HU-17): no hace falta cargar cuentas ni categorías. */
   protected readonly amountOnly = this.entry !== null && this.data.amountOnly === true;
-  protected readonly kinds = KINDS;
-  protected readonly kindLabels = KIND_LABELS;
-  protected readonly currencyLabels = CURRENCY_LABELS;
+  protected readonly kindOptions = KINDS.map((value) => ({ value, label: KIND_LABELS[value] }));
 
   protected readonly accounts = signal<AccountResponse[]>([]);
   protected readonly categories = signal<CategoryResponse[]>([]);
@@ -139,10 +176,25 @@ export class EntryFormDialog implements OnInit {
     accountId: new FormControl<number | null>(null, Validators.required),
     categoryId: new FormControl<number | null>(null),
     dueDate: new FormControl('', { nonNullable: true, validators: [Validators.required, isoDate] }),
-    budgetedAmount: new FormControl('', { nonNullable: true, validators: [Validators.required, amountFormat] }),
+    budgetedAmount: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, amountFormat],
+    }),
   });
 
-  private readonly selectedAccountId = toSignal(this.form.controls.accountId.valueChanges, { initialValue: null });
+  private readonly selectedAccountId = toSignal(this.form.controls.accountId.valueChanges, {
+    initialValue: null,
+  });
+
+  protected readonly accountOptions = computed(() =>
+    this.accounts().map((account) => ({
+      id: account.id,
+      label: `${account.name} · ${CURRENCY_LABELS[account.currency]}`,
+    })),
+  );
+  protected readonly categoryOptions = computed(() =>
+    this.categories().map((category) => ({ id: category.id, label: category.name })),
+  );
 
   /** La moneda de la cuenta elegida, para mostrarla junto al campo. */
   protected readonly selectedCurrency = computed(() => {
@@ -150,21 +202,51 @@ export class EntryFormDialog implements OnInit {
     return this.accounts().find((account) => account.id === id)?.currency ?? null;
   });
 
+  /** Símbolo de la moneda que acompaña al presupuestado: el de la cuenta elegida o, al editar solo el monto, el de la partida. */
+  protected readonly currencySymbol = computed(() => {
+    const currency = this.selectedCurrency() ?? this.entry?.currency;
+    return currency === 'USD' ? 'US$' : '$';
+  });
+
+  /** Un campo se marca con error recién cuando se tocó o se intentó guardar, o si el backend lo rechazó. */
+  protected invalid(name: FieldName): boolean {
+    const control = this.form.controls[name];
+    return control.invalid && control.touched;
+  }
+
+  /** El texto del error del presupuestado: el formato o lo que respondió el backend. */
+  protected amountMessage(): string {
+    const control = this.form.controls.budgetedAmount;
+    if (control.hasError('required')) {
+      return 'Ingresá el monto presupuestado.';
+    }
+    if (control.hasError('amount')) {
+      return 'Escribilo con coma decimal, hasta 2 decimales y sin signo, por ejemplo 1500,50.';
+    }
+    return control.getError('server') ?? '';
+  }
+
   /**
    * La pista del campo Cuenta. Al editar, elegir una cuenta de otra moneda cambia la moneda de la partida y se avisa
-   * (D-30). Se arma acá porque `mat-hint` solo se proyecta si es hijo directo del campo, no dentro de un `@if`.
+   * (D-30). Se arma acá para no repetir la lógica en la plantilla.
    */
   protected readonly accountHint = computed(() => {
     const currency = this.selectedCurrency();
     if (this.entry && currency !== null && currency !== this.entry.currency) {
-      return { text: `Esta cuenta es en ${CURRENCY_LABELS[currency]}: la partida pasa a esa moneda.`, warning: true };
+      return {
+        text: `Esta cuenta es en ${CURRENCY_LABELS[currency]}: la partida pasa a esa moneda.`,
+        warning: true,
+      };
     }
     return { text: 'La moneda de la partida es la de su cuenta.', warning: false };
   });
 
   /** El formulario se puede enviar cuando terminó de cargar y hay al menos una cuenta. */
   protected readonly ready = computed(
-    () => !this.loading() && this.loadError() === null && (this.amountOnly || this.accounts().length > 0),
+    () =>
+      !this.loading() &&
+      this.loadError() === null &&
+      (this.amountOnly || this.accounts().length > 0),
   );
 
   ngOnInit(): void {
@@ -190,7 +272,10 @@ export class EntryFormDialog implements OnInit {
     } else {
       this.form.controls.dueDate.setValue(this.data.suggestedDueDate);
     }
-    forkJoin({ accounts: this.accountsApi.listAccounts(), categories: this.categoriesApi.listCategories() }).subscribe({
+    forkJoin({
+      accounts: this.accountsApi.listAccounts(),
+      categories: this.categoriesApi.listCategories(),
+    }).subscribe({
       next: ({ accounts, categories }) => {
         this.accounts.set(accounts.accounts);
         this.categories.set(categories);
@@ -274,13 +359,18 @@ export class EntryFormDialog implements OnInit {
       this.stale = true;
     }
     const message = messageFor(e);
-    const field = body?.code === 'VALIDATION_ERROR' ? (body.errors?.[0]?.field as string | undefined) : undefined;
+    const field =
+      body?.code === 'VALIDATION_ERROR'
+        ? (body.errors?.[0]?.field as string | undefined)
+        : undefined;
     const control = field !== undefined ? this.form.controls[field as FieldName] : undefined;
     if (control) {
       control.setErrors({ server: message });
       control.markAsTouched();
       // El foco va al campo con el error: queda a la vista aunque el diálogo tenga scroll, y se anuncia.
-      this.host.nativeElement.querySelector<HTMLElement>(`[formcontrolname="${field}"]`)?.focus();
+      this.host.nativeElement
+        .querySelector<HTMLElement>(`#${FIELD_IDS[field as FieldName]}`)
+        ?.focus();
     } else {
       this.error.set(message);
     }

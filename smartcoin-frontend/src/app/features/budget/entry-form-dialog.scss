@@ -5,15 +5,14 @@
 .content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-top: 8px;
+  gap: 1rem;
 }
 
 .pair {
   display: grid;
   // Dos columnas cuando entran; en un ancho angosto, una debajo de la otra.
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
 }
 
 .context,
@@ -22,21 +21,20 @@
 }
 
 .note {
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.error {
-  margin: 0;
-  color: var(--mat-sys-error);
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
 }
 
 .warning {
-  color: var(--mat-sys-on-surface);
-  font-weight: 500;
+  color: var(--p-text-color);
+  font-weight: 600;
 }
 
-a:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--mat-sys-primary);
-  outline-offset: 2px;
+.dialog-actions p-buttongroup {
+  display: flex;
+  width: 15rem;
+}
+
+.action {
+  flex: 0 0 7.5rem;
 }
