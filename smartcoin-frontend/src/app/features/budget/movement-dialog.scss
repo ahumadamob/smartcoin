@@ -1,3 +1,5 @@
+$actions-width: 15rem;
+
 .dialog {
   display: block;
 }
@@ -61,38 +63,57 @@
   color: var(--p-text-muted-color);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-th,
-td {
-  padding: 0.5rem 0.75rem;
-  text-align: left;
+// Como la lista de Categorías: una fila por movimiento, con los botones en una columna fija a la derecha.
+.row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto $actions-width;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--p-content-border-color);
 }
 
-thead th {
+.no-actions .row {
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail {
   color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+}
+
+.amount {
   font-weight: 600;
-  white-space: nowrap;
-}
-
-.number {
   text-align: right;
   white-space: nowrap;
 }
 
-.nowrap {
-  white-space: nowrap;
+p-buttongroup {
+  display: flex;
+  width: $actions-width;
 }
 
-.row-actions {
-  white-space: nowrap;
-  text-align: right;
-  padding-top: 0.125rem;
-  padding-bottom: 0.125rem;
+.action {
+  flex: 0 0 calc($actions-width / 2);
+}
+
+.consolidate-button {
+  align-self: flex-start;
+
+  .material-icons {
+    font-size: 1.25rem;
+  }
 }
 
 .editing {

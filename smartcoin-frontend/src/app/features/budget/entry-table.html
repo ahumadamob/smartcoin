@@ -118,7 +118,7 @@
                       [attr.aria-label]="'Consolidar ' + entry.name"
                       (click)="consolidate.emit(entry)"
                     >
-                      <i class="pi pi-lock" aria-hidden="true"></i>
+                      <span class="material-icons consolidate-icon" aria-hidden="true">lock</span>
                     </button>
                   } @else if (canUndo(entry)) {
                     <button
@@ -131,7 +131,9 @@
                       [attr.aria-label]="'Desconsolidar ' + entry.name"
                       (click)="unconsolidate.emit(entry)"
                     >
-                      <i class="pi pi-undo" aria-hidden="true"></i>
+                      <span class="material-symbols-outlined unconsolidate-icon" aria-hidden="true"
+                        >lock_open_right</span
+                      >
                     </button>
                   }
                 </span>

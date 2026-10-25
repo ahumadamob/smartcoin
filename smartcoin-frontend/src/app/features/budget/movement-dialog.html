@@ -3,7 +3,8 @@
 
   <div class="content">
     <p class="context" data-testid="movement-context">
-      {{ data.period | period }} · vence el {{ entry().dueDate | date: dateFormat }} · {{ entry().accountName }}
+      {{ data.period | period }} · vence el {{ entry().dueDate | date: dateFormat }} ·
+      {{ entry().accountName }}
     </p>
 
     <dl class="amounts" data-testid="movement-amounts">
@@ -24,8 +25,14 @@
     @if (notice(); as covered) {
       <p class="notice" role="status" data-testid="covered-notice">{{ covered }}</p>
       @if (canConsolidate()) {
-        <button pButton variant="outlined" type="button" data-testid="consolidate-from-dialog" (click)="consolidate()">
-          Consolidar
+        <button
+          pButton
+          type="button"
+          class="consolidate-button"
+          data-testid="consolidate-from-dialog"
+          (click)="consolidate()"
+        >
+          <span class="material-icons" aria-hidden="true">lock</span>Consolidar
         </button>
       }
     }
@@ -40,57 +47,65 @@
         @if (movements().length === 0) {
           <p class="empty" data-testid="no-movements">Todavía no tiene movimientos.</p>
         } @else {
-          <table aria-labelledby="movements-heading" data-testid="movements-list">
-            <thead>
-              <tr>
-                <th scope="col">Fecha</th>
-                <th scope="col">Cuenta</th>
-                <th scope="col" class="number">Monto</th>
-                <th scope="col">Nota</th>
-                @if (canChange()) {
-                  <th scope="col">Acciones</th>
-                }
-              </tr>
-            </thead>
-            <tbody>
-              @for (movement of movements(); track movement.id) {
-                <tr data-testid="movement-row" [attr.data-movement-id]="movement.id">
-                  <td class="nowrap">{{ movement.date | date: dateFormat }}</td>
-                  <td>{{ movement.accountName }}</td>
-                  <td class="number">{{ movement.amount | money: movement.currency }}</td>
-                  <td>{{ movement.note ?? '—' }}</td>
-                  @if (canChange()) {
-                    <td class="row-actions">
-                      <button
-                        pButton
-                        variant="text"
-                        size="small"
-                        type="button"
-                        data-testid="edit-movement"
-                        [attr.aria-label]="'Editar ' + word + ' del ' + (movement.date | date: dateFormat) + ' por ' + (movement.amount | money: movement.currency)"
-                        [disabled]="submitting()"
-                        (click)="startEdit(movement)"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        pButton
-                        variant="text"
-                        size="small"
-                        type="button"
-                        data-testid="delete-movement"
-                        [attr.aria-label]="'Eliminar ' + word + ' del ' + (movement.date | date: dateFormat) + ' por ' + (movement.amount | money: movement.currency)"
-                        [disabled]="submitting()"
-                        (click)="remove(movement)"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
+          <ul
+            class="list"
+            [class.no-actions]="!canChange()"
+            aria-labelledby="movements-heading"
+            data-testid="movements-list"
+          >
+            @for (movement of movements(); track movement.id) {
+              <li class="row" data-testid="movement-row" [attr.data-movement-id]="movement.id">
+                <span class="date">{{ movement.date | date: dateFormat }}</span>
+                <div class="info">
+                  <span class="account">{{ movement.accountName }}</span>
+                  @if (movement.note) {
+                    <span class="detail">{{ movement.note }}</span>
                   }
-                </tr>
-              }
-            </tbody>
-          </table>
+                </div>
+                <span class="amount">{{ movement.amount | money: movement.currency }}</span>
+                @if (canChange()) {
+                  <p-buttongroup>
+                    <p-button
+                      class="action"
+                      [fluid]="true"
+                      type="button"
+                      label="Editar"
+                      icon="pi pi-pencil"
+                      data-testid="edit-movement"
+                      [ariaLabel]="
+                        'Editar ' +
+                        word +
+                        ' del ' +
+                        (movement.date | date: dateFormat) +
+                        ' por ' +
+                        (movement.amount | money: movement.currency)
+                      "
+                      [disabled]="submitting()"
+                      (onClick)="startEdit(movement)"
+                    />
+                    <p-button
+                      class="action"
+                      [fluid]="true"
+                      type="button"
+                      label="Eliminar"
+                      icon="pi pi-trash"
+                      data-testid="delete-movement"
+                      [ariaLabel]="
+                        'Eliminar ' +
+                        word +
+                        ' del ' +
+                        (movement.date | date: dateFormat) +
+                        ' por ' +
+                        (movement.amount | money: movement.currency)
+                      "
+                      [disabled]="submitting()"
+                      (onClick)="remove(movement)"
+                    />
+                  </p-buttongroup>
+                }
+              </li>
+            }
+          </ul>
         }
       </section>
 
@@ -104,7 +119,8 @@
 
       @if (accounts().length === 0) {
         <p role="status" data-testid="no-accounts">
-          No tenés una cuenta en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }} para registrar el {{ word }}.
+          No tenés una cuenta en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }} para
+          registrar el {{ word }}.
           <a routerLink="/cuentas" (click)="cancel()">Cargá una cuenta</a>
           y volvé a intentar.
         </p>
@@ -119,7 +135,13 @@
               Corregís el {{ word }} del {{ current.date | date: dateFormat }} por
               {{ current.amount | money: current.currency }} en {{ current.accountName }}.
             </p>
-            <button pButton variant="text" type="button" data-testid="cancel-edit" (click)="cancelEdit()">
+            <button
+              pButton
+              variant="text"
+              type="button"
+              data-testid="cancel-edit"
+              (click)="cancelEdit()"
+            >
               Cancelar corrección
             </button>
           </div>
@@ -128,7 +150,8 @@
         <div class="pair">
           <div class="field">
             <span class="field-label">
-              <label for="movement-date">Fecha</label><span class="required" aria-hidden="true">*</span>
+              <label for="movement-date">Fecha</label
+              ><span class="required" aria-hidden="true">*</span>
             </span>
             <input
               pInputText
@@ -155,7 +178,8 @@
 
           <div class="field">
             <span class="field-label">
-              <label for="movement-amount">Monto</label><span class="required" aria-hidden="true">*</span>
+              <label for="movement-amount">Monto</label
+              ><span class="required" aria-hidden="true">*</span>
             </span>
             <input
               pInputText
@@ -166,7 +190,9 @@
               required
               [invalid]="invalid('amount')"
               [attr.aria-invalid]="invalid('amount')"
-              [attr.aria-describedby]="invalid('amount') ? 'movement-amount-error' : 'movement-amount-hint'"
+              [attr.aria-describedby]="
+                invalid('amount') ? 'movement-amount-error' : 'movement-amount-hint'
+              "
             />
             @if (invalid('amount')) {
               <p-message id="movement-amount-error" severity="error" variant="simple" size="small">
@@ -181,7 +207,9 @@
                 }
               </p-message>
             } @else {
-              <small id="movement-amount-hint" class="hint">Con coma decimal, por ejemplo 1500,50.</small>
+              <small id="movement-amount-hint" class="hint"
+                >Con coma decimal, por ejemplo 1500,50.</small
+              >
             }
           </div>
         </div>
@@ -200,7 +228,13 @@
             optionValue="id"
             [required]="true"
             [invalid]="invalid('accountId')"
-            [pt]="{ label: { 'aria-describedby': invalid('accountId') ? 'movement-account-error' : 'movement-account-hint' } }"
+            [pt]="{
+              label: {
+                'aria-describedby': invalid('accountId')
+                  ? 'movement-account-error'
+                  : 'movement-account-hint',
+              },
+            }"
           />
           @if (invalid('accountId')) {
             <p-message id="movement-account-error" severity="error" variant="simple" size="small">
@@ -212,7 +246,8 @@
             </p-message>
           } @else {
             <small id="movement-account-hint" class="hint">
-              Solo cuentas en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }}, la moneda de la partida.
+              Solo cuentas en {{ entry().currency === 'USD' ? 'dólares' : 'pesos' }}, la moneda de
+              la partida.
             </small>
           }
         </div>
@@ -242,8 +277,15 @@
   </div>
 
   <div class="dialog-actions">
-    <button pButton variant="text" severity="secondary" type="button" (click)="cancel()">Cancelar</button>
-    <button pButton type="submit" data-testid="submit-movement" [disabled]="!ready() || submitting()">
+    <button pButton variant="text" severity="secondary" type="button" (click)="cancel()">
+      Cancelar
+    </button>
+    <button
+      pButton
+      type="submit"
+      data-testid="submit-movement"
+      [disabled]="!ready() || submitting()"
+    >
       {{ submitLabel() }}
     </button>
   </div>

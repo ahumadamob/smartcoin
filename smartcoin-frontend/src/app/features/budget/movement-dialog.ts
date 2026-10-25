@@ -25,7 +25,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ButtonDirective } from 'primeng/button';
+import { Button, ButtonDirective } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
@@ -48,7 +49,11 @@ import { MoneyPipe } from '../../shared/pipes/money.pipe';
 import { PeriodPipe } from '../../shared/pipes/period.pipe';
 import { canChangeMovements, canConsolidate } from './entry-actions';
 import { isoDate } from './iso-date';
-import { MovementDeleteDialog, MovementDeleteDialogData, MovementDeleteDialogResult } from './movement-delete-dialog';
+import {
+  MovementDeleteDialog,
+  MovementDeleteDialogData,
+  MovementDeleteDialogResult,
+} from './movement-delete-dialog';
 import {
   correctedMessage,
   correctLabel,
@@ -81,7 +86,8 @@ export interface MovementDialogData {
  * backend dijo que el período se cerró o la partida ya no está pendiente (la pantalla estaba desactualizada), o sin
  * valor si el usuario canceló.
  */
-export type MovementDialogResult = MovementRegistered | { stale: true } | { consolidate: true; entry: PeriodEntry };
+export type MovementDialogResult =
+  MovementRegistered | { stale: true } | { consolidate: true; entry: PeriodEntry };
 
 /** Estos códigos significan que lo que muestra la pantalla ya no es lo que hay en el backend. */
 const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'NOT_FOUND'];
@@ -131,7 +137,9 @@ const FIELD_IDS: Record<FieldName, string> = {
   selector: 'app-movement-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    Button,
     ButtonDirective,
+    ButtonGroup,
     DatePipe,
     DialogTitle,
     InputTextModule,
@@ -156,7 +164,8 @@ export class MovementDialog implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialogs = inject(Dialogs);
   private readonly injector = inject(Injector);
-  protected readonly data = inject<DynamicDialogConfig<MovementDialogData>>(DynamicDialogConfig).data!;
+  protected readonly data =
+    inject<DynamicDialogConfig<MovementDialogData>>(DynamicDialogConfig).data!;
 
   /** La partida con los valores que informó el backend por última vez (cambia al corregir o eliminar). */
   protected readonly entry = signal(this.data.entry);
@@ -171,9 +180,13 @@ export class MovementDialog implements OnInit {
     this.editing() === null ? registerLabel(this.entry().kind) : 'Guardar cambios',
   );
   /** «Editar» y «Eliminar» por fila: solo con la partida pendiente y el período abierto. */
-  protected readonly canChange = computed(() => canChangeMovements(this.entry(), this.data.readonly));
+  protected readonly canChange = computed(() =>
+    canChangeMovements(this.entry(), this.data.readonly),
+  );
   /** «Consolidar» junto al aviso de «cubierta» (HU-23): solo con la partida pendiente y el período abierto. */
-  protected readonly canConsolidate = computed(() => !this.data.readonly && canConsolidate(this.entry()));
+  protected readonly canConsolidate = computed(
+    () => !this.data.readonly && canConsolidate(this.entry()),
+  );
   /** Qué se hizo con un movimiento (corregido, eliminado), o `null`. */
   protected readonly changeNotice = signal<string | null>(null);
   /**
@@ -206,7 +219,10 @@ export class MovementDialog implements OnInit {
 
   protected readonly form = new FormGroup({
     date: new FormControl('', { nonNullable: true, validators: [Validators.required, isoDate] }),
-    amount: new FormControl('', { nonNullable: true, validators: [Validators.required, positiveAmount] }),
+    amount: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, positiveAmount],
+    }),
     accountId: new FormControl<number | null>(null, Validators.required),
     note: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(200)] }),
   });
@@ -254,7 +270,9 @@ export class MovementDialog implements OnInit {
       dates: this.api.getMovementDates(entry.id, entry.accountId),
     }).subscribe({
       next: ({ accounts, movements, dates }) => {
-        this.accounts.set(accounts.accounts.filter((account) => account.currency === entry.currency));
+        this.accounts.set(
+          accounts.accounts.filter((account) => account.currency === entry.currency),
+        );
         this.movements.set(movements);
         this.dates.set(dates);
         this.form.controls.date.setValue(suggestedDate(dates));
@@ -309,8 +327,11 @@ export class MovementDialog implements OnInit {
           this.submitting.set(false);
           this.editing.set(null);
           this.changeNotice.set(
-            correctedMessage(updated.entry.kind, updated.movement.amount, updated.movement.currency, (a, c) =>
-              this.money.transform(a, c),
+            correctedMessage(
+              updated.entry.kind,
+              updated.movement.amount,
+              updated.movement.currency,
+              (a, c) => this.money.transform(a, c),
             ),
           );
           this.refreshAfterChange(() => this.focusRowAction(updated.movement.id));
@@ -356,11 +377,19 @@ export class MovementDialog implements OnInit {
     const list = this.movements();
     const index = list.findIndex((candidate) => candidate.id === movement.id);
     // Si la fila desaparece, el foco va a la que ocupa su lugar, si no a la anterior, y si no queda ninguna, al campo.
-    const candidates = [...list.slice(index + 1), ...list.slice(0, Math.max(index, 0)).reverse()].map((m) => m.id);
+    const candidates = [
+      ...list.slice(index + 1),
+      ...list.slice(0, Math.max(index, 0)).reverse(),
+    ].map((m) => m.id);
     this.dialogs
       .open<MovementDeleteDialog, MovementDeleteDialogData, MovementDeleteDialogResult>(
         MovementDeleteDialog,
-        { movement, entryName: this.entry().name, kind: this.entry().kind, isOnly: list.length === 1 },
+        {
+          movement,
+          entryName: this.entry().name,
+          kind: this.entry().kind,
+          isOnly: list.length === 1,
+        },
         { width: '480px' },
       )
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -379,7 +408,9 @@ export class MovementDialog implements OnInit {
           this.resetRegisterForm();
         }
         this.changeNotice.set(
-          deletedMessage(this.entry().kind, movement.amount, movement.currency, (a, c) => this.money.transform(a, c)),
+          deletedMessage(this.entry().kind, movement.amount, movement.currency, (a, c) =>
+            this.money.transform(a, c),
+          ),
         );
         this.refreshAfterChange(() => {
           const next = candidates.find((id) => this.movements().some((m) => m.id === id));
@@ -433,7 +464,12 @@ export class MovementDialog implements OnInit {
   }
 
   /** Carga valores nuevos en el formulario como si fuera uno recién abierto: sin errores ni «enviado» de antes. */
-  private loadForm(values: { date: string; amount: string; accountId: number | null; note: string }): void {
+  private loadForm(values: {
+    date: string;
+    amount: string;
+    accountId: number | null;
+    note: string;
+  }): void {
     const directive = this.formDirective();
     if (directive) {
       directive.resetForm(values);
@@ -442,7 +478,10 @@ export class MovementDialog implements OnInit {
     }
   }
 
-  private focusRowAction(movementId: number, action: 'edit-movement' | 'delete-movement' = 'edit-movement'): void {
+  private focusRowAction(
+    movementId: number,
+    action: 'edit-movement' | 'delete-movement' = 'edit-movement',
+  ): void {
     this.focusAfterRender(`[data-movement-id="${movementId}"] [data-testid="${action}"]`);
   }
 
@@ -494,7 +533,10 @@ export class MovementDialog implements OnInit {
     } else if (code === 'CURRENCY_MISMATCH') {
       field = 'accountId';
     }
-    const message = code === 'DATE_OUT_OF_RANGE' || code === 'PERIOD_CLOSED' || code === 'ENTRY_NOT_PENDING' ? detailFor(e) : messageFor(e);
+    const message =
+      code === 'DATE_OUT_OF_RANGE' || code === 'PERIOD_CLOSED' || code === 'ENTRY_NOT_PENDING'
+        ? detailFor(e)
+        : messageFor(e);
     const control = field !== undefined ? this.form.controls[field] : undefined;
     if (field !== undefined && control) {
       control.setErrors({ server: message });

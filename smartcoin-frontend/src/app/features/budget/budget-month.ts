@@ -216,7 +216,7 @@ export class BudgetMonth implements OnInit {
           readonly: this.readonly(),
           refresh: () => this.refreshEntry(period, entry.id),
         },
-        { width: '640px' },
+        { width: '780px' },
       )
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
