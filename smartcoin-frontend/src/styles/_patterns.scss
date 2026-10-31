@@ -24,8 +24,13 @@
 
   // Los botones de los diálogos: Cancelar a la izquierda y la acción principal a la derecha, del mismo ancho
   // (GUIA-BOTONES.md).
+  // El grupo lleva su ancho (dos botones de 10 rem) y no lo deja a cargo del navegador: Firefox calcula el ancho natural
+  // de un grupo de `p-button` por el contenido de cada botón (unos 214 px) y no por su `flex-basis`, así que el segundo
+  // botón se salía del diálogo.
   .dialog-actions p-buttongroup {
     display: flex;
+    width: 20rem;
+    margin-left: auto;
   }
 
   .dialog-actions p-button {
@@ -87,6 +92,8 @@
 // botones que los de `Dialogs` (GUIA-BOTONES.md).
 .mat-mdc-dialog-actions p-buttongroup {
   display: flex;
+  width: 20rem;
+  margin-left: auto;
 }
 
 .mat-mdc-dialog-actions p-button {
