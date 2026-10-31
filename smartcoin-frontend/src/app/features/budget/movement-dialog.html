@@ -289,16 +289,39 @@
   </div>
 
   <div class="dialog-actions">
-    <button pButton variant="text" severity="secondary" type="button" (click)="cancel()">
-      Cancelar
-    </button>
-    <button
-      pButton
-      type="submit"
-      data-testid="submit-movement"
-      [disabled]="!ready() || submitting()"
-    >
-      {{ submitLabel() }}
-    </button>
+    <p-buttongroup>
+      <p-button
+        class="action"
+        [fluid]="true"
+        type="button"
+        label="Cancelar"
+        severity="info"
+        (onClick)="cancel()"
+      >
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template
+        >
+      </p-button>
+      <p-button
+        class="action"
+        [fluid]="true"
+        type="submit"
+        data-testid="submit-movement"
+        [disabled]="!ready() || submitting()"
+        [label]="submitLabel()"
+      >
+        @if (editing()) {
+          <ng-template #icon
+            ><span class="material-symbols-outlined" aria-hidden="true">check</span></ng-template
+          >
+        } @else {
+          <ng-template #icon
+            ><span class="material-symbols-outlined" aria-hidden="true"
+              >attach_money</span
+            ></ng-template
+          >
+        }
+      </p-button>
+    </p-buttongroup>
   </div>
 </form>

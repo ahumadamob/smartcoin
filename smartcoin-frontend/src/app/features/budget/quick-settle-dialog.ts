@@ -16,7 +16,8 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ButtonDirective } from 'primeng/button';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { InputText } from 'primeng/inputtext';
 import { Message } from 'primeng/message';
@@ -86,7 +87,8 @@ const FIELD_IDS: Record<FieldName, string> = { date: 'settle-date', accountId: '
   selector: 'app-quick-settle-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ButtonDirective,
+    Button,
+    ButtonGroup,
     ConsolidationOutcome,
     DialogTitle,
     InputText,

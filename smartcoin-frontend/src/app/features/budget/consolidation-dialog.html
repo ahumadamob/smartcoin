@@ -13,22 +13,42 @@
     @if (!current.allowed) {
       <p class="note" role="status" data-testid="blocked">{{ current.blockedDetail }}</p>
     } @else {
-      <app-consolidation-outcome [preview]="current" [currency]="entry.currency" [(policy)]="policy" />
+      <app-consolidation-outcome
+        [preview]="current"
+        [currency]="entry.currency"
+        [(policy)]="policy"
+      />
     }
   }
 </div>
 
 <div class="dialog-actions">
-  <button pButton variant="text" severity="secondary" type="button" data-testid="cancel-consolidate" (click)="cancel()">
-    Cancelar
-  </button>
-  <button
-    pButton
-    type="button"
-    data-testid="confirm-consolidate"
-    [disabled]="!canConfirm()"
-    (click)="submit()"
-  >
-    Consolidar
-  </button>
+  <p-buttongroup>
+    <p-button
+      class="action"
+      [fluid]="true"
+      type="button"
+      label="Cancelar"
+      severity="info"
+      data-testid="cancel-consolidate"
+      (onClick)="cancel()"
+    >
+      <ng-template #icon
+        ><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template
+      >
+    </p-button>
+    <p-button
+      class="action"
+      [fluid]="true"
+      type="button"
+      data-testid="confirm-consolidate"
+      [disabled]="!canConfirm()"
+      (onClick)="submit()"
+      label="Consolidar"
+    >
+      <ng-template #icon
+        ><span class="material-symbols-outlined" aria-hidden="true">lock</span></ng-template
+      >
+    </p-button>
+  </p-buttongroup>
 </div>

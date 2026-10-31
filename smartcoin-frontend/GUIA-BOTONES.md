@@ -76,7 +76,8 @@ de los componentes de PrimeNG (la flecha de un select, el cierre de un aviso).
 
 - **«Consolidar» en el diálogo de movimientos** va en `primary` y no en `info`: se pidió expresamente, porque es la
   acción que sigue al aviso «ya está cubierta».
-- **«Cancelar» en los diálogos** sigue como botón de texto gris hasta la tanda 3.
+- **En los diálogos** la acción que confirma va en `primary` aunque su función tenga otro color (consolidar, pagar o cobrar todo); solo «Eliminar» confirma en `danger`.
+- **Ancho:** 7,5 rem por botón en formularios y listas, 9 rem en el de transferencias y 10 rem en los diálogos (los textos son más largos).
 
 ## Estado de las tandas
 
@@ -85,6 +86,6 @@ de los componentes de PrimeNG (la flecha de un select, el cierre de un aviso).
 | 0 | Esta guía | hecha |
 | 1 | Base: una sola familia de íconos y su tamaño | hecha |
 | 2 | Tablas y listas de las pantallas migradas | hecha |
-| 3 | Formularios y diálogos migrados | pendiente |
+| 3 | Formularios y diálogos migrados | hecha |
 | 4 | Pantallas con la apariencia anterior (login, cambio de contraseña, reportes, asistente de cierre, diálogos de desconsolidar, eliminar partida y confirmación) | pendiente |
 | 5 | Tests que dependen de textos e íconos | pendiente (se hace cuando se pidan los tests) |

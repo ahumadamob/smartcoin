@@ -118,18 +118,32 @@
   </div>
 
   <div class="dialog-actions">
-    <button
-      pButton
-      variant="text"
-      severity="secondary"
-      type="button"
-      data-testid="cancel-quick-settle"
-      (click)="cancel()"
-    >
-      Cancelar
-    </button>
-    <button pButton type="submit" data-testid="confirm-quick-settle" [disabled]="!canConfirm()">
-      {{ label }}
-    </button>
+    <p-buttongroup>
+      <p-button
+        class="action"
+        [fluid]="true"
+        type="button"
+        label="Cancelar"
+        severity="info"
+        data-testid="cancel-quick-settle"
+        (onClick)="cancel()"
+      >
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template
+        >
+      </p-button>
+      <p-button
+        class="action"
+        [fluid]="true"
+        type="submit"
+        data-testid="confirm-quick-settle"
+        [disabled]="!canConfirm()"
+        [label]="label"
+      >
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">mintmark</span></ng-template
+        >
+      </p-button>
+    </p-buttongroup>
   </div>
 </form>

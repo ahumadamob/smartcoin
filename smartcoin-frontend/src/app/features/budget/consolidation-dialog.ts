@@ -10,7 +10,8 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { ButtonDirective } from 'primeng/button';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { ConsolidacinService, ConsolidationPreview, PeriodEntry } from '../../api';
 import { DialogTitle } from '../../core/dialogs';
@@ -32,9 +33,15 @@ export interface ConsolidationDialogData {
  * que lo que se ve ya no es lo que hay (período cerrado, partida inexistente o ya no pendiente), o sin valor si el
  * usuario canceló.
  */
-export type ConsolidationDialogResult = { consolidated: true; message: string; entry: PeriodEntry } | { stale: true };
+export type ConsolidationDialogResult =
+  { consolidated: true; message: string; entry: PeriodEntry } | { stale: true };
 
-const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'CONSOLIDATION_REQUIRES_MOVEMENT', 'NOT_FOUND'];
+const STALE_CODES = [
+  'PERIOD_CLOSED',
+  'ENTRY_NOT_PENDING',
+  'CONSOLIDATION_REQUIRES_MOVEMENT',
+  'NOT_FOUND',
+];
 
 /**
  * Diálogo para consolidar una partida (HU-23, RN-25 a RN-28). Al abrirse pide al backend la vista previa y muestra
@@ -48,7 +55,7 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'CONSOLIDATION_REQUIR
 @Component({
   selector: 'app-consolidation-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ButtonDirective, ConsolidationOutcome, DialogTitle, PeriodPipe],
+  imports: [Button, ButtonGroup, ConsolidationOutcome, DialogTitle, PeriodPipe],
   templateUrl: './consolidation-dialog.html',
   styleUrl: './consolidation-dialog.scss',
 })
@@ -58,7 +65,8 @@ export class ConsolidationDialog implements OnInit {
   private readonly injector = inject(Injector);
   private readonly ref = inject(DynamicDialogRef);
   private readonly money = new MoneyPipe();
-  protected readonly data = inject<DynamicDialogConfig<ConsolidationDialogData>>(DynamicDialogConfig).data!;
+  protected readonly data =
+    inject<DynamicDialogConfig<ConsolidationDialogData>>(DynamicDialogConfig).data!;
 
   protected readonly entry = this.data.entry;
   protected readonly preview = signal<ConsolidationPreview | null>(null);
@@ -92,7 +100,9 @@ export class ConsolidationDialog implements OnInit {
         afterNextRender(
           () =>
             this.host.nativeElement
-              .querySelector<HTMLElement>('[data-testid="confirm-consolidate"], [data-testid="cancel-consolidate"]')
+              .querySelector<HTMLElement>(
+                '[data-testid="confirm-consolidate"], [data-testid="cancel-consolidate"]',
+              )
               ?.focus(),
           { injector: this.injector },
         );
@@ -119,7 +129,9 @@ export class ConsolidationDialog implements OnInit {
         this.ref.close({
           consolidated: true,
           entry: result.entry,
-          message: consolidatedMessage(result, (amount, currency) => this.money.transform(amount, currency)),
+          message: consolidatedMessage(result, (amount, currency) =>
+            this.money.transform(amount, currency),
+          ),
         } satisfies ConsolidationDialogResult),
       error: (e: unknown) => this.fail(e),
     });
@@ -145,7 +157,10 @@ export class ConsolidationDialog implements OnInit {
   }
 
   private markStaleIfNeeded(e: unknown): void {
-    const code = e instanceof HttpErrorResponse && typeof e.error === 'object' ? (e.error?.code as string) : '';
+    const code =
+      e instanceof HttpErrorResponse && typeof e.error === 'object'
+        ? (e.error?.code as string)
+        : '';
     if (STALE_CODES.includes(code)) {
       this.stale = true;
       this.gone.set(true);

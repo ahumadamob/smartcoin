@@ -1,6 +1,8 @@
 <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form">
   @if (error(); as message) {
-    <p-message class="form-error" severity="error" variant="simple" size="small">{{ message }}</p-message>
+    <p-message class="form-error" severity="error" variant="simple" size="small">{{
+      message
+    }}</p-message>
   }
 
   <div class="field">
@@ -17,7 +19,9 @@
       optionValue="id"
       [required]="true"
       [invalid]="invalid('sourceAccountId')"
-      [pt]="{ label: { 'aria-describedby': invalid('sourceAccountId') ? 'transfer-source-error' : null } }"
+      [pt]="{
+        label: { 'aria-describedby': invalid('sourceAccountId') ? 'transfer-source-error' : null },
+      }"
     />
     @if (invalid('sourceAccountId')) {
       <p-message id="transfer-source-error" severity="error" variant="simple" size="small">
@@ -83,7 +87,8 @@
   @if (crossCurrency()) {
     <div class="field">
       <span class="field-label">
-        <label for="transfer-amount">Monto en pesos</label><span class="required" aria-hidden="true">*</span>
+        <label for="transfer-amount">Monto en pesos</label
+        ><span class="required" aria-hidden="true">*</span>
       </span>
       <p-inputgroup>
         <p-inputgroup-addon>$</p-inputgroup-addon>
@@ -97,7 +102,9 @@
           required
           [invalid]="invalid('amount')"
           [attr.aria-invalid]="invalid('amount')"
-          [attr.aria-describedby]="invalid('amount') ? 'transfer-amount-error' : 'transfer-amount-hint'"
+          [attr.aria-describedby]="
+            invalid('amount') ? 'transfer-amount-error' : 'transfer-amount-hint'
+          "
         />
       </p-inputgroup>
       @if (invalid('amount')) {
@@ -111,13 +118,16 @@
           }
         </p-message>
       } @else {
-        <small id="transfer-amount-hint" class="hint">Con coma decimal, por ejemplo 1250000,00.</small>
+        <small id="transfer-amount-hint" class="hint"
+          >Con coma decimal, por ejemplo 1250000,00.</small
+        >
       }
     </div>
 
     <div class="field">
       <span class="field-label">
-        <label for="transfer-usd-amount">Monto en dólares</label><span class="required" aria-hidden="true">*</span>
+        <label for="transfer-usd-amount">Monto en dólares</label
+        ><span class="required" aria-hidden="true">*</span>
       </span>
       <p-inputgroup>
         <p-inputgroup-addon>US$</p-inputgroup-addon>
@@ -131,7 +141,9 @@
           required
           [invalid]="invalid('usdAmount')"
           [attr.aria-invalid]="invalid('usdAmount')"
-          [attr.aria-describedby]="invalid('usdAmount') ? 'transfer-usd-amount-error' : 'transfer-usd-amount-hint'"
+          [attr.aria-describedby]="
+            invalid('usdAmount') ? 'transfer-usd-amount-error' : 'transfer-usd-amount-hint'
+          "
         />
       </p-inputgroup>
       @if (invalid('usdAmount')) {
@@ -145,7 +157,9 @@
           }
         </p-message>
       } @else {
-        <small id="transfer-usd-amount-hint" class="hint">Con coma decimal, por ejemplo 1000,00.</small>
+        <small id="transfer-usd-amount-hint" class="hint"
+          >Con coma decimal, por ejemplo 1000,00.</small
+        >
       }
     </div>
   } @else {
@@ -162,7 +176,9 @@
         required
         [invalid]="invalid('amount')"
         [attr.aria-invalid]="invalid('amount')"
-        [attr.aria-describedby]="invalid('amount') ? 'transfer-amount-error' : 'transfer-amount-hint'"
+        [attr.aria-describedby]="
+          invalid('amount') ? 'transfer-amount-error' : 'transfer-amount-hint'
+        "
       />
       @if (invalid('amount')) {
         <p-message id="transfer-amount-error" severity="error" variant="simple" size="small">
@@ -175,7 +191,9 @@
           }
         </p-message>
       } @else {
-        <small id="transfer-amount-hint" class="hint">Con coma decimal, por ejemplo 50000,00.</small>
+        <small id="transfer-amount-hint" class="hint"
+          >Con coma decimal, por ejemplo 50000,00.</small
+        >
       }
     </div>
   }
@@ -207,19 +225,25 @@
     <p-button
       class="action"
       [fluid]="true"
-      type="submit"
-      [label]="transfer() ? 'Guardar cambios' : 'Transferir'"
-      icon="pi pi-check"
-      [disabled]="submitting()"
-    />
-    <p-button
-      class="action"
-      [fluid]="true"
       type="button"
       label="Cancelar"
       severity="info"
-      icon="pi pi-times"
       (onClick)="cancelled.emit()"
-    />
+    >
+      <ng-template #icon
+        ><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template
+      >
+    </p-button>
+    <p-button
+      class="action"
+      [fluid]="true"
+      type="submit"
+      [label]="transfer() ? 'Guardar' : 'Transferir'"
+      [disabled]="submitting()"
+    >
+      <ng-template #icon
+        ><span class="material-symbols-outlined" aria-hidden="true">swap_horiz</span></ng-template
+      >
+    </p-button>
   </p-buttongroup>
 </form>

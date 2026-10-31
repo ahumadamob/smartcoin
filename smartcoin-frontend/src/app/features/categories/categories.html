@@ -59,19 +59,6 @@
               <p-button
                 class="action"
                 [fluid]="true"
-                type="submit"
-                label="Guardar"
-                [disabled]="saving()"
-              >
-                <ng-template #icon
-                  ><span class="material-symbols-outlined" aria-hidden="true"
-                    >check</span
-                  ></ng-template
-                >
-              </p-button>
-              <p-button
-                class="action"
-                [fluid]="true"
                 type="button"
                 label="Cancelar"
                 severity="info"
@@ -80,6 +67,19 @@
                 <ng-template #icon
                   ><span class="material-symbols-outlined" aria-hidden="true"
                     >close</span
+                  ></ng-template
+                >
+              </p-button>
+              <p-button
+                class="action"
+                [fluid]="true"
+                type="submit"
+                label="Guardar"
+                [disabled]="saving()"
+              >
+                <ng-template #icon
+                  ><span class="material-symbols-outlined" aria-hidden="true"
+                    >check</span
                   ></ng-template
                 >
               </p-button>
@@ -164,19 +164,6 @@
             <p-button
               class="action"
               [fluid]="true"
-              type="submit"
-              label="Agregar"
-              [disabled]="adding()"
-            >
-              <ng-template #icon
-                ><span class="material-symbols-outlined" aria-hidden="true"
-                  >check</span
-                ></ng-template
-              >
-            </p-button>
-            <p-button
-              class="action"
-              [fluid]="true"
               type="button"
               label="Cancelar"
               severity="info"
@@ -185,6 +172,19 @@
               <ng-template #icon
                 ><span class="material-symbols-outlined" aria-hidden="true"
                   >close</span
+                ></ng-template
+              >
+            </p-button>
+            <p-button
+              class="action"
+              [fluid]="true"
+              type="submit"
+              label="Crear"
+              [disabled]="adding()"
+            >
+              <ng-template #icon
+                ><span class="material-symbols-outlined" aria-hidden="true"
+                  >check</span
                 ></ng-template
               >
             </p-button>

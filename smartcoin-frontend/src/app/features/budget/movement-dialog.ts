@@ -177,7 +177,7 @@ export class MovementDialog implements OnInit {
     this.editing() === null ? registerLabel(this.entry().kind) : correctLabel(this.entry().kind),
   );
   protected readonly submitLabel = computed(() =>
-    this.editing() === null ? registerLabel(this.entry().kind) : 'Guardar cambios',
+    this.editing() === null ? registerLabel(this.entry().kind) : 'Guardar',
   );
   /** «Editar» y «Eliminar» por fila: solo con la partida pendiente y el período abierto. */
   protected readonly canChange = computed(() =>

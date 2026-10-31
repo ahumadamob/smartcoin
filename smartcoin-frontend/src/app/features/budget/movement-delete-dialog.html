@@ -32,26 +32,36 @@
 </div>
 
 <div class="dialog-actions">
-  <button
-    pButton
-    variant="text"
-    severity="secondary"
-    type="button"
-    pAutoFocus
-    [autofocus]="true"
-    data-testid="cancel-delete-movement"
-    (click)="cancel()"
-  >
-    Cancelar
-  </button>
-  <button
-    pButton
-    severity="danger"
-    type="button"
-    data-testid="confirm-delete-movement"
-    [disabled]="submitting()"
-    (click)="confirm()"
-  >
-    Eliminar {{ word }}
-  </button>
+  <p-buttongroup>
+    <p-button
+      class="action"
+      [fluid]="true"
+      type="button"
+      label="Cancelar"
+      severity="info"
+      data-testid="cancel-delete-movement"
+      [autofocus]="true"
+      (onClick)="cancel()"
+    >
+      <ng-template #icon
+        ><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template
+      >
+    </p-button>
+    <p-button
+      class="action"
+      [fluid]="true"
+      type="button"
+      data-testid="confirm-delete-movement"
+      [disabled]="submitting()"
+      (onClick)="confirm()"
+      severity="danger"
+      [label]="'Eliminar ' + word"
+    >
+      <ng-template #icon
+        ><span class="material-symbols-outlined" aria-hidden="true"
+          >delete_forever</span
+        ></ng-template
+      >
+    </p-button>
+  </p-buttongroup>
 </div>

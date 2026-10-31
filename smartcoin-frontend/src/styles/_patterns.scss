@@ -22,6 +22,16 @@
     line-height: 1.3;
   }
 
+  // Los botones de los diálogos: Cancelar a la izquierda y la acción principal a la derecha, del mismo ancho
+  // (GUIA-BOTONES.md).
+  .dialog-actions p-buttongroup {
+    display: flex;
+  }
+
+  .dialog-actions p-button {
+    flex: 0 0 10rem;
+  }
+
   .dialog-actions {
     position: sticky;
     bottom: 0;

@@ -288,17 +288,23 @@
         type="button"
         label="Cancelar"
         severity="info"
-        icon="pi pi-times"
         (onClick)="cancel()"
-      />
+      >
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template
+        >
+      </p-button>
       <p-button
         class="action"
         [fluid]="true"
         type="submit"
-        label="Guardar"
-        icon="pi pi-check"
+        [label]="editing ? 'Guardar' : 'Crear'"
         [disabled]="!ready() || submitting()"
-      />
+      >
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">check</span></ng-template
+        >
+      </p-button>
     </p-buttongroup>
   </div>
 </form>

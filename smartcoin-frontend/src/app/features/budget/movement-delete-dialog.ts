@@ -1,8 +1,8 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { AutoFocus } from 'primeng/autofocus';
-import { ButtonDirective } from 'primeng/button';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { DynamicDialogConfig, DynamicDialogRef } from 'primeng/dynamicdialog';
 import { Movement, MovimientosService, PeriodEntry } from '../../api';
 import { DialogTitle } from '../../core/dialogs';
@@ -35,14 +35,15 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_PENDING', 'NOT_FOUND'];
 @Component({
   selector: 'app-movement-delete-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AutoFocus, ButtonDirective, DatePipe, DialogTitle, MoneyPipe],
+  imports: [Button, ButtonGroup, DatePipe, DialogTitle, MoneyPipe],
   templateUrl: './movement-delete-dialog.html',
   styleUrl: './movement-delete-dialog.scss',
 })
 export class MovementDeleteDialog {
   private readonly api = inject(MovimientosService);
   private readonly ref = inject(DynamicDialogRef);
-  protected readonly data = inject<DynamicDialogConfig<MovementDeleteDialogData>>(DynamicDialogConfig).data!;
+  protected readonly data =
+    inject<DynamicDialogConfig<MovementDeleteDialogData>>(DynamicDialogConfig).data!;
 
   protected readonly movement = this.data.movement;
   protected readonly word = movementWord(this.data.kind);
@@ -61,7 +62,10 @@ export class MovementDeleteDialog {
       next: () => this.ref.close({ deleted: true } satisfies MovementDeleteDialogResult),
       error: (e: unknown) => {
         this.submitting.set(false);
-        const code = e instanceof HttpErrorResponse && typeof e.error === 'object' ? (e.error?.code as string) : '';
+        const code =
+          e instanceof HttpErrorResponse && typeof e.error === 'object'
+            ? (e.error?.code as string)
+            : '';
         this.stale = STALE_CODES.includes(code);
         this.error.set(messageFor(e));
       },

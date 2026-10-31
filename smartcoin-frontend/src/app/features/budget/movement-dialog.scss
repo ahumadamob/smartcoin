@@ -99,12 +99,13 @@ $actions-width: 15rem;
   white-space: nowrap;
 }
 
-p-buttongroup {
+// Solo los botones de cada fila; los del pie del diálogo van por `_patterns.scss`.
+.row p-buttongroup {
   display: flex;
   width: $actions-width;
 }
 
-.action {
+.row .action {
   flex: 0 0 calc($actions-width / 2);
 }
 
