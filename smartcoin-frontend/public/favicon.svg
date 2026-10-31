@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Smartcoin">
+  <defs>
+    <linearGradient id="bg" x1="6" y1="2" x2="58" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8f5d35"/>
+      <stop offset="1" stop-color="#4a2c16"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="14" y1="12" x2="50" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fbe08a"/>
+      <stop offset=".55" stop-color="#e6b440"/>
+      <stop offset="1" stop-color="#b87d17"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <!-- la casa: techo, chimenea y paredes -->
+  <rect x="40" y="12" width="6.5" height="12" rx="1.2" fill="url(#gold)"/>
+  <path d="M32 11.5 6.5 33.2a2.2 2.2 0 0 0 1.4 3.9l3.6.1V52a2 2 0 0 0 2 2h37a2 2 0 0 0 2-2V37.2l3.6-.1a2.2 2.2 0 0 0 1.4-3.9z" fill="url(#gold)"/>
+  <!-- la moneda de la economía del hogar -->
+  <circle cx="32" cy="41.5" r="10.5" fill="#5b3519"/>
+  <circle cx="32" cy="41.5" r="8.6" fill="none" stroke="#e6b440" stroke-opacity=".55" stroke-width="1"/>
+  <g transform="translate(32 41.5) scale(.4) translate(-32 -32)" fill="none" stroke="#f3cd62" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M39.5 25.2C37.6 22.2 27.4 21.6 26.2 27.4C25 33.4 38.6 31.2 38 37.6C37.4 43.4 27.4 43.4 24.6 39.2" stroke-width="6"/>
+    <path d="M32 17.5V46.5" stroke-width="4"/>
+  </g>
+</svg>

@@ -74,7 +74,8 @@
         [value]="items()"
         [rowTrackBy]="trackById"
         [pt]="{ table: { 'aria-label': 'Conceptos' } }"
-        size="small"
+        [showGridlines]="true"
+        [rowHover]="true"
         [scrollable]="true"
       >
         <ng-template #header>
