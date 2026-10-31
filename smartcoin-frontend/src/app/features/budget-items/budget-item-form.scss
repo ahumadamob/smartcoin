@@ -4,9 +4,34 @@
   gap: 1rem;
 }
 
+// Tres segmentos que se reparten en columnas según el ancho: en pantallas anchas se ven a la vez, y en las angostas
+// quedan uno debajo del otro. `columns` los acomoda parejos sin partir ninguno.
+.segments {
+  columns: 3 22rem;
+  column-gap: 1rem;
+}
+
+.segment {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: var(--p-content-border-radius);
+  background: var(--p-content-background);
+  break-inside: avoid;
+}
+
+.segment-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
 .pair {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  // Dos columnas si entran; en un segmento angosto, uno debajo del otro (el campo de mes necesita unos 10 rem).
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
   gap: 1rem;
 }
 
@@ -64,8 +89,14 @@
 }
 
 .actions {
+  // Siempre a la vista: el botón no queda abajo de todo, con scroll.
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   justify-content: flex-end;
+  padding: 0.75rem 0;
+  background: var(--surface-ground, var(--p-content-background));
 
   p-buttongroup {
     display: flex;

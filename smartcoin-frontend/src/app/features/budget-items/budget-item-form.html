@@ -1,4 +1,7 @@
 <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="form">
+  <div class="segments">
+  <section class="segment" aria-labelledby="segment-data">
+    <h2 id="segment-data" class="segment-title">Datos del Concepto</h2>
   <div class="field">
     <span class="field-label">
       <label for="item-name">Nombre</label><span class="required" aria-hidden="true">*</span>
@@ -148,6 +151,11 @@
     />
     <small id="item-category-hint" class="hint">Opcional.</small>
   </div>
+
+  </section>
+
+  <section class="segment" aria-labelledby="segment-schedule">
+    <h2 id="segment-schedule" class="segment-title">Vencimiento y vigencia</h2>
 
   <div class="field">
     <span class="field-label">
@@ -349,6 +357,11 @@
     }
   </div>
 
+  </section>
+
+  <section class="segment" aria-labelledby="segment-estimation">
+    <h2 id="segment-estimation" class="segment-title">Estimación y monto</h2>
+
   <fieldset class="rule">
     <legend id="estimation-rule-label">Regla de estimación</legend>
     <div class="rule-options" role="radiogroup" aria-labelledby="estimation-rule-label">
@@ -422,6 +435,8 @@
       después de guardar.
     </p>
   }
+  </section>
+  </div>
 
   @if (error(); as message) {
     <p-message class="form-error" severity="error" variant="simple" size="small">{{
