@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
+import { ButtonDirective } from 'primeng/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Subscription } from 'rxjs';
@@ -17,7 +17,7 @@ import { BudgetGridTable } from './budget-grid-table';
 @Component({
   selector: 'app-budget-grid',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BudgetGridTable, MatButtonModule, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
+  imports: [BudgetGridTable, ButtonDirective, MatFormFieldModule, MatInputModule, ReactiveFormsModule],
   templateUrl: './budget-grid.html',
   styleUrl: './budget-grid.scss',
 })

@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
+import { ButtonDirective } from 'primeng/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -26,7 +26,7 @@ type CashFlowCurrency = 'ARS' | 'USD';
   imports: [
     CashFlowTable,
     DatePipe,
-    MatButtonModule,
+    ButtonDirective,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,

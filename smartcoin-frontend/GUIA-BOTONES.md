@@ -87,5 +87,5 @@ de los componentes de PrimeNG (la flecha de un select, el cierre de un aviso).
 | 1 | Base: una sola familia de íconos y su tamaño | hecha |
 | 2 | Tablas y listas de las pantallas migradas | hecha |
 | 3 | Formularios y diálogos migrados | hecha |
-| 4 | Pantallas con la apariencia anterior (login, cambio de contraseña, reportes, asistente de cierre, diálogos de desconsolidar, eliminar partida y confirmación) | pendiente |
+| 4 | Pantallas con la apariencia anterior (login, cambio de contraseña, reportes, asistente de cierre, diálogos de desconsolidar, eliminar partida y confirmación) | hecha (solo los botones: los campos y las tarjetas de esas pantallas siguen con Material) |
 | 5 | Tests que dependen de textos e íconos | pendiente (se hace cuando se pidan los tests) |

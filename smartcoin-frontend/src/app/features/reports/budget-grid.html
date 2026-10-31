@@ -12,7 +12,7 @@
       <mat-label>Hasta</mat-label>
       <input matInput type="month" formControlName="to" [attr.min]="grid()?.startPeriod" [attr.max]="grid()?.horizon" />
     </mat-form-field>
-    <button mat-stroked-button type="submit">Ver</button>
+    <button pButton variant="outlined" severity="info" type="submit"><span class="material-symbols-outlined" aria-hidden="true">search</span>Ver</button>
     <span class="detail">
       Hasta 24 meses, entre el período inicial y el horizonte. Sin elegir, 12 meses desde el actual. Nunca se suman pesos
       y dólares.

@@ -12,7 +12,8 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatRadioModule } from '@angular/material/radio';
 import { DeletionPlan, EntryDeletionPreview, PartidasService, PeriodEntry } from '../../api';
@@ -61,7 +62,8 @@ const STALE_CODES = ['PERIOD_CLOSED', 'NOT_FOUND'];
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
+    Button,
+    ButtonGroup,
     MatDialogModule,
     MatRadioModule,
     EntryDeletionBlockers,

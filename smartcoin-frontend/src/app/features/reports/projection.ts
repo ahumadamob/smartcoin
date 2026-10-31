@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
+import { ButtonDirective } from 'primeng/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Subscription } from 'rxjs';
@@ -16,7 +16,7 @@ import { ProjectionTable } from './projection-table';
 @Component({
   selector: 'app-projection',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatFormFieldModule, MatInputModule, ProjectionTable, ReactiveFormsModule],
+  imports: [ButtonDirective, MatFormFieldModule, MatInputModule, ProjectionTable, ReactiveFormsModule],
   templateUrl: './projection.html',
   styleUrl: './projection.scss',
 })

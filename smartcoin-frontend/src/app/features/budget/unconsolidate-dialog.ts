@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+import { Button } from 'primeng/button';
+import { ButtonGroup } from 'primeng/buttongroup';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { ConsolidacinService, PeriodEntry } from '../../api';
 import { messageFor } from '../../core/error-messages';
@@ -29,7 +30,7 @@ const STALE_CODES = ['PERIOD_CLOSED', 'ENTRY_NOT_CONSOLIDATED', 'NOT_FOUND'];
 @Component({
   selector: 'app-unconsolidate-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatDialogModule, PeriodPipe],
+  imports: [Button, ButtonGroup, MatDialogModule, PeriodPipe],
   templateUrl: './unconsolidate-dialog.html',
   styleUrl: './unconsolidate-dialog.scss',
 })

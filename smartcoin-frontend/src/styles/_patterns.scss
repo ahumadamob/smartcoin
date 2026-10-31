@@ -82,3 +82,13 @@
   outline: var(--p-focus-ring-width) var(--p-focus-ring-style) var(--p-focus-ring-color);
   outline-offset: var(--p-focus-ring-offset);
 }
+
+// Pie de los diálogos que todavía son de Angular Material (desconsolidar, eliminar partida, confirmaciones): los mismos
+// botones que los de `Dialogs` (GUIA-BOTONES.md).
+.mat-mdc-dialog-actions p-buttongroup {
+  display: flex;
+}
+
+.mat-mdc-dialog-actions p-button {
+  flex: 0 0 10rem;
+}

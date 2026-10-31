@@ -23,16 +23,8 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" cdkFocusInitial data-testid="cancel-unconsolidate" (click)="cancel()">
-    Cancelar
-  </button>
-  <button
-    mat-flat-button
-    type="button"
-    data-testid="confirm-unconsolidate"
-    [disabled]="submitting()"
-    (click)="confirm()"
-  >
-    Desconsolidar
-  </button>
+  <p-buttongroup>
+    <p-button class="action" [fluid]="true" type="button" label="Cancelar" severity="info" data-testid="cancel-unconsolidate" (onClick)="cancel()"><ng-template #icon><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template></p-button>
+    <p-button class="action" [fluid]="true" type="button" data-testid="confirm-unconsolidate" [disabled]="submitting()" (onClick)="confirm()" label="Desconsolidar"><ng-template #icon><span class="material-symbols-outlined" aria-hidden="true">lock_open_right</span></ng-template></p-button>
+  </p-buttongroup>
 </mat-dialog-actions>

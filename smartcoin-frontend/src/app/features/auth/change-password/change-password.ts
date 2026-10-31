@@ -1,6 +1,6 @@
 import { Location } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
+import { ButtonDirective } from 'primeng/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -22,7 +22,7 @@ const CHANGE_PASSWORD_URL = '/cambiar-contrasena';
 @Component({
   selector: 'app-change-password',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatCardModule, ChangePasswordForm],
+  imports: [ButtonDirective, MatCardModule, ChangePasswordForm],
   templateUrl: './change-password.html',
   styleUrl: './change-password.scss',
 })

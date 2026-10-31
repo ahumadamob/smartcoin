@@ -65,15 +65,8 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" data-testid="cancel-delete" (click)="cancel()">Cancelar</button>
-  <button
-    mat-flat-button
-    type="button"
-    class="confirm"
-    data-testid="confirm-delete"
-    [disabled]="!canConfirm()"
-    (click)="submit()"
-  >
-    {{ confirmText() }}
-  </button>
+  <p-buttongroup>
+    <p-button class="action" [fluid]="true" type="button" label="Cancelar" severity="info" data-testid="cancel-delete" (onClick)="cancel()"><ng-template #icon><span class="material-symbols-outlined" aria-hidden="true">close</span></ng-template></p-button>
+    <p-button class="action" [fluid]="true" type="button" data-testid="confirm-delete" [disabled]="!canConfirm()" (onClick)="submit()" [label]="confirmText()" severity="danger"><ng-template #icon><span class="material-symbols-outlined" aria-hidden="true">delete_forever</span></ng-template></p-button>
+  </p-buttongroup>
 </mat-dialog-actions>

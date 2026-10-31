@@ -14,7 +14,7 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
+import { ButtonDirective } from 'primeng/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -38,7 +38,7 @@ function matchesNewPassword(control: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-change-password-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [ReactiveFormsModule, ButtonDirective, MatFormFieldModule, MatInputModule],
   templateUrl: './change-password-form.html',
   styleUrl: './change-password-form.scss',
 })

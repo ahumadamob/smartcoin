@@ -8,7 +8,7 @@
       }
     </h1>
     @if (preview(); as current) {
-      <a mat-button class="back" [routerLink]="['/presupuesto', current.period]">Volver al presupuesto del mes</a>
+      <a pButton severity="info" class="back" [routerLink]="['/presupuesto', current.period]"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Volver al presupuesto del mes</a>
     }
   </header>
 
@@ -37,7 +37,7 @@
     <div class="problem" role="alert">
       <p>{{ problem.message }}</p>
       @if (problem.unavailable) {
-        <a mat-flat-button routerLink="/presupuesto">Ir al mes actual</a>
+        <a pButton severity="warn" routerLink="/presupuesto"><span class="material-symbols-outlined" aria-hidden="true">today</span>Ir al mes actual</a>
       }
     </div>
   } @else if (loading()) {
@@ -57,8 +57,8 @@
             <li data-testid="blocker" [attr.data-code]="blocker.code">
               {{ blockerText(blocker, current) }}
               @if (blocker.code === 'PREVIOUS_PERIOD_OPEN') {
-                <a mat-stroked-button [routerLink]="['/cierre', current.firstOpenPeriod]" data-testid="close-first-open">
-                  Ir a cerrar {{ current.firstOpenPeriod | period }}
+                <a pButton severity="info" [routerLink]="['/cierre', current.firstOpenPeriod]" data-testid="close-first-open">
+                  <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>Ir a cerrar {{ current.firstOpenPeriod | period }}
                 </a>
               }
             </li>
@@ -81,11 +81,11 @@
         } @else if (canChoose()) {
           <p class="hint" data-testid="resolutions-intro">{{ intro }}</p>
           <div class="bulk">
-            <button mat-stroked-button type="button" (click)="chooseAll('CARRY_OVER')" data-testid="all-carry-over">
-              Postergar saldo en todas
+            <button pButton severity="warn" type="button" (click)="chooseAll('CARRY_OVER')" data-testid="all-carry-over">
+              <span class="material-symbols-outlined" aria-hidden="true">redo</span>Postergar saldo en todas
             </button>
-            <button mat-stroked-button type="button" (click)="chooseAll('CLOSE_AS_IS')" data-testid="all-close-as-is">
-              Cerrar con lo registrado en todas
+            <button pButton severity="info" type="button" (click)="chooseAll('CLOSE_AS_IS')" data-testid="all-close-as-is">
+              <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>Cerrar con lo registrado en todas
             </button>
           </div>
           @if (removedEntries()) {
@@ -219,14 +219,14 @@
       @if (canChoose()) {
         <div class="next">
           <button
-            mat-flat-button
+            pButton
             type="button"
             [disabled]="!canAdvance()"
             aria-describedby="next-hint"
             data-testid="next-step"
             (click)="goTo(1)"
           >
-            {{ nextLabel }}
+            {{ nextLabel }}<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
           </button>
           <p id="next-hint" class="hint" role="status" data-testid="next-hint">{{ nextHint() }}</p>
         </div>
@@ -292,16 +292,16 @@
           }
         }
         <div class="next">
-          <button mat-button type="button" (click)="goTo(0)" data-testid="back-step">{{ backLabel }}</button>
+          <button pButton severity="info" type="button" (click)="goTo(0)" data-testid="back-step"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>{{ backLabel }}</button>
           <button
-            mat-flat-button
+            pButton
             type="button"
             [disabled]="!canConfirm()"
             aria-describedby="confirm-hint"
             data-testid="confirm-step"
             (click)="goTo(2)"
           >
-            {{ confirmationLabel }}
+            {{ confirmationLabel }}<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
           </button>
           <p id="confirm-hint" class="hint" role="status" data-testid="confirm-hint">{{ confirmHint() }}</p>
         </div>
@@ -387,14 +387,16 @@
           >
         }
         <div class="next">
-          <button mat-button type="button" (click)="goTo(1)" data-testid="back-to-balances">{{ backToBalancesLabel }}</button>
+          <button pButton severity="info" type="button" (click)="goTo(1)" data-testid="back-to-balances"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>{{ backToBalancesLabel }}</button>
           <button
-            mat-flat-button
+            pButton
+            severity="contrast"
             type="button"
             [disabled]="!canClose()"
             data-testid="close-period"
             (click)="close()"
           >
+            <span class="material-symbols-outlined" aria-hidden="true">event_available</span>
             @if (closing()) {
               Cerrando…
             } @else {
