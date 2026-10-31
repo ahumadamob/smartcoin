@@ -83,7 +83,43 @@
       }
     </div>
   } @else if (loading()) {
-    <p role="status">Cargando el mes…</p>
+    <!-- Mientras llega el mes se dibuja el esqueleto de lo que va a haber: dos tablas de partidas y el resultado. -->
+    <div class="loading" role="status" aria-busy="true">
+      <span class="visually-hidden">Cargando el mes…</span>
+      @for (section of skeletonSections; track section) {
+        <section class="card skeleton-card" aria-hidden="true">
+          <p-skeleton width="9rem" height="1.5rem" />
+          <div class="skeleton-row skeleton-head">
+            @for (column of skeletonColumns; track $index) {
+              <p-skeleton height="1rem" [width]="column" />
+            }
+          </div>
+          @for (row of skeletonRows; track row) {
+            <div class="skeleton-row">
+              @for (column of skeletonColumns; track $index) {
+                <p-skeleton height="1.25rem" [width]="column" />
+              }
+            </div>
+          }
+          <div class="skeleton-row skeleton-total">
+            <p-skeleton height="1.5rem" width="8rem" />
+            <p-skeleton height="1.5rem" width="6rem" />
+            <p-skeleton height="1.5rem" width="6rem" />
+            <p-skeleton height="1.5rem" width="6rem" />
+          </div>
+        </section>
+      }
+      <section class="card skeleton-card" aria-hidden="true">
+        <p-skeleton width="7rem" height="1.5rem" />
+        <div class="skeleton-result">
+          @for (row of skeletonResultRows; track row) {
+            @for (column of skeletonResultColumns; track $index) {
+              <p-skeleton height="1.25rem" [width]="column" />
+            }
+          }
+        </div>
+      </section>
+    </div>
   } @else {
     @if (view(); as current) {
       @if (isEmpty()) {

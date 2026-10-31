@@ -16,6 +16,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonDirective } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
+import { Skeleton } from 'primeng/skeleton';
 import { Tag } from 'primeng/tag';
 import { catchError, EMPTY, map, Observable, switchMap, tap } from 'rxjs';
 import { PeriodEntry, PeriodView, PerodosService } from '../../api';
@@ -88,6 +89,7 @@ interface RemovalFocus {
     PeriodPipe,
     RouterLink,
     SelectModule,
+    Skeleton,
     Tag,
   ],
   templateUrl: './budget-month.html',
@@ -113,6 +115,23 @@ export class BudgetMonth implements OnInit {
   /** Límites de la navegación, de la última respuesta. Se conservan mientras carga el mes siguiente. */
   protected readonly range = signal<PeriodRange | null>(null);
   protected readonly loading = signal(true);
+  /** El esqueleto de la carga: dos secciones de partidas (ingresos y gastos) con columnas como las de la tabla. */
+  protected readonly skeletonSections = ['income', 'expense'];
+  protected readonly skeletonRows = [1, 2, 3];
+  protected readonly skeletonColumns = [
+    '85%',
+    '70%',
+    '60%',
+    '70%',
+    '50%',
+    '75%',
+    '65%',
+    '65%',
+    '70%',
+    '85%',
+  ];
+  protected readonly skeletonResultRows = [1, 2];
+  protected readonly skeletonResultColumns = ['40%', '70%', '70%', '70%'];
   protected readonly error = signal<ViewError | null>(null);
 
   protected readonly previous = computed(() => this.neighbour(previousPeriod));

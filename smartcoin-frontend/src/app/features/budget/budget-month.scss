@@ -123,3 +123,55 @@ app-entry-table.card {
 .strong {
   font-weight: 700;
 }
+
+// Esqueleto de la carga: con la misma forma que las tarjetas del mes (título, encabezado, filas y total).
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-row {
+  display: grid;
+  // Las mismas diez columnas de la tabla de partidas: vencimiento, nombre, categoría, cuenta, cuota, los tres montos,
+  // estado y acciones.
+  grid-template-columns: 7rem minmax(4rem, 1fr) 6rem 8rem 4rem 7rem 6rem 6rem 6rem 7rem;
+  align-items: center;
+  gap: 0.75rem;
+  // En una ventana angosta las últimas columnas se recortan, como la tabla real cuando se desplaza.
+  overflow: hidden;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.skeleton-head {
+  padding-top: 0;
+}
+
+.skeleton-total {
+  grid-template-columns: 1fr 7rem 6rem 6rem;
+  padding: 0.75rem 0;
+  border-bottom: 0;
+}
+
+.skeleton-result {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+  max-width: 52rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
