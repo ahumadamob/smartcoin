@@ -8,7 +8,7 @@
       </p>
     </div>
     <a pButton routerLink="/conceptos/nuevo"
-      ><i class="pi pi-plus" aria-hidden="true"></i>Nuevo Concepto</a
+      ><span class="material-symbols-outlined" aria-hidden="true">add</span>Nuevo Concepto</a
     >
   </header>
 
@@ -43,10 +43,16 @@
       <p-button
         type="button"
         label="Quitar filtros"
-        icon="pi pi-filter-slash"
-        variant="outlined"
+        variant="text"
+        severity="secondary"
         (onClick)="clearFilters()"
-      />
+      >
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true"
+            >filter_alt_off</span
+          ></ng-template
+        >
+      </p-button>
     }
   </div>
 
@@ -119,11 +125,13 @@
             <td class="actions">
               <a
                 pButton
-                size="small"
+                iconOnly
+                severity="info"
+                pTooltip="Editar"
                 [routerLink]="['/conceptos', item.id, 'editar']"
                 [attr.aria-label]="'Editar ' + item.name"
               >
-                <i class="pi pi-pencil" aria-hidden="true"></i>Editar
+                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
               </a>
             </td>
           </tr>

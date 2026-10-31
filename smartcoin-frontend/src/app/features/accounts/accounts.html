@@ -2,7 +2,11 @@
   <header class="header">
     <h1 class="title">Cuentas</h1>
     @if (formState() === null && !loading()) {
-      <p-button type="button" label="Nueva cuenta" icon="pi pi-plus" (onClick)="openNew()" />
+      <p-button type="button" label="Nueva cuenta" (onClick)="openNew()">
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">add</span></ng-template
+        >
+      </p-button>
     }
   </header>
 
@@ -60,19 +64,31 @@
                   [fluid]="true"
                   type="button"
                   label="Editar"
-                  icon="pi pi-pencil"
                   [ariaLabel]="'Editar ' + account.name"
                   (onClick)="openEdit(account)"
-                />
+                  severity="info"
+                >
+                  <ng-template #icon
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >edit</span
+                    ></ng-template
+                  >
+                </p-button>
                 <p-button
                   class="action"
                   [fluid]="true"
                   type="button"
                   label="Eliminar"
-                  icon="pi pi-trash"
                   [ariaLabel]="'Eliminar ' + account.name"
                   (onClick)="confirmDelete(account)"
-                />
+                  severity="danger"
+                >
+                  <ng-template #icon
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >delete_forever</span
+                    ></ng-template
+                  >
+                </p-button>
               </p-buttongroup>
             </li>
           }

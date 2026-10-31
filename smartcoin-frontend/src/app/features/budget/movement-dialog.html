@@ -70,7 +70,6 @@
                       [fluid]="true"
                       type="button"
                       label="Editar"
-                      icon="pi pi-pencil"
                       data-testid="edit-movement"
                       [ariaLabel]="
                         'Editar ' +
@@ -82,13 +81,19 @@
                       "
                       [disabled]="submitting()"
                       (onClick)="startEdit(movement)"
-                    />
+                      severity="info"
+                    >
+                      <ng-template #icon
+                        ><span class="material-symbols-outlined" aria-hidden="true"
+                          >edit</span
+                        ></ng-template
+                      >
+                    </p-button>
                     <p-button
                       class="action"
                       [fluid]="true"
                       type="button"
                       label="Eliminar"
-                      icon="pi pi-trash"
                       data-testid="delete-movement"
                       [ariaLabel]="
                         'Eliminar ' +
@@ -100,7 +105,14 @@
                       "
                       [disabled]="submitting()"
                       (onClick)="remove(movement)"
-                    />
+                      severity="danger"
+                    >
+                      <ng-template #icon
+                        ><span class="material-symbols-outlined" aria-hidden="true"
+                          >delete_forever</span
+                        ></ng-template
+                      >
+                    </p-button>
                   </p-buttongroup>
                 }
               </li>

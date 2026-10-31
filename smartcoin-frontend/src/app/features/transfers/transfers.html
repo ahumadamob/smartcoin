@@ -2,13 +2,11 @@
   <header class="header">
     <h1 class="title">Transferencias</h1>
     @if (!formOpen() && !loading()) {
-      <p-button
-        #newButton
-        type="button"
-        label="Nueva transferencia"
-        icon="pi pi-plus"
-        (onClick)="openForm()"
-      />
+      <p-button #newButton type="button" label="Nueva transferencia" (onClick)="openForm()">
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">add</span></ng-template
+        >
+      </p-button>
     }
   </header>
 
@@ -37,7 +35,11 @@
         <span class="field-label"><label for="transfers-to">Hasta</label></span>
         <input pInputText id="transfers-to" type="date" formControlName="to" />
       </div>
-      <p-button type="submit" label="Ver" icon="pi pi-search" variant="outlined" />
+      <p-button type="submit" label="Ver" variant="outlined">
+        <ng-template #icon
+          ><span class="material-symbols-outlined" aria-hidden="true">search</span></ng-template
+        >
+      </p-button>
       <small class="hint">Sin fechas, se muestra el mes actual.</small>
     </form>
 
@@ -79,12 +81,18 @@
                   [fluid]="true"
                   type="button"
                   label="Eliminar"
-                  icon="pi pi-trash"
                   [ariaLabel]="
                     'Eliminar la transferencia del ' + (transfer.date | date: dateFormat)
                   "
                   (onClick)="confirmDelete(transfer)"
-                />
+                  severity="danger"
+                >
+                  <ng-template #icon
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >delete_forever</span
+                    ></ng-template
+                  >
+                </p-button>
               </p-buttongroup>
             }
           </li>

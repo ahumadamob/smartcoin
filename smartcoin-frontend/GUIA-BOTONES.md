@@ -72,13 +72,19 @@ de los componentes de PrimeNG (la flecha de un select, el cierre de un aviso).
 - `success` solo para «Pagar todo» y «Cobrar todo».
 - «Cerrar mes» en `contrast`.
 
+## Excepciones
+
+- **«Consolidar» en el diálogo de movimientos** va en `primary` y no en `info`: se pidió expresamente, porque es la
+  acción que sigue al aviso «ya está cubierta».
+- **«Cancelar» en los diálogos** sigue como botón de texto gris hasta la tanda 3.
+
 ## Estado de las tandas
 
 | Tanda | Qué | Estado |
 |---|---|---|
 | 0 | Esta guía | hecha |
 | 1 | Base: una sola familia de íconos y su tamaño | hecha |
-| 2 | Tablas y listas de las pantallas migradas | pendiente |
+| 2 | Tablas y listas de las pantallas migradas | hecha |
 | 3 | Formularios y diálogos migrados | pendiente |
 | 4 | Pantallas con la apariencia anterior (login, cambio de contraseña, reportes, asistente de cierre, diálogos de desconsolidar, eliminar partida y confirmación) | pendiente |
 | 5 | Tests que dependen de textos e íconos | pendiente (se hace cuando se pidan los tests) |

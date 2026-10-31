@@ -22,13 +22,14 @@
         @if (!readonly()) {
           <span class="actions">
             <button pButton type="button" data-testid="add-entry" (click)="addEntry()">
-              Agregar partida
+              <span class="material-symbols-outlined" aria-hidden="true">add</span>Agregar partida
             </button>
             <a
               pButton
-              variant="outlined"
+              severity="contrast"
               [routerLink]="['/cierre', current.period]"
               data-testid="close-period"
+              ><span class="material-symbols-outlined" aria-hidden="true">event_available</span
               >Cerrar mes</a
             >
           </span>
@@ -55,7 +56,9 @@
           />
         </span>
         <button pButton type="button" [disabled]="!next()" (click)="go(next())">
-          Siguiente<span class="material-symbols-outlined" aria-hidden="true">arrow_forward_ios</span>
+          Siguiente<span class="material-symbols-outlined" aria-hidden="true"
+            >arrow_forward_ios</span
+          >
         </button>
         <a
           pButton
@@ -73,7 +76,10 @@
     <div class="problem" role="alert">
       <p>{{ problem.message }}</p>
       @if (problem.unavailable) {
-        <a pButton routerLink="/presupuesto">Ir al mes actual</a>
+        <a pButton severity="warn" routerLink="/presupuesto"
+          ><span class="material-symbols-outlined" aria-hidden="true">today</span>Ir al mes
+          actual</a
+        >
       }
     </div>
   } @else if (loading()) {

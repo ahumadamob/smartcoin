@@ -14,6 +14,7 @@ import { Button, ButtonDirective } from 'primeng/button';
 import { Message } from 'primeng/message';
 import { Select } from 'primeng/select';
 import { TableModule } from 'primeng/table';
+import { Tooltip } from 'primeng/tooltip';
 import { catchError, EMPTY, Subject, switchMap, tap } from 'rxjs';
 import {
   BudgetItemListItem,
