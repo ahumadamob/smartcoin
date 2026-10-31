@@ -82,7 +82,7 @@
                       [attr.aria-label]="registerLabel(entry.kind) + ' de ' + entry.name"
                       (click)="registerMovement.emit(entry)"
                     >
-                      <span class="material-icons register-icon" aria-hidden="true"
+                      <span class="material-symbols-outlined" aria-hidden="true"
                         >attach_money</span
                       >
                     </button>
@@ -100,7 +100,7 @@
                       [attr.aria-label]="quickSettleLabel(entry.kind) + ' de ' + entry.name"
                       (click)="quickSettle.emit(entry)"
                     >
-                      <span class="material-symbols-outlined settle-icon" aria-hidden="true"
+                      <span class="material-symbols-outlined" aria-hidden="true"
                         >mintmark</span
                       >
                     </button>
@@ -118,7 +118,7 @@
                       [attr.aria-label]="'Consolidar ' + entry.name"
                       (click)="consolidate.emit(entry)"
                     >
-                      <span class="material-icons consolidate-icon" aria-hidden="true">lock</span>
+                      <span class="material-symbols-outlined" aria-hidden="true">lock</span>
                     </button>
                   } @else if (canUndo(entry)) {
                     <button
@@ -131,7 +131,7 @@
                       [attr.aria-label]="'Desconsolidar ' + entry.name"
                       (click)="unconsolidate.emit(entry)"
                     >
-                      <span class="material-symbols-outlined unconsolidate-icon" aria-hidden="true"
+                      <span class="material-symbols-outlined" aria-hidden="true"
                         >lock_open_right</span
                       >
                     </button>
@@ -162,7 +162,7 @@
                       [attr.aria-label]="'Editar monto de ' + entry.name"
                       (click)="editAmount.emit(entry)"
                     >
-                      <span class="material-symbols-outlined edit-amount-icon" aria-hidden="true"
+                      <span class="material-symbols-outlined" aria-hidden="true"
                         >edit_line</span
                       >
                     </button>
@@ -180,7 +180,7 @@
                       [attr.aria-label]="'Eliminar ' + entry.name"
                       (click)="remove.emit(entry)"
                     >
-                      <span class="material-icons delete-icon" aria-hidden="true"
+                      <span class="material-symbols-outlined" aria-hidden="true"
                         >delete_forever</span
                       >
                     </button>

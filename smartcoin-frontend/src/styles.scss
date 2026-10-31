@@ -5,6 +5,11 @@
 
 // Angular Material sigue para las pantallas que todavía no pasaron a PrimeNG (T-19). Sus estilos no van en ninguna
 // capa CSS y los de PrimeNG van en la capa `primeng`: no se pisan.
+// Íconos de Material Symbols dentro de botones (GUIA-BOTONES.md): 1,25 rem, igual que los demás.
+.material-symbols-outlined {
+  font-size: 1.25rem;
+}
+
 html {
   color-scheme: light;
   // Como en Sakai (_core.scss): PrimeNG mide en rem y con 14 px queda la densidad de la plantilla.

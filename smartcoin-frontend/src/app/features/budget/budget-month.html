@@ -39,7 +39,7 @@
     @if (range() && !error()) {
       <nav class="period-nav" aria-label="Meses">
         <button pButton type="button" [disabled]="!previous()" (click)="go(previous())">
-          <span class="material-icons nav-icon" aria-hidden="true">arrow_back_ios</span>Anterior
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_back_ios</span>Anterior
         </button>
         <span class="month">
           <label id="month-label" for="month-select">Mes</label>
@@ -55,7 +55,7 @@
           />
         </span>
         <button pButton type="button" [disabled]="!next()" (click)="go(next())">
-          Siguiente<span class="material-icons nav-icon" aria-hidden="true">arrow_forward_ios</span>
+          Siguiente<span class="material-symbols-outlined" aria-hidden="true">arrow_forward_ios</span>
         </button>
         <a
           pButton
@@ -63,7 +63,7 @@
           routerLink="/presupuesto"
           [attr.aria-current]="isCurrent() ? 'page' : null"
         >
-          <span class="material-icons nav-icon" aria-hidden="true">today</span>Hoy
+          <span class="material-symbols-outlined" aria-hidden="true">today</span>Hoy
         </a>
       </nav>
     }

@@ -6,7 +6,7 @@ Aplicación Angular para escritorio. Leer primero el `CLAUDE.md` de la raíz.
 
 - Angular 22 (la versión estable más reciente al crear el proyecto con Angular CLI) y Angular Material 22. TypeScript en modo estricto (`strict: true` explícito en `tsconfig.json`).
 - Componentes standalone, signals para el estado y formularios reactivos tipados.
-- Componentes de interfaz: **en transición** de Angular Material a PrimeNG 22 con el layout de Sakai (T-19, prueba piloto en la rama `sakai-theme`, *Supuesto*). Ya usan PrimeNG el layout y la vista del mes con sus diálogos de registrar movimiento, eliminar movimiento y consolidar; el resto sigue con Material. Configuración, patrones (diálogos con `Dialogs`, avisos con `Notices`, campos, tablas, botones) y lo que falta: `MIGRACION-PRIMENG.md`.
+- Componentes de interfaz: **en transición** de Angular Material a PrimeNG 22 con el layout de Sakai (T-19, prueba piloto en la rama `sakai-theme`, *Supuesto*). Ya usan PrimeNG el layout y la vista del mes con sus diálogos de registrar movimiento, eliminar movimiento y consolidar; el resto sigue con Material. Configuración, patrones (diálogos con `Dialogs`, avisos con `Notices`, campos, tablas, botones) y lo que falta: `MIGRACION-PRIMENG.md`. Línea gráfica de los botones (color por significado, íconos de Material Symbols, versión según el lugar) y el estado de su aplicación por tandas: `GUIA-BOTONES.md`.
 - Cliente HTTP generado desde `../docs/openapi.json` con OpenAPI Generator 7.25.0 (`typescript-angular`, versión fijada en `openapitools.json`; soporta Angular 22 por defecto).
 - Tests unitarios con Vitest (runner por defecto de `ng test` desde Angular 21), con jsdom.
 - Playwright para los tests de punta a punta.

@@ -108,16 +108,6 @@ td.actions {
   gap: $button-gap;
 }
 
-.register-icon,
-.settle-icon,
-.consolidate-icon,
-.unconsolidate-icon,
-.edit-amount-icon,
-.delete-icon {
-  // El de PrimeIcons mide 14 px; el de Material Icons, 24: se iguala para que quede del mismo tamaño que los demás.
-  font-size: 1.25rem;
-}
-
 .slot {
   display: flex;
   justify-content: center;
